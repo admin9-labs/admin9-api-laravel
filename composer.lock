@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "400dc75ad934669632939a7d66bfe5d8",
+    "content-hash": "38e8e581c089c519cfbacd91b846a4de",
     "packages": [
         {
             "name": "brick/math",
@@ -2075,6 +2075,52 @@
                 "source": "https://github.com/mitoop/laravel-api-response/tree/v7.6.0"
             },
             "time": "2026-04-02T12:26:38+00:00"
+        },
+        {
+            "name": "mitoop/laravel-query-logger",
+            "version": "v3.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mitoop/laravel-query-logger.git",
+                "reference": "acc4e05f6c0227fdebe00b287d4682be5d333aae"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mitoop/laravel-query-logger/zipball/acc4e05f6c0227fdebe00b287d4682be5d333aae",
+                "reference": "acc4e05f6c0227fdebe00b287d4682be5d333aae",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/support": "^6|^7|^8|^9|^10|^11|^12|^13"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Mitoop\\LaravelQueryLogger\\ServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Mitoop\\LaravelQueryLogger\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "mitoop",
+                    "email": "me@mitoop.com"
+                }
+            ],
+            "support": {
+                "issues": "https://github.com/mitoop/laravel-query-logger/issues",
+                "source": "https://github.com/mitoop/laravel-query-logger/tree/v3.1.0"
+            },
+            "time": "2026-04-02T12:29:33+00:00"
         },
         {
             "name": "monolog/monolog",

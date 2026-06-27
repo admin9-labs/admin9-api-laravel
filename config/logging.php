@@ -36,6 +36,11 @@ return [
         'trace' => env('LOG_DEPRECATIONS_TRACE', false),
     ],
 
+    'query' => [
+        'enabled' => env('ENABLE_QUERY_LOG', false),
+        'channel' => 'sql',
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Log Channels
@@ -71,6 +76,12 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+        ],
+
+        'sql' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/sql.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
         ],
 
         'slack' => [
