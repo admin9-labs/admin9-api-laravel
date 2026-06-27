@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "38e8e581c089c519cfbacd91b846a4de",
+    "content-hash": "e229d639ef890f75153f99a7ebedef02",
     "packages": [
         {
             "name": "brick/math",
@@ -2075,6 +2075,52 @@
                 "source": "https://github.com/mitoop/laravel-api-response/tree/v7.6.0"
             },
             "time": "2026-04-02T12:26:38+00:00"
+        },
+        {
+            "name": "mitoop/laravel-query-builder",
+            "version": "v2.11.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mitoop/laravel-query-builder.git",
+                "reference": "2281433a79c9cb8a005f0a6fea27d3f9ca09e554"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mitoop/laravel-query-builder/zipball/2281433a79c9cb8a005f0a6fea27d3f9ca09e554",
+                "reference": "2281433a79c9cb8a005f0a6fea27d3f9ca09e554",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": "^11|^12|^13"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Mitoop\\LaravelQueryBuilder\\ServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Mitoop\\LaravelQueryBuilder\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "mitoop",
+                    "email": "me@mitoop.com"
+                }
+            ],
+            "support": {
+                "issues": "https://github.com/mitoop/laravel-query-builder/issues",
+                "source": "https://github.com/mitoop/laravel-query-builder/tree/v2.11.0"
+            },
+            "time": "2026-04-02T12:28:03+00:00"
         },
         {
             "name": "mitoop/laravel-query-logger",
