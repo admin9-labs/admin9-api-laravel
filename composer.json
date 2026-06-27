@@ -10,6 +10,7 @@
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "mitoop/laravel-api-response": "^7.6",
+        "mitoop/laravel-efficient-form-request": "^1.1",
         "mitoop/laravel-query-builder": "^2.11",
         "mitoop/laravel-query-logger": "^3.1"
     },

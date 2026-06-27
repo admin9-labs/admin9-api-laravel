@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e229d639ef890f75153f99a7ebedef02",
+    "content-hash": "5f4cbe640db4a9150af439edb16859d3",
     "packages": [
         {
             "name": "brick/math",
@@ -2075,6 +2075,48 @@
                 "source": "https://github.com/mitoop/laravel-api-response/tree/v7.6.0"
             },
             "time": "2026-04-02T12:26:38+00:00"
+        },
+        {
+            "name": "mitoop/laravel-efficient-form-request",
+            "version": "v1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mitoop/laravel-efficient-form-request.git",
+                "reference": "e96163b4653f8f8554d4ae15f16fdf1ef18808cf"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mitoop/laravel-efficient-form-request/zipball/e96163b4653f8f8554d4ae15f16fdf1ef18808cf",
+                "reference": "e96163b4653f8f8554d4ae15f16fdf1ef18808cf",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": "^10.43.0|^11|^12|^13"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.18"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Mitoop\\LaravelEfficientFormRequest\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "mitoop",
+                    "email": "me@mitoop.com"
+                }
+            ],
+            "support": {
+                "issues": "https://github.com/mitoop/laravel-efficient-form-request/issues",
+                "source": "https://github.com/mitoop/laravel-efficient-form-request/tree/v1.1.0"
+            },
+            "time": "2026-04-02T12:38:56+00:00"
         },
         {
             "name": "mitoop/laravel-query-builder",
