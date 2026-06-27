@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6a3163f4b09456716a631be39de01f25",
+    "content-hash": "400dc75ad934669632939a7d66bfe5d8",
     "packages": [
         {
             "name": "brick/math",
@@ -2028,6 +2028,53 @@
                 }
             ],
             "time": "2026-03-08T20:05:35+00:00"
+        },
+        {
+            "name": "mitoop/laravel-api-response",
+            "version": "v7.6.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/mitoop/laravel-api-response.git",
+                "reference": "731839d0d41b0dd1b886a4dcf1a1caeeb0c45dc5"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/mitoop/laravel-api-response/zipball/731839d0d41b0dd1b886a4dcf1a1caeeb0c45dc5",
+                "reference": "731839d0d41b0dd1b886a4dcf1a1caeeb0c45dc5",
+                "shasum": ""
+            },
+            "require": {
+                "laravel/framework": "^11|^12|^13",
+                "php": "^8.2"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Mitoop\\Http\\JsonResponderServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Mitoop\\Http\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "mitoop",
+                    "email": "me@mitoop.com"
+                }
+            ],
+            "support": {
+                "issues": "https://github.com/mitoop/laravel-api-response/issues",
+                "source": "https://github.com/mitoop/laravel-api-response/tree/v7.6.0"
+            },
+            "time": "2026-04-02T12:26:38+00:00"
         },
         {
             "name": "monolog/monolog",
