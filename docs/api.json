@@ -714,7 +714,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Array of `DictionaryItemResource`",
+                        "description": "Paginated list",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -737,6 +737,38 @@
                                                 "$ref": "#/components/schemas/DictionaryItemResource"
                                             }
                                         },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pagination": {
+                                                    "type": "string",
+                                                    "description": "Pagination strategy"
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "description": "Current page number"
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "description": "Items per page"
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean",
+                                                    "description": "Whether more pages exist"
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items"
+                                                }
+                                            },
+                                            "required": [
+                                                "pagination",
+                                                "page",
+                                                "page_size",
+                                                "has_more",
+                                                "total"
+                                            ]
+                                        },
                                         "request_id": {
                                             "type": "string",
                                             "description": "UUID7 for request tracing"
@@ -747,6 +779,7 @@
                                         "code",
                                         "message",
                                         "data",
+                                        "meta",
                                         "request_id"
                                     ]
                                 }
@@ -1123,7 +1156,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Array of `DictionaryTypeResource`",
+                        "description": "Paginated list",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -1146,6 +1179,38 @@
                                                 "$ref": "#/components/schemas/DictionaryTypeResource"
                                             }
                                         },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pagination": {
+                                                    "type": "string",
+                                                    "description": "Pagination strategy"
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "description": "Current page number"
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "description": "Items per page"
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean",
+                                                    "description": "Whether more pages exist"
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items"
+                                                }
+                                            },
+                                            "required": [
+                                                "pagination",
+                                                "page",
+                                                "page_size",
+                                                "has_more",
+                                                "total"
+                                            ]
+                                        },
                                         "request_id": {
                                             "type": "string",
                                             "description": "UUID7 for request tracing"
@@ -1156,6 +1221,7 @@
                                         "code",
                                         "message",
                                         "data",
+                                        "meta",
                                         "request_id"
                                     ]
                                 }
@@ -2723,7 +2789,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Array of `SystemConfigResource`",
+                        "description": "Paginated list",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2746,6 +2812,38 @@
                                                 "$ref": "#/components/schemas/SystemConfigResource"
                                             }
                                         },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pagination": {
+                                                    "type": "string",
+                                                    "description": "Pagination strategy"
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "description": "Current page number"
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "description": "Items per page"
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean",
+                                                    "description": "Whether more pages exist"
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items"
+                                                }
+                                            },
+                                            "required": [
+                                                "pagination",
+                                                "page",
+                                                "page_size",
+                                                "has_more",
+                                                "total"
+                                            ]
+                                        },
                                         "request_id": {
                                             "type": "string",
                                             "description": "UUID7 for request tracing"
@@ -2756,6 +2854,7 @@
                                         "code",
                                         "message",
                                         "data",
+                                        "meta",
                                         "request_id"
                                     ]
                                 }
@@ -3066,7 +3165,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Paginated set of `UserResource`",
+                        "description": "Paginated list",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -3089,6 +3188,38 @@
                                                 "$ref": "#/components/schemas/UserResource"
                                             }
                                         },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pagination": {
+                                                    "type": "string",
+                                                    "description": "Pagination strategy"
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "description": "Current page number"
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "description": "Items per page"
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean",
+                                                    "description": "Whether more pages exist"
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items"
+                                                }
+                                            },
+                                            "required": [
+                                                "pagination",
+                                                "page",
+                                                "page_size",
+                                                "has_more",
+                                                "total"
+                                            ]
+                                        },
                                         "request_id": {
                                             "type": "string",
                                             "description": "UUID7 for request tracing"
@@ -3099,6 +3230,7 @@
                                         "code",
                                         "message",
                                         "data",
+                                        "meta",
                                         "request_id"
                                     ]
                                 }

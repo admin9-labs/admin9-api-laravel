@@ -6831,16 +6831,16 @@
     "packages-dev": [
         {
             "name": "admin9/laravel-scramble-extensions",
-            "version": "v0.3.0",
+            "version": "v0.3.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/admin9-labs/laravel-scramble-extensions.git",
-                "reference": "d41694ddb3f75bad4bf5be656931dfe19e54a44c"
+                "reference": "9b424809b8c8ef1c9ab53cd3d3603df53ce96300"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/admin9-labs/laravel-scramble-extensions/zipball/d41694ddb3f75bad4bf5be656931dfe19e54a44c",
-                "reference": "d41694ddb3f75bad4bf5be656931dfe19e54a44c",
+                "url": "https://api.github.com/repos/admin9-labs/laravel-scramble-extensions/zipball/9b424809b8c8ef1c9ab53cd3d3603df53ce96300",
+                "reference": "9b424809b8c8ef1c9ab53cd3d3603df53ce96300",
                 "shasum": ""
             },
             "require": {
@@ -6894,7 +6894,7 @@
                 "issues": "https://github.com/admin9-labs/laravel-scramble-extensions/issues",
                 "source": "https://github.com/admin9-labs/laravel-scramble-extensions"
             },
-            "time": "2026-06-29T21:55:18+00:00"
+            "time": "2026-06-29T23:42:17+00:00"
         },
         {
             "name": "barryvdh/laravel-ide-helper",

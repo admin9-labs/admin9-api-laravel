@@ -71,6 +71,45 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
+    public function test_generated_openapi_document_uses_pagination_metadata_for_paginated_admin_indexes(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach ([
+            '/api/admin/users',
+            '/api/admin/dictionary-types',
+            '/api/admin/dictionary-items',
+            '/api/admin/system-configs',
+        ] as $path) {
+            $schema = $document['paths'][$path]['get']['responses']['200']['content']['application/json']['schema'];
+
+            $this->assertSame(['success', 'code', 'message', 'data', 'meta', 'request_id'], $schema['required'], "{$path} must document pagination meta.");
+            $this->assertArrayHasKey('meta', $schema['properties'], "{$path} must include pagination meta property.");
+            $this->assertSame(
+                ['pagination', 'page', 'page_size', 'has_more', 'total'],
+                $schema['properties']['meta']['required'],
+                "{$path} must document the business pagination metadata shape.",
+            );
+        }
+    }
+
+    public function test_generated_openapi_document_keeps_bounded_admin_catalogs_unpaginated(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach ([
+            '/api/admin/roles',
+            '/api/admin/permissions',
+            '/api/admin/menus',
+            '/api/admin/menus/tree',
+        ] as $path) {
+            $schema = $document['paths'][$path]['get']['responses']['200']['content']['application/json']['schema'];
+
+            $this->assertSame(['success', 'code', 'message', 'data', 'request_id'], $schema['required'], "{$path} must remain a bounded catalog response.");
+            $this->assertArrayNotHasKey('meta', $schema['properties'], "{$path} must not document pagination meta.");
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
