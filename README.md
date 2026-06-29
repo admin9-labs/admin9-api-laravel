@@ -21,9 +21,12 @@ Use the narrower commands below while debugging a specific failure:
 
 ```bash
 composer test
+composer docs:api
 vendor/bin/pint --dirty --format agent
 php artisan route:list --except-vendor
 ```
+
+`composer docs:api` exports the generated OpenAPI document to `docs/api.json`.
 
 ## Production run checklist
 

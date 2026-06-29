@@ -18,7 +18,9 @@
         "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {
+        "admin9/laravel-scramble-extensions": "^0.3",
         "barryvdh/laravel-ide-helper": "^3.7",
+        "dedoc/scramble": "^0.13.30",
         "fakerphp/faker": "^1.23",
         "laravel/boost": "^2.4",
         "laravel/pail": "^1.2.5",
@@ -60,8 +62,13 @@
             "@php artisan test --compact"
         ],
         "check": [
+            "@docs:api",
             "@php artisan test --compact",
             "./vendor/bin/pint --test"
+        ],
+        "docs:api": [
+            "@php -r \"is_dir('docs') || mkdir('docs', 0777, true);\"",
+            "@php artisan scramble:export --env=local --no-interaction"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
