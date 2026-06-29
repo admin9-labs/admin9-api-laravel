@@ -9,6 +9,7 @@ use Illuminate\Testing\TestResponse;
 use Mitoop\Http\JsonResponder;
 use Mitoop\Http\JsonResponderDefault;
 use ReflectionProperty;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 /**
@@ -63,13 +64,41 @@ class AddContextTest extends TestCase
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 
+    public function test_it_uses_401_status_for_api_authentication_errors_without_changing_body_contract(): void
+    {
+        $response = $this->getJson('/api/admin/auth/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', -1)
+            ->assertJsonPath('message', 'Unauthenticated')
+            ->assertHeader('X-Request-Id');
+
+        $this->assertResponseRequestIdMatchesHeader($response);
+    }
+
+    public function test_it_uses_403_status_for_api_forbidden_errors_without_changing_body_contract(): void
+    {
+        Route::middleware('api')->get('/api/_test/add-context-forbidden', function (JsonResponder $responder) {
+            return $responder->error('Forbidden', 403);
+        });
+
+        $response = $this->getJson('/api/_test/add-context-forbidden')
+            ->assertForbidden()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 403)
+            ->assertJsonPath('message', 'Forbidden')
+            ->assertHeader('X-Request-Id');
+
+        $this->assertResponseRequestIdMatchesHeader($response);
+    }
+
     public function test_it_exposes_request_id_to_api_route_not_found_payloads(): void
     {
-        // 当前 Mitoop 响应契约把错误码放在 JSON code，HTTP 状态保持包默认行为。
         $response = $this->getJson('/api/_test/missing-route')
-            ->assertOk()
+            ->assertNotFound()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 404)
+            ->assertJsonPath('message', 'The route api/_test/missing-route could not be found.')
             ->assertHeader('X-Request-Id');
 
         $this->assertResponseRequestIdMatchesHeader($response);
@@ -80,9 +109,26 @@ class AddContextTest extends TestCase
         $response = $this->withServerVariables([
             'CONTENT_LENGTH' => PHP_INT_MAX,
         ])->postJson('/api/_test/add-context-rejected')
-            ->assertOk()
+            ->assertStatus(413)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 413)
+            ->assertJsonPath('message', 'The POST data is too large.')
+            ->assertHeader('X-Request-Id');
+
+        $this->assertResponseRequestIdMatchesHeader($response);
+    }
+
+    public function test_it_uses_422_status_for_api_validation_errors_without_changing_body_contract(): void
+    {
+        Route::middleware('api')->get('/api/_test/add-context-validation', function (): void {
+            throw new HttpException(422, 'Validation failed');
+        });
+
+        $response = $this->getJson('/api/_test/add-context-validation')
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 422)
+            ->assertJsonPath('message', 'Validation failed')
             ->assertHeader('X-Request-Id');
 
         $this->assertResponseRequestIdMatchesHeader($response);
