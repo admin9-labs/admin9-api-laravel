@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "admin9/api-laravel",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
-    "keywords": ["laravel", "framework"],
+    "description": "Laravel 13 backend for the Admin9 middle/back-office API.",
+    "keywords": ["admin9", "laravel", "api", "back-office"],
     "license": "MIT",
     "require": {
         "php": "^8.3",
@@ -12,7 +12,10 @@
         "mitoop/laravel-api-response": "^7.6",
         "mitoop/laravel-efficient-form-request": "^1.1",
         "mitoop/laravel-query-builder": "^2.11",
-        "mitoop/laravel-query-logger": "^3.1"
+        "mitoop/laravel-query-logger": "^3.1",
+        "php-open-source-saver/jwt-auth": "^2.9",
+        "spatie/laravel-activitylog": "^4.12",
+        "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.7",
@@ -42,17 +45,23 @@
             "composer install",
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
+            "@php artisan jwt:secret --always-no",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
             "@php artisan migrate --force",
             "npm install --ignore-scripts",
             "npm run build"
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74,#86efac\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan schedule:work\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,schedule,logs,vite --kill-others"
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
-            "@php artisan test"
+            "@php artisan test --compact"
+        ],
+        "check": [
+            "@php artisan test --compact",
+            "./vendor/bin/pint --test"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

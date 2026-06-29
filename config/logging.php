@@ -41,6 +41,11 @@ return [
         'channel' => 'sql',
     ],
 
+    'operations' => [
+        'scheduler_channel' => env('LOG_SCHEDULER_CHANNEL', 'stack'),
+        'queue_channel' => env('LOG_QUEUE_CHANNEL', 'stack'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Log Channels

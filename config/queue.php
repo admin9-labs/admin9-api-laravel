@@ -105,6 +105,9 @@ return [
     'batching' => [
         'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'job_batches',
+        'prune_hours' => (int) env('QUEUE_BATCH_PRUNE_HOURS', 48),
+        'prune_unfinished_hours' => (int) env('QUEUE_BATCH_PRUNE_UNFINISHED_HOURS', 72),
+        'prune_cancelled_hours' => (int) env('QUEUE_BATCH_PRUNE_CANCELLED_HOURS', 72),
     ],
 
     /*
@@ -124,6 +127,23 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database-uuids'),
         'database' => env('DB_CONNECTION', 'sqlite'),
         'table' => 'failed_jobs',
+        'prune_hours' => (int) env('QUEUE_FAILED_PRUNE_HOURS', 168),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Operations Monitoring
+    |--------------------------------------------------------------------------
+    |
+    | These values configure the scheduler's built-in queue:monitor command.
+    | Keep the queue list explicit so deployment checks are deterministic and do
+    | not require application-specific jobs to exist.
+    |
+    */
+
+    'monitor' => [
+        'queues' => env('QUEUE_MONITOR_QUEUES', env('QUEUE_CONNECTION', 'database').':'.env('DB_QUEUE', 'default')),
+        'max_jobs' => (int) env('QUEUE_MONITOR_MAX_JOBS', 1000),
     ],
 
 ];
