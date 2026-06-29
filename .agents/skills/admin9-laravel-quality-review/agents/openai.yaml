@@ -1,0 +1,4 @@
+interface:
+  display_name: "Admin9 Laravel Quality Review"
+  short_description: "Fixed-standard Laravel admin quality workflow"
+  default_prompt: "Use $admin9-laravel-quality-review to audit, plan, fix, or verify Laravel admin quality with fixed evidence-based standards."
