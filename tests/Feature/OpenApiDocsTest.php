@@ -53,6 +53,24 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame('bearer', $document['components']['securitySchemes']['http']['scheme'] ?? null);
     }
 
+    public function test_generated_openapi_document_uses_precise_auth_token_schema(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach ([
+            '/api/auth/login',
+            '/api/auth/refresh',
+            '/api/admin/auth/login',
+            '/api/admin/auth/refresh',
+        ] as $path) {
+            $dataProperties = $document['paths'][$path]['post']['responses']['200']['content']['application/json']['schema']['properties']['data']['properties'];
+
+            $this->assertSame(['type' => 'string'], $dataProperties['access_token'], "{$path} access_token must be documented as string.");
+            $this->assertSame(['type' => 'integer'], $dataProperties['expires_in'], "{$path} expires_in must be documented as integer seconds.");
+            $this->assertFalse($this->schemaContainsType($dataProperties['access_token'], 'boolean'), "{$path} access_token must not include boolean.");
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -67,5 +85,29 @@ class OpenApiDocsTest extends TestCase
         $this->assertIsArray($document);
 
         return $document;
+    }
+
+    /**
+     * @param  array<string, mixed>  $schema
+     */
+    private function schemaContainsType(array $schema, string $type): bool
+    {
+        if (($schema['type'] ?? null) === $type) {
+            return true;
+        }
+
+        foreach (['anyOf', 'oneOf', 'allOf'] as $combinedSchemaKey) {
+            if (! isset($schema[$combinedSchemaKey]) || ! is_array($schema[$combinedSchemaKey])) {
+                continue;
+            }
+
+            foreach ($schema[$combinedSchemaKey] as $combinedSchema) {
+                if (is_array($combinedSchema) && $this->schemaContainsType($combinedSchema, $type)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

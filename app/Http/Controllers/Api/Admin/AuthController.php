@@ -38,6 +38,8 @@ class AuthController extends Controller
             return $this->deny('Invalid credentials')->setStatusCode(Response::HTTP_UNAUTHORIZED);
         }
 
+        $token = (string) $token;
+
         $this->recordLogin($request, $this->guard()->user());
         $this->loginLogRecorder->record($request, 'admin', 'login', true, $credentials['email'], $this->guard()->user());
 
@@ -79,7 +81,7 @@ class AuthController extends Controller
     }
 
     /**
-     * @return array{access_token: string, token_type: string, expires_in: int|null, user: UserResource, permission_names: array<int, string>}
+     * @return array{access_token: string, token_type: string, expires_in: int, user: UserResource, permission_names: array<int, string>}
      */
     private function tokenPayload(string $token): array
     {
@@ -89,9 +91,14 @@ class AuthController extends Controller
         return [
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => $this->guard()->factory()->getTTL() * 60,
+            'expires_in' => $this->tokenTtlSeconds(),
             ...$this->identityPayload($user),
         ];
+    }
+
+    private function tokenTtlSeconds(): int
+    {
+        return (int) $this->guard()->factory()->getTTL() * 60;
     }
 
     /**

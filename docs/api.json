@@ -55,21 +55,14 @@
                                             "type": "object",
                                             "properties": {
                                                 "access_token": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "boolean"
-                                                        },
-                                                        {
-                                                            "type": "string"
-                                                        }
-                                                    ]
+                                                    "type": "string"
                                                 },
                                                 "token_type": {
                                                     "type": "string",
                                                     "const": "bearer"
                                                 },
                                                 "expires_in": {
-                                                    "type": "string"
+                                                    "type": "integer"
                                                 },
                                                 "member": {
                                                     "$ref": "#/components/schemas/MemberResource"
@@ -219,7 +212,7 @@
                                                     "const": "bearer"
                                                 },
                                                 "expires_in": {
-                                                    "type": "string"
+                                                    "type": "integer"
                                                 },
                                                 "member": {
                                                     "$ref": "#/components/schemas/MemberResource"
@@ -343,21 +336,14 @@
                                             "type": "object",
                                             "properties": {
                                                 "access_token": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "boolean"
-                                                        },
-                                                        {
-                                                            "type": "string"
-                                                        }
-                                                    ]
+                                                    "type": "string"
                                                 },
                                                 "token_type": {
                                                     "type": "string",
                                                     "const": "bearer"
                                                 },
                                                 "expires_in": {
-                                                    "type": "string"
+                                                    "type": "integer"
                                                 },
                                                 "user": {
                                                     "$ref": "#/components/schemas/UserResource"
@@ -533,7 +519,7 @@
                                                     "const": "bearer"
                                                 },
                                                 "expires_in": {
-                                                    "type": "string"
+                                                    "type": "integer"
                                                 },
                                                 "user": {
                                                     "$ref": "#/components/schemas/UserResource"

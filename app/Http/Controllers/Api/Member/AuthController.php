@@ -44,6 +44,8 @@ class AuthController extends Controller
             return $this->deny('Invalid credentials')->setStatusCode(Response::HTTP_UNAUTHORIZED);
         }
 
+        $token = (string) $token;
+
         $this->recordLogin($request, $this->guard()->user());
         $this->loginLogRecorder->record($request, 'member', 'login', true, $account, $this->guard()->user());
 
@@ -84,16 +86,21 @@ class AuthController extends Controller
     }
 
     /**
-     * @return array{access_token: string, token_type: string, expires_in: int|null, member: MemberResource}
+     * @return array{access_token: string, token_type: string, expires_in: int, member: MemberResource}
      */
     private function tokenPayload(string $token): array
     {
         return [
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => $this->guard()->factory()->getTTL() * 60,
+            'expires_in' => $this->tokenTtlSeconds(),
             'member' => MemberResource::make($this->guard()->user()),
         ];
+    }
+
+    private function tokenTtlSeconds(): int
+    {
+        return (int) $this->guard()->factory()->getTTL() * 60;
     }
 
     private function recordLogin(Request $request, ?Member $member): void
