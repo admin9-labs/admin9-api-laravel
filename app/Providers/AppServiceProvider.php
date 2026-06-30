@@ -10,7 +10,9 @@ use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Mitoop\Http\Exceptions\Handler;
+use Mitoop\Http\JsonResponderDefault;
 use Mitoop\Http\ResponseGenerator;
+use Symfony\Component\HttpFoundation\Response;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -32,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        app(JsonResponderDefault::class)->apply([
+            'deny' => Response::HTTP_FORBIDDEN,
+        ]);
+
         Gate::before(function (User $user, string $ability): ?bool {
             $permission = Permission::query()
                 ->where('name', $ability)

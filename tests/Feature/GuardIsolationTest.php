@@ -27,7 +27,7 @@ class GuardIsolationTest extends TestCase
         $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$adminToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Unauthenticated')
             ->assertHeader('X-Request-Id');
     }
@@ -47,7 +47,7 @@ class GuardIsolationTest extends TestCase
         $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$memberToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Unauthenticated')
             ->assertHeader('X-Request-Id');
     }

@@ -84,7 +84,7 @@ class AdminAuthTest extends TestCase
         $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$refreshedToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Unauthenticated')
             ->assertHeader('X-Request-Id');
     }
@@ -102,7 +102,7 @@ class AdminAuthTest extends TestCase
         ])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Invalid credentials')
             ->assertHeader('X-Request-Id');
     }
@@ -124,7 +124,7 @@ class AdminAuthTest extends TestCase
         $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 403)
             ->assertJsonPath('message', 'Account disabled')
             ->assertHeader('X-Request-Id');
 
@@ -134,7 +134,7 @@ class AdminAuthTest extends TestCase
         ])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 403)
             ->assertJsonPath('message', 'Account disabled')
             ->assertHeader('X-Request-Id');
     }
@@ -144,7 +144,7 @@ class AdminAuthTest extends TestCase
         $this->getJson('/api/admin/auth/me')
             ->assertStatus(401)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Unauthenticated')
             ->assertHeader('X-Request-Id');
     }

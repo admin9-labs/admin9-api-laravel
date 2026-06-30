@@ -56,27 +56,27 @@ class AddContextTest extends TestCase
         });
 
         $response = $this->getJson('/api/_test/add-context-deny')
-            ->assertOk()
+            ->assertForbidden()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 403)
             ->assertHeader('X-Request-Id');
 
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 
-    public function test_it_uses_401_status_for_api_authentication_errors_without_changing_body_contract(): void
+    public function test_it_uses_401_status_code_for_api_authentication_errors(): void
     {
         $response = $this->getJson('/api/admin/auth/me')
             ->assertUnauthorized()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', -1)
+            ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Unauthenticated')
             ->assertHeader('X-Request-Id');
 
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 
-    public function test_it_uses_403_status_for_api_forbidden_errors_without_changing_body_contract(): void
+    public function test_it_uses_403_status_code_for_api_forbidden_errors(): void
     {
         Route::middleware('api')->get('/api/_test/add-context-forbidden', function (JsonResponder $responder) {
             return $responder->error('Forbidden', 403);
@@ -118,7 +118,7 @@ class AddContextTest extends TestCase
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 
-    public function test_it_uses_422_status_for_api_validation_errors_without_changing_body_contract(): void
+    public function test_it_uses_422_status_code_for_api_validation_errors(): void
     {
         Route::middleware('api')->get('/api/_test/add-context-validation', function (): void {
             throw new HttpException(422, 'Validation failed');

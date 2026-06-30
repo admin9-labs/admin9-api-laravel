@@ -19,7 +19,7 @@ class EnsureAccountIsActive
                 Auth::guard($guard)->logout();
             }
 
-            return app(JsonResponder::class)->deny('Account disabled')->setStatusCode(Response::HTTP_FORBIDDEN);
+            return app(JsonResponder::class)->error('Account disabled', Response::HTTP_FORBIDDEN);
         }
 
         return $next($request);

@@ -57,7 +57,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
+            $payload['code'] = $status;
             $response->setStatusCode($status);
+            $encodedPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+            if ($encodedPayload !== false) {
+                $response->setContent($encodedPayload);
+            }
 
             return $response;
         });
