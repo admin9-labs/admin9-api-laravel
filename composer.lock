@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "28c12eeaf1f4043a77c7f35bb0d17a6a",
+    "content-hash": "ac915c0bec581d6bb3e76a9e8804e6a1",
     "packages": [
         {
             "name": "brick/math",
@@ -6831,11 +6831,17 @@
     "packages-dev": [
         {
             "name": "admin9/laravel-scramble-extensions",
-            "version": "0.3.2",
-            "dist": {
-                "type": "path",
-                "url": "../laravel-scramble-extensions",
+            "version": "v0.3.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/admin9-labs/laravel-scramble-extensions.git",
                 "reference": "8a462c22653ddbb766756a4e32670e5b30886fe3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/admin9-labs/laravel-scramble-extensions/zipball/8a462c22653ddbb766756a4e32670e5b30886fe3",
+                "reference": "8a462c22653ddbb766756a4e32670e5b30886fe3",
+                "shasum": ""
             },
             "require": {
                 "dedoc/scramble": "^0.13.30",
@@ -6866,22 +6872,7 @@
                     "Admin9\\ScrambleExtensions\\": "src/"
                 }
             },
-            "autoload-dev": {
-                "psr-4": {
-                    "Admin9\\ScrambleExtensions\\Tests\\": "tests/",
-                    "Mitoop\\Http\\": "tests/Fixtures/Mitoop/Http/",
-                    "Mitoop\\LaravelEfficientFormRequest\\": "tests/Fixtures/Mitoop/LaravelEfficientFormRequest/",
-                    "Mitoop\\LaravelQueryBuilder\\": "tests/Fixtures/Mitoop/LaravelQueryBuilder/"
-                }
-            },
-            "scripts": {
-                "test": [
-                    "phpunit"
-                ],
-                "format:test": [
-                    "pint --test"
-                ]
-            },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
@@ -6903,9 +6894,7 @@
                 "issues": "https://github.com/admin9-labs/laravel-scramble-extensions/issues",
                 "source": "https://github.com/admin9-labs/laravel-scramble-extensions"
             },
-            "transport-options": {
-                "relative": true
-            }
+            "time": "2026-06-30T02:01:07+00:00"
         },
         {
             "name": "barryvdh/laravel-ide-helper",

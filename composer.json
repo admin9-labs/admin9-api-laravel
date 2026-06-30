@@ -113,15 +113,5 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true,
-    "repositories": [{
-        "name": "local-scramble-extensions",
-        "type": "path",
-        "url": "../laravel-scramble-extensions",
-        "options": {
-            "versions": {
-                "admin9/laravel-scramble-extensions": "0.3.2"
-            }
-        }
-    }]
+    "prefer-stable": true
 }
