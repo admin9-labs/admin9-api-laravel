@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\LoginLog;
 use App\Models\Member;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
@@ -128,10 +129,18 @@ class MemberAuthTest extends TestCase
             'account' => 'member@example.com',
             'password' => 'password',
         ])
-            ->assertStatus(403)
+            ->assertStatus(401)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 403)
-            ->assertJsonPath('message', 'Account disabled')
+            ->assertJsonPath('code', 401)
+            ->assertJsonPath('message', 'Invalid credentials')
             ->assertHeader('X-Request-Id');
+
+        $this->assertDatabaseHas(LoginLog::class, [
+            'guard' => 'member',
+            'account' => 'member@example.com',
+            'event' => 'login',
+            'successful' => false,
+            'failure_reason' => 'Account disabled',
+        ]);
     }
 }

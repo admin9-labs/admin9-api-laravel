@@ -101,16 +101,6 @@
                             }
                         }
                     },
-                    "403": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
                     }
@@ -380,16 +370,6 @@
                         }
                     },
                     "401": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "403": {
                         "description": "",
                         "content": {
                             "application/json": {

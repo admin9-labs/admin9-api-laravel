@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\LoginLog;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -132,11 +133,19 @@ class AdminAuthTest extends TestCase
             'email' => 'admin@example.com',
             'password' => 'password',
         ])
-            ->assertStatus(403)
+            ->assertStatus(401)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 403)
-            ->assertJsonPath('message', 'Account disabled')
+            ->assertJsonPath('code', 401)
+            ->assertJsonPath('message', 'Invalid credentials')
             ->assertHeader('X-Request-Id');
+
+        $this->assertDatabaseHas(LoginLog::class, [
+            'guard' => 'admin',
+            'account' => 'admin@example.com',
+            'event' => 'login',
+            'successful' => false,
+            'failure_reason' => 'Account disabled',
+        ]);
     }
 
     public function test_admin_protected_routes_require_a_token(): void

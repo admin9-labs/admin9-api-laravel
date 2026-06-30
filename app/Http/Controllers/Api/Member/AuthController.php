@@ -30,7 +30,7 @@ class AuthController extends Controller
         if ($member !== null && ! $member->is_active) {
             $this->loginLogRecorder->record($request, 'member', 'login', false, $account, $member, 'Account disabled');
 
-            return $this->error('Account disabled', Response::HTTP_FORBIDDEN);
+            return $this->error('Invalid credentials', Response::HTTP_UNAUTHORIZED);
         }
 
         $credentials = filter_var($account, FILTER_VALIDATE_EMAIL)
