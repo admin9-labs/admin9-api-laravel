@@ -349,16 +349,10 @@
                                                     "$ref": "#/components/schemas/UserResource"
                                                 },
                                                 "permission_names": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "array",
-                                                            "items": {}
-                                                        },
-                                                        {
-                                                            "type": "object",
-                                                            "additionalProperties": {}
-                                                        }
-                                                    ]
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
                                                 }
                                             },
                                             "required": [
@@ -444,16 +438,10 @@
                                                     "$ref": "#/components/schemas/UserResource"
                                                 },
                                                 "permission_names": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "array",
-                                                            "items": {}
-                                                        },
-                                                        {
-                                                            "type": "object",
-                                                            "additionalProperties": {}
-                                                        }
-                                                    ]
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
                                                 }
                                             },
                                             "required": [
@@ -525,16 +513,10 @@
                                                     "$ref": "#/components/schemas/UserResource"
                                                 },
                                                 "permission_names": {
-                                                    "anyOf": [
-                                                        {
-                                                            "type": "array",
-                                                            "items": {}
-                                                        },
-                                                        {
-                                                            "type": "object",
-                                                            "additionalProperties": {}
-                                                        }
-                                                    ]
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
                                                 }
                                             },
                                             "required": [

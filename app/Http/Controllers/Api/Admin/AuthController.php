@@ -81,7 +81,7 @@ class AuthController extends Controller
     }
 
     /**
-     * @return array{access_token: string, token_type: string, expires_in: int, user: UserResource, permission_names: array<int, string>}
+     * @return array{access_token: string, token_type: string, expires_in: int, user: UserResource, permission_names: list<string>}
      */
     private function tokenPayload(string $token): array
     {
@@ -102,18 +102,21 @@ class AuthController extends Controller
     }
 
     /**
-     * @return array{user: UserResource, permission_names: array<int, string>}
+     * @return array{user: UserResource, permission_names: list<string>}
      */
     private function identityPayload(User $user): array
     {
+        /** @var list<string> $permissionNames */
+        $permissionNames = $this->permissionNamesFor($user);
+
         return [
             'user' => UserResource::make($user->load('roles')),
-            'permission_names' => $this->permissionNamesFor($user),
+            'permission_names' => $permissionNames,
         ];
     }
 
     /**
-     * @return array<int, string>
+     * @return list<string>
      */
     private function permissionNamesFor(User $user): array
     {

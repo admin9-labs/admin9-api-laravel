@@ -71,6 +71,23 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
+    public function test_generated_openapi_document_uses_precise_admin_permission_names_schema(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach ([
+            ['/api/admin/auth/login', 'post'],
+            ['/api/admin/auth/me', 'get'],
+            ['/api/admin/auth/refresh', 'post'],
+        ] as [$path, $method]) {
+            $permissionNames = $document['paths'][$path][$method]['responses']['200']['content']['application/json']['schema']['properties']['data']['properties']['permission_names'];
+
+            $this->assertSame('array', $permissionNames['type'] ?? null, "{$path} permission_names must be documented as an array.");
+            $this->assertSame(['type' => 'string'], $permissionNames['items'] ?? null, "{$path} permission_names items must be documented as strings.");
+            $this->assertArrayNotHasKey('anyOf', $permissionNames, "{$path} permission_names must not fall back to an ambiguous union.");
+        }
+    }
+
     public function test_generated_openapi_document_uses_pagination_metadata_for_paginated_admin_indexes(): void
     {
         $document = $this->openApiDocument();

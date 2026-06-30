@@ -1,6 +1,5 @@
 <?php
 
-use App\Support\OpenApi\BusinessResponseInferExtension;
 use Dedoc\Scramble\Http\Middleware\RestrictedDocsAccess;
 use Dedoc\Scramble\SecurityDocumentation\MiddlewareAuthSecurityStrategy;
 
@@ -152,9 +151,7 @@ return [
         RestrictedDocsAccess::class,
     ],
 
-    'extensions' => [
-        BusinessResponseInferExtension::class,
-    ],
+    'extensions' => [],
 
     /*
      * Automatically document API security (OpenAPI `security` / `securitySchemes`) based on route
