@@ -1514,6 +1514,16 @@
                             }
                         }
                     },
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
@@ -1911,6 +1921,16 @@
                             }
                         }
                     },
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
                     },
@@ -2250,6 +2270,16 @@
                                         "data",
                                         "request_id"
                                     ]
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
                                 }
                             }
                         }
@@ -4173,13 +4203,6 @@
                             "button"
                         ]
                     },
-                    "permission_name": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "maxLength": 125
-                    },
                     "permission_id": {
                         "type": [
                             "integer",
@@ -4579,13 +4602,6 @@
                             "page",
                             "button"
                         ]
-                    },
-                    "permission_name": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "maxLength": 125
                     },
                     "permission_id": {
                         "type": [
