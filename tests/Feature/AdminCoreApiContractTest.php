@@ -88,7 +88,6 @@ class AdminCoreApiContractTest extends TestCase
             'component' => 'contract/menu/index',
             'type' => Menu::TYPE_PAGE,
             'permission_id' => $permission->id,
-            'permission_name' => $permission->name,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)

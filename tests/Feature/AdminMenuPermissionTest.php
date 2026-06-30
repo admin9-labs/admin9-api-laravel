@@ -102,6 +102,67 @@ class AdminMenuPermissionTest extends TestCase
             ]);
     }
 
+    public function test_menu_store_syncs_permission_name_from_permission_id(): void
+    {
+        $permission = $this->createAdminPermission('system.menu.synced');
+        $token = $this->managerTokenFor(['system.menu.create']);
+
+        $response = $this->postJson('/api/admin/menus', [
+            'name' => 'Synced Menu',
+            'code' => 'synced.menu',
+            'path' => '/synced/menu',
+            'component' => 'synced/menu/index',
+            'type' => Menu::TYPE_PAGE,
+            'permission_id' => $permission->id,
+            'permission_name' => 'stale.permission.name',
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.menu.permission_id', $permission->id)
+            ->assertJsonPath('data.menu.permission_name', $permission->name);
+
+        $menu = Menu::query()->find($response->json('data.menu.id'));
+
+        $this->assertNotNull($menu);
+        $this->assertSame($permission->id, $menu->permission_id);
+        $this->assertSame($permission->name, $menu->permission_name);
+    }
+
+    public function test_menu_update_syncs_and_clears_permission_name_from_permission_id(): void
+    {
+        $oldPermission = $this->createAdminPermission('system.menu.old');
+        $newPermission = $this->createAdminPermission('system.menu.new');
+        $menu = Menu::factory()->create([
+            'code' => 'synced.menu.update',
+            'permission_id' => $oldPermission->id,
+            'permission_name' => $oldPermission->name,
+        ]);
+        $token = $this->managerTokenFor(['system.menu.update']);
+
+        $this->patchJson('/api/admin/menus/'.$menu->id, [
+            'permission_id' => $newPermission->id,
+            'permission_name' => 'stale.permission.name',
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.menu.permission_id', $newPermission->id)
+            ->assertJsonPath('data.menu.permission_name', $newPermission->name);
+
+        $this->assertSame($newPermission->name, $menu->refresh()->permission_name);
+
+        $this->patchJson('/api/admin/menus/'.$menu->id, [
+            'permission_id' => null,
+            'permission_name' => $oldPermission->name,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.menu.permission_id', null)
+            ->assertJsonPath('data.menu.permission_name', null);
+
+        $this->assertNull($menu->refresh()->permission_id);
+        $this->assertNull($menu->permission_name);
+    }
+
     public function test_menu_tree_returns_only_directory_and_page_nodes_for_navigation(): void
     {
         $permission = $this->createAdminPermission('system.navigation.view');

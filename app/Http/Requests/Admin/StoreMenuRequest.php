@@ -32,7 +32,6 @@ class StoreMenuRequest extends FormRequest
             'component' => ['nullable', 'string', 'max:255'],
             'icon' => ['nullable', 'string', 'max:100'],
             'type' => ['sometimes', 'string', Rule::in(Menu::allowedTypes())],
-            'permission_name' => ['nullable', 'string', 'max:125'],
             'permission_id' => ['nullable', 'integer', Rule::exists(Permission::class, 'id')->where('guard_name', 'admin')],
             'sort' => ['sometimes', 'integer', 'min:0'],
             'is_visible' => ['sometimes', 'boolean'],
