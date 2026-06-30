@@ -158,6 +158,13 @@ class OperationsConfigurationTest extends TestCase
 
     public function test_health_route_and_schedule_list_are_bootable(): void
     {
+        $this->get('/')
+            ->assertOk()
+            ->assertJson([
+                'name' => config('app.name'),
+                'status' => 'ok',
+            ]);
+
         $this->get('/up')->assertOk();
 
         Artisan::call('schedule:list', ['--json' => true]);
