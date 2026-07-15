@@ -11,6 +11,16 @@ composer dev
 
 `composer dev` runs the HTTP server, queue listener, scheduler worker, log tailing, and Vite dev server together for local feedback.
 
+## Initial admin access
+
+`composer setup` creates the schema but does not seed application data. In a local or testing environment, create the initial RBAC data and development administrator with:
+
+```bash
+php artisan db:seed
+```
+
+The local-only development credentials are `admin@example.com` / `password`. They are deliberately never created in staging, production, or any other non-local environment. For those environments, inject a unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` through the hosting platform's secret manager before running `php artisan db:seed --force`.
+
 ## Test and formatting
 
 ```bash
@@ -22,11 +32,12 @@ Use the narrower commands below while debugging a specific failure:
 ```bash
 composer test
 composer docs:api
+composer docs:api:check
 vendor/bin/pint --dirty --format agent
 php artisan route:list --except-vendor
 ```
 
-`composer docs:api` exports the generated OpenAPI document to `docs/api.json`.
+`composer docs:api` exports the generated OpenAPI document to `docs/api.json`; `composer docs:api:check` also fails if the committed document is stale.
 
 ## Production run checklist
 

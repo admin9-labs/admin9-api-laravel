@@ -50,7 +50,7 @@
             "@php artisan jwt:secret --always-no",
             "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
             "@php artisan migrate --force",
-            "npm install --ignore-scripts",
+            "npm ci --ignore-scripts",
             "npm run build"
         ],
         "dev": [
@@ -62,13 +62,17 @@
             "@php artisan test --compact"
         ],
         "check": [
-            "@docs:api",
+            "@docs:api:check",
             "@php artisan test --compact",
             "./vendor/bin/pint --test"
         ],
         "docs:api": [
             "@php -r \"is_dir('docs') || mkdir('docs', 0777, true);\"",
-            "@php artisan scramble:export --env=local --no-interaction"
+            "APP_URL=http://localhost php artisan scramble:export --env=local --no-interaction"
+        ],
+        "docs:api:check": [
+            "@docs:api",
+            "git diff --exit-code -- docs/api.json"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

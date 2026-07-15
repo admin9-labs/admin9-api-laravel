@@ -53,9 +53,9 @@ class AdminRbacTest extends TestCase
         $this->assertSame(1, Role::query()->where('name', 'super-admin')->where('guard_name', 'admin')->count());
     }
 
-    public function test_admin_rbac_seeder_does_not_create_default_bootstrap_admin_in_production_without_explicit_config(): void
+    public function test_admin_rbac_seeder_does_not_create_default_bootstrap_admin_outside_local_or_testing(): void
     {
-        $this->app->detectEnvironment(fn (): string => 'production');
+        $this->app->detectEnvironment(fn (): string => 'staging');
         config([
             'admin.bootstrap.email' => null,
             'admin.bootstrap.password' => null,
@@ -93,6 +93,19 @@ class AdminRbacTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user.email', 'root@example.com');
+    }
+
+    public function test_admin_rbac_seeder_rejects_the_default_password_outside_local_or_testing(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'staging');
+        config([
+            'admin.bootstrap.email' => 'root@example.com',
+            'admin.bootstrap.password' => 'password',
+        ]);
+
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class, '--force' => true]);
+
+        $this->assertFalse(User::query()->where('email', 'root@example.com')->exists());
     }
 
     public function test_direct_user_permission_grants_access_to_declared_permission_route(): void

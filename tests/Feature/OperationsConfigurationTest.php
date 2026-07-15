@@ -139,6 +139,12 @@ class OperationsConfigurationTest extends TestCase
         ));
         $this->assertContains('@php artisan migrate --graceful --ansi', $composer['scripts']['post-create-project-cmd']);
         $this->assertSame(['./vendor/bin/pint --parallel'], $composer['scripts']['pint']);
+        $this->assertContains('APP_URL=http://localhost php artisan scramble:export --env=local --no-interaction', $composer['scripts']['docs:api']);
+        $this->assertSame('@docs:api:check', $composer['scripts']['check'][0]);
+        $this->assertSame([
+            '@docs:api',
+            'git diff --exit-code -- docs/api.json',
+        ], $composer['scripts']['docs:api:check']);
     }
 
     public function test_setup_script_creates_sqlite_database_before_migrations(): void
@@ -150,10 +156,15 @@ class OperationsConfigurationTest extends TestCase
         $sqliteIndex = collect($setup)->search(fn (string $command): bool => str_contains($command, 'database/database.sqlite')
             && str_contains($command, 'touch'));
         $migrateIndex = array_search('@php artisan migrate --force', $setup, true);
+        $npmInstallIndex = array_search('npm ci --ignore-scripts', $setup, true);
+        $buildIndex = array_search('npm run build', $setup, true);
 
         $this->assertIsInt($sqliteIndex);
         $this->assertIsInt($migrateIndex);
+        $this->assertIsInt($npmInstallIndex);
+        $this->assertIsInt($buildIndex);
         $this->assertLessThan($migrateIndex, $sqliteIndex);
+        $this->assertLessThan($buildIndex, $npmInstallIndex);
     }
 
     public function test_health_route_and_schedule_list_are_bootable(): void
@@ -191,6 +202,8 @@ class OperationsConfigurationTest extends TestCase
             'php artisan schedule:run',
             'GET /up',
             'logging.operations',
+            'ADMIN_BOOTSTRAP_PASSWORD',
+            'php artisan db:seed --force',
         ] as $expected) {
             $this->assertStringContainsString($expected, $readme);
         }

@@ -95,9 +95,9 @@ class AdminRbacSeeder extends Seeder
         $email = $this->filledBootstrapConfig('email');
         $password = $this->filledBootstrapConfig('password');
 
-        if (app()->isProduction()) {
+        if (! app()->environment(['local', 'testing'])) {
             if ($email === null || $password === null || $password === self::DEFAULT_BOOTSTRAP_PASSWORD) {
-                Log::warning('Skipping production bootstrap admin creation because explicit ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD are required.');
+                Log::warning('Skipping non-local bootstrap admin creation because explicit ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD are required.');
 
                 return null;
             }
