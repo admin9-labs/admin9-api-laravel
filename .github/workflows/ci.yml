@@ -29,6 +29,11 @@ jobs:
 
       - run: composer validate --no-check-publish --strict
       - run: composer install --prefer-dist --no-interaction --no-progress
+      - run: cp .env.example .env
+      - run: php artisan key:generate --force --no-interaction
+      - run: php artisan jwt:secret --always-no --no-interaction
+      - run: touch database/database.sqlite
+      - run: php artisan migrate --force --no-interaction
       - run: npm ci --ignore-scripts
       - run: npm audit --audit-level=high
       - run: npm run build
