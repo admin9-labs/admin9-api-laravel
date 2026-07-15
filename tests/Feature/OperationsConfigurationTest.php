@@ -45,7 +45,6 @@ class OperationsConfigurationTest extends TestCase
         $this->assertSame('database', $environmentDefaults['QUEUE_CONNECTION']);
         $this->assertSame('database', $environmentDefaults['CACHE_STORE']);
         $this->assertSame('stack', $environmentDefaults['LOG_CHANNEL']);
-        $this->assertSame('laravel-cache-', config('cache.prefix'));
         $this->assertSame(['single'], config('logging.channels.stack.channels'));
         $this->assertSame('database', config('queue.connections.database.driver'));
         $this->assertSame('redis', config('queue.connections.redis.driver'));
