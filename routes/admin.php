@@ -17,10 +17,10 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
     Route::post('/auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:5,1')
         ->name('auth.login');
+    Route::post('/auth/refresh', [AuthController::class, 'refresh'])->name('auth.refresh');
 
     Route::middleware(['auth:admin', 'account.active:admin'])->group(function () use ($adminPermission): void {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
-        Route::post('/auth/refresh', [AuthController::class, 'refresh'])->name('auth.refresh');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
 
         Route::get('/menus/tree', [MenuController::class, 'tree'])->name('menus.tree');

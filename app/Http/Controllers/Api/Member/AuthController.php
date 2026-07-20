@@ -7,6 +7,7 @@ use App\Http\Requests\Member\LoginRequest;
 use App\Http\Resources\Member\MemberResource;
 use App\Models\Member;
 use App\Support\Auth\LoginLogRecorder;
+use App\Support\Auth\RefreshJwtToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +16,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
 {
-    public function __construct(private LoginLogRecorder $loginLogRecorder) {}
+    public function __construct(
+        private LoginLogRecorder $loginLogRecorder,
+        private RefreshJwtToken $refreshJwtToken,
+    ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
@@ -45,11 +49,13 @@ class AuthController extends Controller
         }
 
         $token = (string) $token;
+        /** @var Member $member */
+        $member = $this->guard()->user();
 
-        $this->recordLogin($request, $this->guard()->user());
-        $this->loginLogRecorder->record($request, 'member', 'login', true, $account, $this->guard()->user());
+        $this->recordLogin($request, $member);
+        $this->loginLogRecorder->record($request, 'member', 'login', true, $account, $member);
 
-        return $this->success($this->tokenPayload($token));
+        return $this->success($this->tokenPayload($token, $member));
     }
 
     public function me(Request $request): JsonResponse
@@ -61,11 +67,12 @@ class AuthController extends Controller
 
     public function refresh(Request $request): JsonResponse
     {
-        $member = $this->guard()->user();
-        $token = $this->guard()->refresh();
-        $this->loginLogRecorder->record($request, 'member', 'refresh', true, $member?->email ?? $member?->mobile, $member);
+        $refreshed = $this->refreshJwtToken->handle($request, 'member');
+        /** @var Member $member */
+        $member = $refreshed['subject'];
+        $this->loginLogRecorder->record($request, 'member', 'refresh', true, $member->email ?? $member->mobile, $member);
 
-        return $this->success($this->tokenPayload($token));
+        return $this->success($this->tokenPayload($refreshed['token'], $member));
     }
 
     public function logout(Request $request): JsonResponse
@@ -88,13 +95,13 @@ class AuthController extends Controller
     /**
      * @return array{access_token: string, token_type: string, expires_in: int, member: MemberResource}
      */
-    private function tokenPayload(string $token): array
+    private function tokenPayload(string $token, Member $member): array
     {
         return [
             'access_token' => $token,
             'token_type' => 'bearer',
             'expires_in' => $this->tokenTtlSeconds(),
-            'member' => MemberResource::make($this->guard()->user()),
+            'member' => MemberResource::make($member),
         ];
     }
 

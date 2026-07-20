@@ -32,7 +32,7 @@ class AdminPermissionMiddlewareTest extends TestCase
 
     public function test_auth_only_admin_routes_remain_without_permission_middleware(): void
     {
-        foreach (['admin.auth.me', 'admin.auth.refresh', 'admin.auth.logout', 'admin.menus.tree'] as $routeName) {
+        foreach (['admin.auth.me', 'admin.auth.logout', 'admin.menus.tree'] as $routeName) {
             $route = RouteFacade::getRoutes()->getByName($routeName);
             $this->assertNotNull($route);
 
@@ -46,6 +46,22 @@ class AdminPermissionMiddlewareTest extends TestCase
                 sprintf('Route [%s] must not require permission middleware.', $routeName)
             );
         }
+    }
+
+    public function test_refresh_route_uses_an_explicit_refresh_flow_outside_standard_auth_middleware(): void
+    {
+        $route = RouteFacade::getRoutes()->getByName('admin.auth.refresh');
+
+        $this->assertNotNull($route);
+        $middleware = $route->gatherMiddleware();
+
+        $this->assertNotContains('auth:admin', $middleware);
+        $this->assertNotContains('account.active:admin', $middleware);
+        $this->assertNotContains('admin.permission', $middleware);
+        $this->assertFalse(
+            collect($middleware)->contains(fn (string $entry): bool => str_starts_with($entry, 'permission:')),
+            'Route [admin.auth.refresh] must not require permission middleware.'
+        );
     }
 
     public function test_login_route_remains_outside_admin_auth_and_permission_middleware(): void
