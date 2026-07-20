@@ -7,7 +7,6 @@ use App\Http\Requests\Admin\StoreMenuRequest;
 use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\MenuResource;
 use App\Models\Menu;
-use App\Models\Permission;
 use App\Support\Admin\AdminPermissionChecker;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +24,7 @@ class MenuController extends Controller
     public function index(): JsonResponse
     {
         return $this->success(MenuResource::collection(
-            Menu::query()->with(['children', 'permission'])->ordered()->get()
+            Menu::query()->with(['children.permission', 'permission'])->ordered()->get()
         ));
     }
 
@@ -56,11 +55,11 @@ class MenuController extends Controller
     public function store(StoreMenuRequest $request): JsonResponse
     {
         $menu = DB::transaction(
-            fn (): Menu => Menu::query()->create($this->menuAttributes($request->validated()))
+            fn (): Menu => Menu::query()->create($request->validated())
         );
 
         return $this->success([
-            'menu' => MenuResource::make($menu->load(['children', 'permission'])),
+            'menu' => MenuResource::make($menu->load(['children.permission', 'permission'])),
         ]);
     }
 
@@ -70,7 +69,7 @@ class MenuController extends Controller
     public function show(Menu $menu): JsonResponse
     {
         return $this->success([
-            'menu' => MenuResource::make($menu->load(['children', 'permission'])),
+            'menu' => MenuResource::make($menu->load(['children.permission', 'permission'])),
         ]);
     }
 
@@ -80,11 +79,11 @@ class MenuController extends Controller
     public function update(UpdateMenuRequest $request, Menu $menu): JsonResponse
     {
         DB::transaction(function () use ($request, $menu): void {
-            $menu->update($this->menuAttributes($request->validated()));
+            $menu->update($request->validated());
         });
 
         return $this->success([
-            'menu' => MenuResource::make($menu->refresh()->load(['children', 'permission'])),
+            'menu' => MenuResource::make($menu->refresh()->load(['children.permission', 'permission'])),
         ]);
     }
 
@@ -111,35 +110,6 @@ class MenuController extends Controller
         }
 
         return $user !== null && $this->permissionChecker->canAccessPermission($user, $menu->permission);
-    }
-
-    /**
-     * @param  array<string, mixed>  $attributes
-     * @return array<string, mixed>
-     */
-    private function menuAttributes(array $attributes): array
-    {
-        $hasPermissionId = array_key_exists('permission_id', $attributes);
-
-        unset($attributes['permission_name']);
-
-        if (! $hasPermissionId) {
-            return $attributes;
-        }
-
-        $permissionId = $attributes['permission_id'];
-        if ($permissionId === null) {
-            $attributes['permission_name'] = null;
-
-            return $attributes;
-        }
-
-        $attributes['permission_name'] = Permission::query()
-            ->admin()
-            ->whereKey((int) $permissionId)
-            ->value('name');
-
-        return $attributes;
     }
 
     /**

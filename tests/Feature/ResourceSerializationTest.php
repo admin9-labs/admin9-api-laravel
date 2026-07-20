@@ -99,8 +99,7 @@ class ResourceSerializationTest extends TestCase
         $menu = Menu::factory()->create([
             'code' => 'resource.compat.menu',
             'permission_id' => $permission->id,
-            'permission_name' => $permission->name,
-        ]);
+        ])->load('permission');
 
         $resource = MenuResource::make($menu)->resolve(Request::create('/resource-serialization-test'));
 

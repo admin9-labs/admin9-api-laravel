@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['parent_id', 'name', 'code', 'path', 'component', 'icon', 'type', 'permission_name', 'permission_id', 'sort', 'is_visible', 'is_active'])]
+#[Fillable(['parent_id', 'name', 'code', 'path', 'component', 'icon', 'type', 'permission_id', 'sort', 'is_visible', 'is_active'])]
 class Menu extends Model
 {
     /** @use HasFactory<MenuFactory> */

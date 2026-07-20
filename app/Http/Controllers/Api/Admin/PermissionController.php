@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StorePermissionRequest;
 use App\Http\Requests\Admin\UpdatePermissionRequest;
 use App\Http\Resources\Admin\PermissionResource;
 use App\Models\Permission;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -104,14 +105,26 @@ class PermissionController extends Controller
             return $this->error('System permissions cannot be deleted.', 422);
         }
 
+        if ($permission->menus()->exists()) {
+            return $this->error('Permissions used by menus cannot be deleted. Detach the menus first.', 422);
+        }
+
         if ($permission->roles()->exists() || $permission->users()->exists()) {
             return $this->error('Assigned permissions cannot be deleted.', 422);
         }
 
-        DB::transaction(function () use ($permission): void {
-            $permission->delete();
-            app(PermissionRegistrar::class)->forgetCachedPermissions();
-        });
+        try {
+            DB::transaction(function () use ($permission): void {
+                $permission->delete();
+                app(PermissionRegistrar::class)->forgetCachedPermissions();
+            });
+        } catch (QueryException $exception) {
+            if ($permission->menus()->exists()) {
+                return $this->error('Permissions used by menus cannot be deleted. Detach the menus first.', 422);
+            }
+
+            throw $exception;
+        }
 
         return $this->success(message: 'deleted');
     }

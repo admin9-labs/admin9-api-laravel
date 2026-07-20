@@ -20,8 +20,8 @@ class ActivityAuditTest extends TestCase
 
     public function test_menu_changes_are_audited_with_request_context_and_sensitive_fields_filtered(): void
     {
-        $this->createPermission('system.menu.create');
-        $this->createPermission('system.menu.update');
+        $createPermission = $this->createPermission('system.menu.create');
+        $updatePermission = $this->createPermission('system.menu.update');
 
         $admin = User::factory()->create(['email' => 'audit-menu@example.com']);
         $admin->givePermissionTo(['system.menu.create', 'system.menu.update']);
@@ -31,7 +31,7 @@ class ActivityAuditTest extends TestCase
             'name' => '审计菜单',
             'code' => 'audit.menu',
             'path' => '/audit/menu',
-            'permission_name' => 'system.menu.create',
+            'permission_id' => $createPermission->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
@@ -41,7 +41,7 @@ class ActivityAuditTest extends TestCase
 
         $this->patchJson('/api/admin/menus/'.$menuId, [
             'name' => '审计菜单更新',
-            'permission_name' => 'system.menu.update',
+            'permission_id' => $updatePermission->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);

@@ -195,7 +195,7 @@ class AdminRbacTest extends TestCase
         $this->assertNotNull($menu);
         $this->assertSame(Menu::TYPE_PAGE, $menu->type);
         $this->assertSame($permission->id, $menu->permission_id);
-        $this->assertSame('system.role.view', $menu->permission_name);
+        $this->assertSame('system.role.view', $menu->load('permission')->permission?->name);
     }
 
     public function test_seeder_creates_complete_built_in_permission_metadata(): void
@@ -232,8 +232,8 @@ class AdminRbacTest extends TestCase
         $this->assertSame(Menu::TYPE_BUTTON, $roleCreate->type);
         $this->assertSame(Menu::TYPE_BUTTON, $assignRole->type);
         $this->assertSame($rolePage->id, $roleCreate->parent_id);
-        $this->assertSame('system.role.create', $roleCreate->permission_name);
-        $this->assertSame('system.user.assign-role', $assignRole->permission_name);
+        $this->assertSame('system.role.create', $roleCreate->load('permission')->permission?->name);
+        $this->assertSame('system.user.assign-role', $assignRole->load('permission')->permission?->name);
         $this->assertFalse($roleCreate->is_visible);
     }
 
@@ -256,29 +256,31 @@ class AdminRbacTest extends TestCase
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
         $routePermissionNames = $this->managedAdminPermissionNames()->all();
-        $menuPermissionNames = Menu::query()
-            ->whereNotNull('permission_name')
-            ->orderBy('permission_name')
-            ->pluck('permission_name')
+        $menus = Menu::query()
+            ->whereNotNull('permission_id')
+            ->with('permission')
+            ->get();
+        $menuPermissionNames = $menus
+            ->pluck('permission.name')
+            ->sort()
+            ->values()
             ->all();
 
         $this->assertSame($routePermissionNames, $menuPermissionNames);
 
-        Menu::query()
-            ->whereNotNull('permission_name')
-            ->get()
-            ->each(function (Menu $menu): void {
-                $this->assertNotNull($menu->permission_id);
+        $menus->each(function (Menu $menu): void {
+            $this->assertNotNull($menu->permission_id);
+            $this->assertSame('admin', $menu->permission?->guard_name);
 
-                if (str_ends_with((string) $menu->permission_name, '.view')) {
-                    $this->assertSame(Menu::TYPE_PAGE, $menu->type);
+            if (str_ends_with((string) $menu->permission?->name, '.view')) {
+                $this->assertSame(Menu::TYPE_PAGE, $menu->type);
 
-                    return;
-                }
+                return;
+            }
 
-                $this->assertSame(Menu::TYPE_BUTTON, $menu->type);
-                $this->assertFalse($menu->is_visible);
-            });
+            $this->assertSame(Menu::TYPE_BUTTON, $menu->type);
+            $this->assertFalse($menu->is_visible);
+        });
     }
 
     public function test_seeder_creates_super_admin_and_system_admin_roles(): void

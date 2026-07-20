@@ -24,7 +24,7 @@ class MenuResource extends PaginationAwareJsonResource
             'icon' => $this->icon,
             'type' => $this->type,
             'permission_id' => $this->permission_id,
-            'permission_name' => $this->permission_name,
+            'permission_name' => $this->whenLoaded('permission', fn (): ?string => $this->permission?->name, null),
             'permission' => PermissionResource::make($this->whenLoaded('permission')),
             'sort' => $this->sort,
             'is_visible' => $this->is_visible,

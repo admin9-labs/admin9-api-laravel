@@ -127,6 +127,19 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
+    public function test_generated_openapi_menu_contract_keeps_relation_derived_permission_name_response_only(): void
+    {
+        $schemas = $this->openApiDocument()['components']['schemas'];
+        $menuSchema = $schemas['MenuResource'];
+
+        $this->assertContains('permission_name', $menuSchema['required']);
+        $this->assertSame(['string', 'null'], $menuSchema['properties']['permission_name']['type']);
+        $this->assertArrayHasKey('permission_id', $schemas['StoreMenuRequest']['properties']);
+        $this->assertArrayNotHasKey('permission_name', $schemas['StoreMenuRequest']['properties']);
+        $this->assertArrayHasKey('permission_id', $schemas['UpdateMenuRequest']['properties']);
+        $this->assertArrayNotHasKey('permission_name', $schemas['UpdateMenuRequest']['properties']);
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Menu;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Permission\Models\Permission;
@@ -212,6 +213,63 @@ class AdminPermissionManagementTest extends TestCase
             ->assertJsonPath('code', 422);
 
         $this->assertDatabaseHas('permissions', ['id' => $permission->id]);
+    }
+
+    public function test_menu_referenced_permission_cannot_be_deleted(): void
+    {
+        $permission = $this->createPermission('dynamic.menu.protected');
+        $menu = Menu::factory()->create([
+            'code' => 'dynamic.menu.protected',
+            'permission_id' => $permission->id,
+        ]);
+        $token = $this->managerTokenFor(['system.permission.delete']);
+
+        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 422)
+            ->assertJsonPath('message', 'Permissions used by menus cannot be deleted. Detach the menus first.');
+
+        $this->assertModelExists($permission);
+        $this->assertSame($permission->id, $menu->refresh()->permission_id);
+    }
+
+    public function test_permission_can_be_deleted_only_after_menu_is_explicitly_detached(): void
+    {
+        $permission = $this->createPermission('dynamic.menu.detachable');
+        $menu = Menu::factory()->create([
+            'code' => 'dynamic.menu.detachable',
+            'permission_id' => $permission->id,
+        ]);
+        $viewerToken = $this->adminTokenFor(User::factory()->create([
+            'email' => 'menu-detach-viewer@example.com',
+        ]));
+        $managerToken = $this->managerTokenFor([
+            'system.menu.update',
+            'system.permission.delete',
+        ]);
+
+        $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$viewerToken])
+            ->assertOk()
+            ->assertJsonMissing(['code' => 'dynamic.menu.detachable']);
+
+        $this->patchJson('/api/admin/menus/'.$menu->id, [
+            'permission_id' => null,
+        ], ['Authorization' => 'Bearer '.$managerToken])
+            ->assertOk()
+            ->assertJsonPath('data.menu.permission_id', null)
+            ->assertJsonPath('data.menu.permission_name', null);
+
+        $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$viewerToken])
+            ->assertOk()
+            ->assertJsonFragment(['code' => 'dynamic.menu.detachable']);
+
+        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$managerToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertModelMissing($permission);
+        $this->assertNull($menu->refresh()->permission_id);
     }
 
     public function test_unassigned_dynamic_permission_can_be_deleted(): void

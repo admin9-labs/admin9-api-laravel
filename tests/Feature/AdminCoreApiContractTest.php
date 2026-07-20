@@ -389,7 +389,6 @@ class AdminCoreApiContractTest extends TestCase
                     Menu::factory()->create([
                         'code' => 'contract.menu.catalog',
                         'permission_id' => $permission->id,
-                        'permission_name' => $permission->name,
                     ]);
                 },
                 'itemKeys' => self::menuResourceKeys(),

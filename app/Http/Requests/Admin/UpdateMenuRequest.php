@@ -56,6 +56,11 @@ class UpdateMenuRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($this->exists('permission_name')) {
+                    $validator->errors()->add('permission_name', 'The permission_name field is response-only. Use permission_id instead.');
+                }
+            },
+            function (Validator $validator): void {
                 if ($validator->errors()->has('parent_id') || ! $this->filled('parent_id')) {
                     return;
                 }

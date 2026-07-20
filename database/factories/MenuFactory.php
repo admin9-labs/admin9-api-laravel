@@ -24,7 +24,6 @@ class MenuFactory extends Factory
             'component' => fake()->slug().'/index',
             'icon' => null,
             'type' => Menu::TYPE_PAGE,
-            'permission_name' => null,
             'sort' => fake()->numberBetween(0, 100),
             'is_visible' => true,
             'is_active' => true,

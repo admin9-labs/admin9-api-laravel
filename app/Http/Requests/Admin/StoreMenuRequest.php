@@ -6,6 +6,7 @@ use App\Models\Menu;
 use App\Models\Permission;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreMenuRequest extends FormRequest
 {
@@ -36,6 +37,20 @@ class StoreMenuRequest extends FormRequest
             'sort' => ['sometimes', 'integer', 'min:0'],
             'is_visible' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($this->exists('permission_name')) {
+                    $validator->errors()->add('permission_name', 'The permission_name field is response-only. Use permission_id instead.');
+                }
+            },
         ];
     }
 }
