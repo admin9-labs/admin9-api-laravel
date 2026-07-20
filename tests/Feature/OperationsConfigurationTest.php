@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Listeners\LogQueueBusy;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Queue\Events\QueueBusy;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use Psr\Log\LoggerInterface;
@@ -109,6 +112,45 @@ class OperationsConfigurationTest extends TestCase
         foreach ($schedule->events() as $event) {
             $this->runFailureCallbacks($event);
         }
+    }
+
+    public function test_queue_busy_event_logs_structured_warning_to_operations_channel(): void
+    {
+        config([
+            'logging.operations.queue_channel' => 'queue-operations',
+            'queue.monitor.max_jobs' => 1000,
+        ]);
+
+        $queueLogger = Mockery::mock(LoggerInterface::class);
+        $queueLogger->shouldReceive('warning')
+            ->once()
+            ->with('Queue backlog threshold reached', [
+                'connection' => 'redis',
+                'queue' => 'critical',
+                'size' => 1250,
+                'configured_threshold' => 1000,
+            ]);
+
+        Log::shouldReceive('channel')
+            ->once()
+            ->with('queue-operations')
+            ->andReturn($queueLogger);
+
+        Event::dispatch(new QueueBusy('redis', 'critical', 1250));
+    }
+
+    public function test_queue_busy_listener_is_discoverable_by_the_framework(): void
+    {
+        Artisan::call('event:list', [
+            '--event' => QueueBusy::class,
+            '--json' => true,
+        ]);
+
+        $events = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertCount(1, $events);
+        $this->assertSame(QueueBusy::class, $events[0]['event']);
+        $this->assertContains(LogQueueBusy::class.'@handle', $events[0]['listeners']);
     }
 
     public function test_development_and_test_scripts_run_required_operations_processes(): void
