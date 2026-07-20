@@ -71,6 +71,22 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
+    public function test_generated_openapi_document_requires_bearer_security_for_refresh_authentication_failures(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach (['/api/auth/refresh', '/api/admin/auth/refresh'] as $path) {
+            $operation = $document['paths'][$path]['post'];
+
+            $this->assertSame([['http' => []]], $operation['security']);
+            $this->assertSame(
+                '#/components/responses/AuthenticationException',
+                $operation['responses']['401']['$ref'] ?? null,
+                "{$path} must document invalid refresh tokens as authentication failures.",
+            );
+        }
+    }
+
     public function test_generated_openapi_document_uses_precise_admin_permission_names_schema(): void
     {
         $document = $this->openApiDocument();

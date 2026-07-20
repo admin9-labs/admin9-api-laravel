@@ -108,64 +108,6 @@
                 "security": []
             }
         },
-        "/api/auth/me": {
-            "get": {
-                "operationId": "member.auth.me",
-                "tags": [
-                    "Auth"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "description": "Whether the request was successful"
-                                        },
-                                        "code": {
-                                            "type": "integer",
-                                            "description": "Business status code, 0 = success"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "member": {
-                                                    "$ref": "#/components/schemas/MemberResource"
-                                                }
-                                            },
-                                            "required": [
-                                                "member"
-                                            ]
-                                        },
-                                        "request_id": {
-                                            "type": "string",
-                                            "description": "UUID7 for request tracing"
-                                        }
-                                    },
-                                    "required": [
-                                        "success",
-                                        "code",
-                                        "message",
-                                        "data",
-                                        "request_id"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
         "/api/auth/refresh": {
             "post": {
                 "operationId": "member.auth.refresh",
@@ -212,6 +154,69 @@
                                                 "access_token",
                                                 "token_type",
                                                 "expires_in",
+                                                "member"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                },
+                "security": [
+                    {
+                        "http": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "operationId": "member.auth.me",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "member": {
+                                                    "$ref": "#/components/schemas/MemberResource"
+                                                }
+                                            },
+                                            "required": [
                                                 "member"
                                             ]
                                         },
@@ -386,71 +391,6 @@
                 "security": []
             }
         },
-        "/api/admin/auth/me": {
-            "get": {
-                "operationId": "admin.auth.me",
-                "tags": [
-                    "Auth"
-                ],
-                "responses": {
-                    "200": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean",
-                                            "description": "Whether the request was successful"
-                                        },
-                                        "code": {
-                                            "type": "integer",
-                                            "description": "Business status code, 0 = success"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "data": {
-                                            "type": "object",
-                                            "properties": {
-                                                "user": {
-                                                    "$ref": "#/components/schemas/UserResource"
-                                                },
-                                                "permission_names": {
-                                                    "type": "array",
-                                                    "items": {
-                                                        "type": "string"
-                                                    }
-                                                }
-                                            },
-                                            "required": [
-                                                "user",
-                                                "permission_names"
-                                            ]
-                                        },
-                                        "request_id": {
-                                            "type": "string",
-                                            "description": "UUID7 for request tracing"
-                                        }
-                                    },
-                                    "required": [
-                                        "success",
-                                        "code",
-                                        "message",
-                                        "data",
-                                        "request_id"
-                                    ]
-                                }
-                            }
-                        }
-                    },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    }
-                }
-            }
-        },
         "/api/admin/auth/refresh": {
             "post": {
                 "operationId": "admin.auth.refresh",
@@ -503,6 +443,76 @@
                                                 "access_token",
                                                 "token_type",
                                                 "expires_in",
+                                                "user",
+                                                "permission_names"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                },
+                "security": [
+                    {
+                        "http": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/auth/me": {
+            "get": {
+                "operationId": "admin.auth.me",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "user": {
+                                                    "$ref": "#/components/schemas/UserResource"
+                                                },
+                                                "permission_names": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            },
+                                            "required": [
                                                 "user",
                                                 "permission_names"
                                             ]

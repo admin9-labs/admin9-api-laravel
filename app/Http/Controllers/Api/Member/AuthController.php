@@ -8,6 +8,7 @@ use App\Http\Resources\Member\MemberResource;
 use App\Models\Member;
 use App\Support\Auth\LoginLogRecorder;
 use App\Support\Auth\RefreshJwtToken;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -65,6 +66,9 @@ class AuthController extends Controller
         ]);
     }
 
+    /**
+     * @throws AuthenticationException
+     */
     public function refresh(Request $request): JsonResponse
     {
         $refreshed = $this->refreshJwtToken->handle($request, 'member');

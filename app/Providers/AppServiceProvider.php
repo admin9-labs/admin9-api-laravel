@@ -6,6 +6,10 @@ use App\Http\Responses\ApiResponseGenerator;
 use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
+use Dedoc\Scramble\Scramble;
+use Dedoc\Scramble\Support\Generator\Operation;
+use Dedoc\Scramble\Support\Generator\SecurityRequirement;
+use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -37,6 +41,18 @@ class AppServiceProvider extends ServiceProvider
         app(JsonResponderDefault::class)->apply([
             'deny' => Response::HTTP_FORBIDDEN,
         ]);
+
+        if (class_exists(Scramble::class)) {
+            Scramble::configure()->withOperationTransformers(
+                static function (Operation $operation, RouteInfo $routeInfo): void {
+                    if (! in_array($routeInfo->route->getName(), ['member.auth.refresh', 'admin.auth.refresh'], true)) {
+                        return;
+                    }
+
+                    $operation->addSecurity(new SecurityRequirement(['http' => []]));
+                },
+            );
+        }
 
         Gate::before(function (User $user, string $ability): ?bool {
             $permission = Permission::query()
