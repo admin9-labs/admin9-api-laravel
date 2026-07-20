@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -54,11 +55,18 @@ class UserController extends Controller
     {
         $validated = $request->validated();
 
-        $this->assertUserCanBeUpdated($request, $user, $validated);
+        $user = DB::transaction(function () use ($request, $user, $validated): User {
+            if (array_key_exists('is_active', $validated) && ! (bool) $validated['is_active']) {
+                $activeSuperAdminIds = ReservedAdminRole::activeSuperAdminIdsForUpdate();
+                $user = ReservedAdminRole::lockUserForUpdate($user);
 
-        DB::transaction(function () use ($validated, $user): void {
+                $this->assertUserCanBeDisabled($request, $user, $activeSuperAdminIds);
+            }
+
             $user->update($validated);
-        });
+
+            return $user;
+        }, attempts: 3);
 
         return $this->success([
             'user' => UserResource::make($user->refresh()->load('roles')),
@@ -70,38 +78,39 @@ class UserController extends Controller
      */
     public function destroy(Request $request, User $user): JsonResponse
     {
-        $this->assertUserCanBeDeleted($request, $user);
+        DB::transaction(function () use ($request, $user): void {
+            $activeSuperAdminIds = ReservedAdminRole::activeSuperAdminIdsForUpdate();
+            $user = ReservedAdminRole::lockUserForUpdate($user);
 
-        DB::transaction(function () use ($user): void {
+            $this->assertUserCanBeDeleted($request, $user, $activeSuperAdminIds);
             $user->delete();
-        });
+        }, attempts: 3);
 
         return $this->success(message: 'deleted');
     }
 
     /**
-     * @param  array<string, mixed>  $validated
+     * @param  Collection<int, int>  $activeSuperAdminIds
      */
-    private function assertUserCanBeUpdated(UpdateUserRequest $request, User $user, array $validated): void
+    private function assertUserCanBeDisabled(UpdateUserRequest $request, User $user, Collection $activeSuperAdminIds): void
     {
-        if (! array_key_exists('is_active', $validated) || (bool) $validated['is_active']) {
-            return;
-        }
-
         if ($this->isCurrentAdmin($request, $user)) {
             throw ValidationException::withMessages([
                 'is_active' => ['You cannot disable your own admin account.'],
             ]);
         }
 
-        if ($this->isLastActiveSuperAdmin($user)) {
+        if (ReservedAdminRole::isLastActiveSuperAdmin($user, $activeSuperAdminIds)) {
             throw ValidationException::withMessages([
                 'is_active' => ['The last active super-admin cannot be disabled.'],
             ]);
         }
     }
 
-    private function assertUserCanBeDeleted(Request $request, User $user): void
+    /**
+     * @param  Collection<int, int>  $activeSuperAdminIds
+     */
+    private function assertUserCanBeDeleted(Request $request, User $user, Collection $activeSuperAdminIds): void
     {
         if ($this->isCurrentAdmin($request, $user)) {
             throw ValidationException::withMessages([
@@ -109,7 +118,7 @@ class UserController extends Controller
             ]);
         }
 
-        if ($this->isLastActiveSuperAdmin($user)) {
+        if (ReservedAdminRole::isLastActiveSuperAdmin($user, $activeSuperAdminIds)) {
             throw ValidationException::withMessages([
                 'user' => ['The last active super-admin cannot be deleted.'],
             ]);
@@ -120,12 +129,5 @@ class UserController extends Controller
     {
         return $request->user('admin') instanceof User
             && $request->user('admin')->is($user);
-    }
-
-    private function isLastActiveSuperAdmin(User $user): bool
-    {
-        return $user->is_active
-            && ReservedAdminRole::userIsSuperAdmin($user)
-            && ReservedAdminRole::activeSuperAdminCount() <= 1;
     }
 }

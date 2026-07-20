@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\Audit\AdminActivityRecorder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,13 +22,15 @@ class UserRoleController extends Controller
         $roles = $request->validated('roles');
         $actor = $request->user('admin');
 
-        if (! $actor instanceof User || ! ReservedAdminRole::userIsSuperAdmin($actor)) {
-            $this->assertReservedRolesUnchanged($user, $roles);
-        }
+        $user = DB::transaction(function () use ($actor, $roles, $user): User {
+            $activeSuperAdminIds = ReservedAdminRole::activeSuperAdminIdsForUpdate();
+            $user = ReservedAdminRole::lockUserForUpdate($user);
 
-        $this->assertLastSuperAdminKeepsRole($user, $roles);
+            if (! $actor instanceof User || ! ReservedAdminRole::userIsSuperAdmin($actor)) {
+                $this->assertReservedRolesUnchanged($user, $roles);
+            }
 
-        $user = DB::transaction(function () use ($roles, $user): User {
+            $this->assertLastSuperAdminKeepsRole($user, $roles, $activeSuperAdminIds);
             $user->syncRoles($roles);
             $user = $user->refresh()->load('roles');
             $this->activityRecorder->record($user, 'roles_synced', [
@@ -37,7 +40,7 @@ class UserRoleController extends Controller
             ]);
 
             return $user;
-        });
+        }, attempts: 3);
 
         return $this->success([
             'user' => UserResource::make($user),
@@ -71,14 +74,15 @@ class UserRoleController extends Controller
 
     /**
      * @param  array<int, string>  $roles
+     * @param  Collection<int, int>  $activeSuperAdminIds
      */
-    private function assertLastSuperAdminKeepsRole(User $user, array $roles): void
+    private function assertLastSuperAdminKeepsRole(User $user, array $roles, Collection $activeSuperAdminIds): void
     {
-        if (! $user->is_active || ! ReservedAdminRole::userIsSuperAdmin($user) || in_array(ReservedAdminRole::SUPER_ADMIN, $roles, true)) {
+        if (in_array(ReservedAdminRole::SUPER_ADMIN, $roles, true)) {
             return;
         }
 
-        if (ReservedAdminRole::activeSuperAdminCount() <= 1) {
+        if (ReservedAdminRole::isLastActiveSuperAdmin($user, $activeSuperAdminIds)) {
             throw ValidationException::withMessages([
                 'roles' => ['The last active super-admin cannot lose the super-admin role.'],
             ]);

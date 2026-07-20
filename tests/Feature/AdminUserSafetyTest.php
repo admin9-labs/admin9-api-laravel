@@ -94,4 +94,32 @@ class AdminUserSafetyTest extends TestCase
 
         $this->assertModelMissing($target);
     }
+
+    public function test_one_of_multiple_active_super_admins_can_be_disabled_or_deleted(): void
+    {
+        $this->createPermission('system.user.update');
+        $this->createPermission('system.user.delete');
+
+        $firstSuperAdmin = $this->createSuperAdmin('first-active-super-admin@example.com');
+        $secondSuperAdmin = $this->createSuperAdmin('second-active-super-admin@example.com');
+        $manager = User::factory()->create(['email' => 'multi-super-manager@example.com']);
+        $manager->givePermissionTo(['system.user.update', 'system.user.delete']);
+        $token = $this->adminTokenFor($manager);
+
+        $this->patchJson('/api/admin/users/'.$firstSuperAdmin->id, [
+            'is_active' => false,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $thirdSuperAdmin = $this->createSuperAdmin('third-active-super-admin@example.com');
+
+        $this->deleteJson('/api/admin/users/'.$thirdSuperAdmin->id, [], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertFalse($firstSuperAdmin->refresh()->is_active);
+        $this->assertTrue($secondSuperAdmin->refresh()->is_active);
+        $this->assertModelMissing($thirdSuperAdmin);
+    }
 }

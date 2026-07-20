@@ -218,6 +218,23 @@ class AdminRoleSafetyTest extends TestCase
         $this->assertTrue($activeSuperAdmin->refresh()->hasRole('super-admin'));
     }
 
+    public function test_active_super_admin_role_can_be_removed_when_another_active_super_admin_remains(): void
+    {
+        $this->seedUserRoleManagementPermission();
+        $actingSuperAdmin = $this->createSuperAdmin('acting-active-super-role@example.com');
+        $targetSuperAdmin = $this->createSuperAdmin('target-active-super-role@example.com');
+        $token = $this->adminTokenFor($actingSuperAdmin);
+
+        $this->putJson('/api/admin/users/'.$targetSuperAdmin->id.'/roles', [
+            'roles' => [],
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertTrue($actingSuperAdmin->refresh()->hasRole('super-admin'));
+        $this->assertFalse($targetSuperAdmin->refresh()->hasRole('super-admin'));
+    }
+
     public function test_role_creation_rolls_back_when_activity_recording_fails(): void
     {
         $this->createPermission('system.role.create', ['is_system' => true]);

@@ -61,6 +61,10 @@
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test --compact"
         ],
+        "test:mysql-concurrency": [
+            "@php artisan config:clear --ansi @no_additional_args",
+            "@php ./vendor/bin/phpunit --configuration=phpunit.mysql.xml"
+        ],
         "check": [
             "@docs:api:check",
             "@php artisan test --compact",
