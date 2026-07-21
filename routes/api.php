@@ -3,9 +3,9 @@
 use App\Http\Controllers\Api\Member\AuthController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware('throttle:30,1')->group(function () {
+Route::middleware('throttle:member-api')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:member-login')
         ->name('member.auth.login');
     Route::post('/auth/refresh', [AuthController::class, 'refresh'])->name('member.auth.refresh');
 

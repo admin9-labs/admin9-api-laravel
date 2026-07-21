@@ -10,8 +10,11 @@ use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\Operation;
 use Dedoc\Scramble\Support\Generator\SecurityRequirement;
 use Dedoc\Scramble\Support\RouteInfo;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Mitoop\Http\Exceptions\Handler;
 use Mitoop\Http\JsonResponderDefault;
@@ -41,6 +44,9 @@ class AppServiceProvider extends ServiceProvider
         app(JsonResponderDefault::class)->apply([
             'deny' => Response::HTTP_FORBIDDEN,
         ]);
+
+        RateLimiter::for('member-api', static fn (Request $request): Limit => Limit::perMinute(30)->by($request->ip()));
+        RateLimiter::for('member-login', static fn (Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
 
         if (class_exists(Scramble::class)) {
             Scramble::configure()->withOperationTransformers(

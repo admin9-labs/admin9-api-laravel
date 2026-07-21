@@ -52,7 +52,7 @@ class ApiResponseGenerator extends ResponseGenerator
 
         $code = $payload['code'] ?? null;
 
-        if (! is_int($code) || ! in_array($code, [401, 403, 404, 413, 422], true)) {
+        if (! is_int($code) || ! in_array($code, [401, 403, 404, 413, 422, 429], true)) {
             return null;
         }
 

@@ -7,6 +7,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
@@ -49,11 +50,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
-            $status = $exception instanceof AuthenticationException
-                ? 401
-                : ($payload['code'] ?? null);
+            if ($exception instanceof ThrottleRequestsException) {
+                $response->headers->add($exception->getHeaders());
+            }
 
-            if (! is_int($status) || ! in_array($status, [401, 403, 404, 413, 422], true)) {
+            $status = match (true) {
+                $exception instanceof AuthenticationException => 401,
+                $exception instanceof ThrottleRequestsException => $exception->getStatusCode(),
+                default => $payload['code'] ?? null,
+            };
+
+            if (! is_int($status) || ! in_array($status, [401, 403, 404, 413, 422, 429], true)) {
                 return $response;
             }
 
