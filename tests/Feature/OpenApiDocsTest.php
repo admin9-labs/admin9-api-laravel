@@ -87,6 +87,39 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
+    public function test_login_operations_document_rate_limit_error_contract(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach (['/api/auth/login', '/api/admin/auth/login'] as $path) {
+            $response = $document['paths'][$path]['post']['responses']['429'] ?? null;
+
+            $this->assertIsArray($response, "{$path} must document HTTP 429.");
+            $this->assertSame('Too Many Requests', $response['description'] ?? null);
+
+            $schema = $response['content']['application/json']['schema'] ?? null;
+            $this->assertIsArray($schema, "{$path} must document the rate limit error envelope.");
+            $this->assertSame(
+                ['success', 'code', 'message', 'data', 'errors', 'request_id'],
+                $schema['required'] ?? null,
+            );
+            $this->assertSame('boolean', $schema['properties']['success']['type'] ?? null);
+            $this->assertSame('integer', $schema['properties']['code']['type'] ?? null);
+            $this->assertSame('string', $schema['properties']['message']['type'] ?? null);
+            $this->assertSame('array', $schema['properties']['data']['type'] ?? null);
+            $this->assertSame('array', $schema['properties']['errors']['type'] ?? null);
+            $this->assertSame('string', $schema['properties']['request_id']['type'] ?? null);
+
+            foreach (['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'] as $header) {
+                $this->assertSame(
+                    'integer',
+                    $response['headers'][$header]['schema']['type'] ?? null,
+                    "{$path} must document the {$header} response header.",
+                );
+            }
+        }
+    }
+
     public function test_generated_openapi_document_uses_precise_admin_permission_names_schema(): void
     {
         $document = $this->openApiDocument();

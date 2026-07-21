@@ -103,6 +103,74 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "code": {
+                                            "type": "integer"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {},
+                                            "maxItems": 0
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {},
+                                            "maxItems": 0
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "errors",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds until the client may retry.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            },
+                            "X-RateLimit-Limit": {
+                                "description": "Maximum requests allowed in the current window.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            },
+                            "X-RateLimit-Remaining": {
+                                "description": "Requests remaining in the current window.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            },
+                            "X-RateLimit-Reset": {
+                                "description": "Unix timestamp when the current window resets.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []
@@ -386,6 +454,74 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "code": {
+                                            "type": "integer"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {},
+                                            "maxItems": 0
+                                        },
+                                        "errors": {
+                                            "type": "array",
+                                            "items": {},
+                                            "maxItems": 0
+                                        },
+                                        "request_id": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "errors",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "Retry-After": {
+                                "description": "Seconds until the client may retry.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            },
+                            "X-RateLimit-Limit": {
+                                "description": "Maximum requests allowed in the current window.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            },
+                            "X-RateLimit-Remaining": {
+                                "description": "Requests remaining in the current window.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            },
+                            "X-RateLimit-Reset": {
+                                "description": "Unix timestamp when the current window resets.",
+                                "schema": {
+                                    "type": "integer"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": []

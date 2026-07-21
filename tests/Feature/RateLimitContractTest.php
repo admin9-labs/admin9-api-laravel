@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Member;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use Illuminate\Testing\TestResponse;
+use PHPOpenSourceSaver\JWTAuth\JWTGuard;
 use Tests\TestCase;
 
 class RateLimitContractTest extends TestCase
@@ -64,6 +67,54 @@ class RateLimitContractTest extends TestCase
         $this->assertRateLimited($this->postAdminLogin('192.0.2.50'));
     }
 
+    public function test_protected_member_api_limit_is_isolated_by_authenticated_member(): void
+    {
+        $firstMember = Member::factory()->create();
+        $secondMember = Member::factory()->create();
+        $firstToken = $this->memberToken($firstMember);
+        $secondToken = $this->memberToken($secondMember);
+
+        for ($attempt = 1; $attempt <= 30; $attempt++) {
+            $this->getMemberProfile($firstToken, '192.0.2.60')
+                ->assertOk()
+                ->assertHeader('X-RateLimit-Limit', '30');
+        }
+
+        $this->getMemberProfile($secondToken, '192.0.2.60')
+            ->assertOk()
+            ->assertJsonPath('data.member.id', $secondMember->getKey());
+    }
+
+    public function test_protected_member_api_limit_follows_member_across_ip_addresses(): void
+    {
+        $member = Member::factory()->create();
+        $token = $this->memberToken($member);
+
+        for ($attempt = 1; $attempt <= 30; $attempt++) {
+            $ipAddress = $attempt % 2 === 0 ? '192.0.2.70' : '192.0.2.71';
+
+            $this->getMemberProfile($token, $ipAddress)->assertOk();
+        }
+
+        $this->assertRateLimited(
+            $this->getMemberProfile($token, '192.0.2.72'),
+            expectedLimit: '30',
+        );
+    }
+
+    public function test_guest_member_api_limit_continues_to_fall_back_to_client_ip(): void
+    {
+        for ($attempt = 1; $attempt <= 30; $attempt++) {
+            $this->postMemberRefresh('192.0.2.80')->assertUnauthorized();
+        }
+
+        $this->postMemberRefresh('192.0.2.81')->assertUnauthorized();
+        $this->assertRateLimited(
+            $this->postMemberRefresh('192.0.2.80'),
+            expectedLimit: '30',
+        );
+    }
+
     public function test_member_and_admin_login_routes_keep_their_scoped_limiters(): void
     {
         $memberLogin = RouteFacade::getRoutes()->getByName('member.auth.login');
@@ -92,15 +143,38 @@ class RateLimitContractTest extends TestCase
         ]);
     }
 
-    private function assertRateLimited(TestResponse $response): void
+    private function getMemberProfile(string $token, string $ipAddress): TestResponse
+    {
+        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->getJson('/api/auth/me', [
+            'Authorization' => 'Bearer '.$token,
+        ]);
+    }
+
+    private function postMemberRefresh(string $ipAddress): TestResponse
+    {
+        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->postJson('/api/auth/refresh');
+    }
+
+    private function memberToken(Member $member): string
+    {
+        $guard = Auth::guard('member');
+
+        $this->assertInstanceOf(JWTGuard::class, $guard);
+
+        return $guard->login($member);
+    }
+
+    private function assertRateLimited(TestResponse $response, string $expectedLimit = '5'): void
     {
         $response
             ->assertTooManyRequests()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 429)
             ->assertJsonPath('message', 'Too Many Attempts.')
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('errors', [])
             ->assertHeader('X-Request-Id')
-            ->assertHeader('X-RateLimit-Limit', '5')
+            ->assertHeader('X-RateLimit-Limit', $expectedLimit)
             ->assertHeader('X-RateLimit-Remaining', '0')
             ->assertHeader('Retry-After')
             ->assertHeader('X-RateLimit-Reset');
