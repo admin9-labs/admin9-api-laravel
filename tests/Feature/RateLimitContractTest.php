@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Member;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter as RateLimiterFacade;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use Illuminate\Testing\TestResponse;
 use PHPOpenSourceSaver\JWTAuth\JWTGuard;
@@ -41,10 +44,48 @@ class RateLimitContractTest extends TestCase
     public function test_admin_login_preserves_its_existing_rate_limit_contract(): void
     {
         for ($attempt = 1; $attempt <= 5; $attempt++) {
-            $this->postAdminLogin('192.0.2.30')->assertUnauthorized();
+            $this->postAdminLogin('192.0.2.30')
+                ->assertUnauthorized()
+                ->assertJsonPath('success', false)
+                ->assertJsonPath('code', 401)
+                ->assertJsonPath('message', 'Invalid credentials')
+                ->assertHeader('X-RateLimit-Limit', '5')
+                ->assertHeader('X-RateLimit-Remaining', (string) (5 - $attempt));
         }
 
         $this->assertRateLimited($this->postAdminLogin('192.0.2.30'));
+    }
+
+    public function test_admin_login_rate_limit_is_isolated_by_client_ip(): void
+    {
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->postAdminLogin('192.0.2.31')->assertUnauthorized();
+        }
+
+        $this->postAdminLogin('192.0.2.32')
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Invalid credentials')
+            ->assertHeader('X-RateLimit-Remaining', '4');
+        $this->assertRateLimited($this->postAdminLogin('192.0.2.31'));
+    }
+
+    public function test_admin_login_named_limiter_uses_the_namespaced_ip_bucket(): void
+    {
+        $limiter = RateLimiterFacade::limiter('admin-login');
+
+        $this->assertNotNull($limiter);
+
+        $request = Request::create(
+            '/api/admin/auth/login',
+            'POST',
+            server: ['REMOTE_ADDR' => '192.0.2.33'],
+        );
+        $limit = $limiter($request);
+
+        $this->assertInstanceOf(Limit::class, $limit);
+        $this->assertSame('admin:login:ip:192.0.2.33', $limit->key);
+        $this->assertSame(5, $limit->maxAttempts);
+        $this->assertSame(60, $limit->decaySeconds);
     }
 
     public function test_member_login_attempts_do_not_consume_the_admin_login_limit(): void
@@ -124,7 +165,7 @@ class RateLimitContractTest extends TestCase
         $this->assertInstanceOf(Route::class, $adminLogin);
         $this->assertContains('throttle:member-api', $memberLogin->gatherMiddleware());
         $this->assertContains('throttle:member-login', $memberLogin->gatherMiddleware());
-        $this->assertContains('throttle:5,1', $adminLogin->gatherMiddleware());
+        $this->assertContains('throttle:admin-login', $adminLogin->gatherMiddleware());
     }
 
     private function postMemberLogin(string $ipAddress): TestResponse

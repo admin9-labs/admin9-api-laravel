@@ -71,7 +71,7 @@ class AdminPermissionMiddlewareTest extends TestCase
         $this->assertNotNull($route);
         $middleware = $route->gatherMiddleware();
 
-        $this->assertContains('throttle:5,1', $middleware);
+        $this->assertContains('throttle:admin-login', $middleware);
         $this->assertNotContains('auth:admin', $middleware);
         $this->assertNotContains('account.active:admin', $middleware);
         $this->assertNotContains('admin.permission', $middleware);

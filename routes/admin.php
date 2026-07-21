@@ -15,7 +15,7 @@ $adminPermission = static fn (string $permission): string => "permission:{$permi
 
 Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission): void {
     Route::post('/auth/login', [AuthController::class, 'login'])
-        ->middleware('throttle:5,1')
+        ->middleware('throttle:admin-login')
         ->name('auth.login');
     Route::post('/auth/refresh', [AuthController::class, 'refresh'])->name('auth.refresh');
 

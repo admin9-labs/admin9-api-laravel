@@ -65,6 +65,7 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($key);
         });
         RateLimiter::for('member-login', static fn (Request $request): Limit => Limit::perMinute(5)->by($request->ip()));
+        RateLimiter::for('admin-login', static fn (Request $request): Limit => Limit::perMinute(5)->by('admin:login:ip:'.$request->ip()));
 
         if (class_exists(Scramble::class)) {
             Scramble::configure()->withOperationTransformers(
