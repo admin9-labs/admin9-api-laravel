@@ -130,6 +130,112 @@ class AdminSuperAdminConcurrencyTest extends TestCase
         }
     }
 
+    public function test_permission_deletion_serializes_concurrent_role_and_direct_user_assignments(): void
+    {
+        $this->resetDatabase();
+        $this->createPermission('system.permission.delete');
+        $this->createPermission('system.role.update');
+
+        $permission = $this->createPermission('dynamic.concurrent.assignment');
+        $role = Role::findOrCreate('concurrent-permission-role', 'admin');
+        $directUser = User::factory()->create(['email' => 'concurrent-direct-permission@example.com']);
+        $manager = User::factory()->create(['email' => 'concurrent-permission-manager@example.com']);
+        $manager->givePermissionTo(['system.permission.delete', 'system.role.update']);
+        $token = $this->tokenFor($manager);
+
+        $temporaryDirectory = $this->createTemporaryDirectory('permission-assignment');
+        $pausedFile = $temporaryDirectory.'/permission-delete-paused';
+        $releaseFile = $temporaryDirectory.'/permission-delete-release';
+        $processes = [];
+
+        try {
+            $deleteReadyFile = $temporaryDirectory.'/delete-worker.json';
+            $deleteProcess = $this->startRequestProcess(
+                $this->request('DELETE', "/api/admin/permissions/{$permission->id}", $token),
+                $deleteReadyFile,
+                [
+                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_ID' => (string) $permission->id,
+                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_PAUSED_FILE' => $pausedFile,
+                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_RELEASE_FILE' => $releaseFile,
+                ],
+            );
+            $processes[] = ['process' => $deleteProcess, 'ready_file' => $deleteReadyFile];
+            $deleteConnectionId = $this->waitForReadyWorkers($processes)[0];
+            $this->waitForBarrierFile($pausedFile, $deleteProcess);
+
+            $roleReadyFile = $temporaryDirectory.'/role-assignment-worker.json';
+            $roleAssignmentProcess = $this->startRequestProcess(
+                $this->request(
+                    'PUT',
+                    "/api/admin/roles/{$role->id}/permissions",
+                    $token,
+                    ['permissions' => [$permission->name]],
+                ),
+                $roleReadyFile,
+            );
+            $directReadyFile = $temporaryDirectory.'/direct-assignment-worker.json';
+            $directAssignmentProcess = $this->startDirectPermissionAssignmentProcess(
+                $directUser->id,
+                $permission->id,
+                $directReadyFile,
+            );
+            $assignmentProcesses = [
+                ['process' => $roleAssignmentProcess, 'ready_file' => $roleReadyFile],
+                ['process' => $directAssignmentProcess, 'ready_file' => $directReadyFile],
+            ];
+            $processes = [...$processes, ...$assignmentProcesses];
+
+            $assignmentConnectionIds = $this->waitForReadyWorkers($assignmentProcesses);
+            $parentConnectionId = $this->connectionId(DB::connection());
+            $this->assertCount(4, array_unique([
+                $parentConnectionId,
+                $deleteConnectionId,
+                ...$assignmentConnectionIds,
+            ]));
+            $this->waitForLockWaits(DB::connection(), $assignmentConnectionIds, $assignmentProcesses);
+            $this->assertSame(
+                [$deleteConnectionId, $deleteConnectionId],
+                $this->permissionBlockingConnectionIds(DB::connection(), $assignmentConnectionIds),
+            );
+
+            $this->assertNotFalse(file_put_contents($releaseFile, 'release', LOCK_EX));
+            [$deleteResult, $roleAssignmentResult, $directAssignmentResult] = $this->waitForResults($processes);
+            $resultDiagnostics = json_encode([
+                'delete' => $deleteResult,
+                'role_assignment' => $roleAssignmentResult,
+                'direct_assignment' => $directAssignmentResult,
+            ], JSON_THROW_ON_ERROR);
+
+            $this->assertSame(200, $deleteResult['status'], $resultDiagnostics);
+            $this->assertTrue($deleteResult['body']['success'] ?? false);
+            $this->assertSame('deleted', $deleteResult['body']['message'] ?? null);
+            $this->assertFalse($roleAssignmentResult['body']['success'] ?? true, $resultDiagnostics);
+            $this->assertSame(500, $roleAssignmentResult['body']['code'] ?? null, $resultDiagnostics);
+            $this->assertSame(409, $directAssignmentResult['status']);
+            $this->assertFalse($directAssignmentResult['body']['success'] ?? true);
+            $this->assertSame('23000', $directAssignmentResult['body']['sql_state'] ?? null);
+            $this->assertSame(1452, $directAssignmentResult['body']['driver_code'] ?? null);
+
+            $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
+            $this->assertDatabaseMissing('role_has_permissions', [
+                'permission_id' => $permission->id,
+                'role_id' => $role->id,
+            ]);
+            $this->assertDatabaseMissing('model_has_permissions', [
+                'permission_id' => $permission->id,
+                'model_id' => $directUser->id,
+                'model_type' => User::class,
+            ]);
+        } finally {
+            if (! is_file($releaseFile)) {
+                file_put_contents($releaseFile, 'release', LOCK_EX);
+            }
+
+            $this->stopProcesses($processes);
+            $this->removeTemporaryDirectory($temporaryDirectory);
+        }
+    }
+
     private function resetDatabase(): void
     {
         $this->artisan('migrate:fresh', [
@@ -199,18 +305,53 @@ class AdminSuperAdminConcurrencyTest extends TestCase
 
     /**
      * @param  array{method: string, uri: string, token: string, payload: array<string, mixed>}  $request
+     * @param  array<string, string>  $environmentOverrides
      */
-    private function startRequestProcess(array $request, string $readyFile): Process
+    private function startRequestProcess(array $request, string $readyFile, array $environmentOverrides = []): Process
     {
         $process = new Process(
             [PHP_BINARY, base_path('tests/Support/mysql-concurrency-request.php')],
             base_path(),
-            $this->workerEnvironment($request, $readyFile),
+            [...$this->workerEnvironment($request, $readyFile), ...$environmentOverrides],
         );
         $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
         $process->start();
 
         return $process;
+    }
+
+    private function startDirectPermissionAssignmentProcess(int $userId, int $permissionId, string $readyFile): Process
+    {
+        $process = new Process(
+            [PHP_BINARY, base_path('tests/Support/mysql-concurrency-direct-permission.php')],
+            base_path(),
+            [
+                ...$this->workerEnvironment($this->request('POST', '/', 'unused'), $readyFile),
+                'MYSQL_CONCURRENCY_PERMISSION_ID' => (string) $permissionId,
+                'MYSQL_CONCURRENCY_USER_ID' => (string) $userId,
+            ],
+        );
+        $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
+        $process->start();
+
+        return $process;
+    }
+
+    private function waitForBarrierFile(string $path, Process $process): void
+    {
+        $deadline = microtime(true) + self::SYNCHRONIZATION_TIMEOUT_SECONDS;
+
+        do {
+            if (is_file($path)) {
+                return;
+            }
+
+            if (! $process->isRunning()) {
+                $this->fail('MySQL concurrency worker exited before reaching the permission deletion barrier: '.$this->processDiagnostics($process));
+            }
+        } while ($this->pollUntil($deadline));
+
+        $this->fail('Timed out waiting for the permission deletion barrier.');
     }
 
     /**
@@ -309,6 +450,39 @@ class AdminSuperAdminConcurrencyTest extends TestCase
             fn (object $row): int => (int) $row->connection_id,
             $rows,
         ));
+    }
+
+    /**
+     * @param  array<int, int>  $workerConnectionIds
+     * @return array<int, int>
+     */
+    private function permissionBlockingConnectionIds(Connection $connection, array $workerConnectionIds): array
+    {
+        $rows = $connection->select(
+            <<<'SQL'
+                select distinct
+                    requesting_thread.processlist_id as requesting_connection_id,
+                    blocking_thread.processlist_id as connection_id
+                from performance_schema.data_lock_waits as lock_wait
+                inner join performance_schema.data_locks as requesting_lock
+                    on requesting_lock.engine_lock_id = lock_wait.requesting_engine_lock_id
+                inner join performance_schema.threads as requesting_thread
+                    on requesting_thread.thread_id = lock_wait.requesting_thread_id
+                inner join performance_schema.threads as blocking_thread
+                    on blocking_thread.thread_id = lock_wait.blocking_thread_id
+                where requesting_lock.object_schema = ?
+                    and requesting_lock.object_name = 'permissions'
+                    and requesting_lock.index_name = 'PRIMARY'
+                    and requesting_thread.processlist_id in (?, ?)
+                order by requesting_connection_id
+                SQL,
+            [$this->databaseMetadata['database'], ...$workerConnectionIds],
+        );
+
+        return array_map(
+            fn (object $row): int => (int) $row->connection_id,
+            $rows,
+        );
     }
 
     /**
@@ -466,7 +640,7 @@ class AdminSuperAdminConcurrencyTest extends TestCase
         }
 
         fwrite(STDOUT, sprintf(
-            "\nMySQL concurrency: server=%s (%s), database=%s, connections=3, worker_processes=2, rounds=%d\n",
+            "\nMySQL concurrency: server=%s (%s), database=%s, rounds=%d\n",
             $this->databaseMetadata['version'],
             $this->databaseMetadata['version_comment'],
             $this->databaseMetadata['database'],

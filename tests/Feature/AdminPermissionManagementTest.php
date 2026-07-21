@@ -210,9 +210,27 @@ class AdminPermissionManagementTest extends TestCase
         $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 422);
+            ->assertJsonPath('code', 422)
+            ->assertJsonPath('message', 'Assigned permissions cannot be deleted.');
 
         $this->assertDatabaseHas('permissions', ['id' => $permission->id]);
+    }
+
+    public function test_directly_assigned_permission_cannot_be_deleted(): void
+    {
+        $permission = $this->createPermission('dynamic.directly-assigned.protected');
+        $user = User::factory()->create(['email' => 'directly-assigned@example.com']);
+        $user->givePermissionTo($permission);
+        $token = $this->managerTokenFor(['system.permission.delete']);
+
+        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 422)
+            ->assertJsonPath('message', 'Assigned permissions cannot be deleted.');
+
+        $this->assertModelExists($permission);
+        $this->assertTrue($permission->users()->whereKey($user->getKey())->exists());
     }
 
     public function test_menu_referenced_permission_cannot_be_deleted(): void

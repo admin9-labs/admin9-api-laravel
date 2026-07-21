@@ -101,22 +101,32 @@ class PermissionController extends Controller
     {
         $this->abortIfNotAdminGuard($permission);
 
-        if ($this->isSystemPermission($permission)) {
-            return $this->error('System permissions cannot be deleted.', 422);
-        }
-
-        if ($permission->menus()->exists()) {
-            return $this->error('Permissions used by menus cannot be deleted. Detach the menus first.', 422);
-        }
-
-        if ($permission->roles()->exists() || $permission->users()->exists()) {
-            return $this->error('Assigned permissions cannot be deleted.', 422);
-        }
-
         try {
-            DB::transaction(function () use ($permission): void {
-                $permission->delete();
+            $errorMessage = DB::transaction(function () use ($permission): ?string {
+                $lockedPermission = Permission::query()
+                    ->whereKey($permission->getKey())
+                    ->lockForUpdate()
+                    ->first();
+
+                abort_if($lockedPermission === null, 404, 'Permission not found');
+                $this->abortIfNotAdminGuard($lockedPermission);
+
+                if ($this->isSystemPermission($lockedPermission)) {
+                    return 'System permissions cannot be deleted.';
+                }
+
+                if ($lockedPermission->menus()->exists()) {
+                    return 'Permissions used by menus cannot be deleted. Detach the menus first.';
+                }
+
+                if ($lockedPermission->roles()->exists() || $lockedPermission->users()->exists()) {
+                    return 'Assigned permissions cannot be deleted.';
+                }
+
+                $lockedPermission->delete();
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+                return null;
             });
         } catch (QueryException $exception) {
             if ($permission->menus()->exists()) {
@@ -124,6 +134,10 @@ class PermissionController extends Controller
             }
 
             throw $exception;
+        }
+
+        if ($errorMessage !== null) {
+            return $this->error($errorMessage, 422);
         }
 
         return $this->success(message: 'deleted');

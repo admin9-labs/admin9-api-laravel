@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\Permission;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ try {
     $kernel = $application->make(HttpKernel::class);
     $kernel->bootstrap();
     MySqlConcurrencyDatabaseGuard::assertSafe();
+    registerPermissionDeletePauseHook();
 
     $connection = DB::connection();
     $connectionId = (int) $connection->selectOne('select connection_id() as connection_id')->connection_id;
@@ -69,4 +71,43 @@ function requiredEnvironmentVariable(string $name): string
     }
 
     return $value;
+}
+
+function optionalEnvironmentVariable(string $name): ?string
+{
+    $value = $_SERVER[$name] ?? $_ENV[$name] ?? getenv($name);
+
+    return is_string($value) && $value !== '' ? $value : null;
+}
+
+function registerPermissionDeletePauseHook(): void
+{
+    $pausedFile = optionalEnvironmentVariable('MYSQL_CONCURRENCY_PERMISSION_DELETE_PAUSED_FILE');
+
+    if ($pausedFile === null) {
+        return;
+    }
+
+    $permissionId = (int) requiredEnvironmentVariable('MYSQL_CONCURRENCY_PERMISSION_DELETE_ID');
+    $releaseFile = requiredEnvironmentVariable('MYSQL_CONCURRENCY_PERMISSION_DELETE_RELEASE_FILE');
+
+    Permission::deleting(function (Permission $permission) use ($pausedFile, $permissionId, $releaseFile): void {
+        if ((int) $permission->getKey() !== $permissionId) {
+            return;
+        }
+
+        if (file_put_contents($pausedFile, (string) $permissionId, LOCK_EX) === false) {
+            throw new RuntimeException("Unable to write permission deletion barrier file [{$pausedFile}].");
+        }
+
+        $deadline = microtime(true) + 10;
+
+        while (! is_file($releaseFile)) {
+            if (microtime(true) >= $deadline) {
+                throw new RuntimeException('Timed out waiting to release the permission deletion barrier.');
+            }
+
+            usleep(10_000);
+        }
+    });
 }
