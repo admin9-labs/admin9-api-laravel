@@ -7,10 +7,13 @@ use App\Http\Requests\Admin\StoreRoleRequest;
 use App\Http\Requests\Admin\SyncRolePermissionsRequest;
 use App\Http\Requests\Admin\UpdateRoleRequest;
 use App\Http\Resources\Admin\RoleResource;
+use App\Models\Permission;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\Audit\AdminActivityRecorder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Mitoop\Http\Exceptions\ClientSafeException;
 use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
@@ -114,17 +117,32 @@ class RoleController extends Controller
         $this->abortIfNotAdminGuard($role);
         $this->abortIfReservedRole($role);
 
-        $role = DB::transaction(function () use ($request, $role): Role {
-            $role->syncPermissions($request->validated('permissions'));
-            $role = $role->refresh()->load('permissions');
-            $this->activityRecorder->record($role, 'permissions_synced', [
-                'attributes' => [
-                    'permissions' => $role->permissions->pluck('name')->values()->all(),
-                ],
-            ]);
+        /** @var array<int, string> $permissions */
+        $permissions = $request->validated('permissions');
 
-            return $role;
-        });
+        try {
+            $role = DB::transaction(function () use ($permissions, $role): Role {
+                $role->syncPermissions($permissions);
+                $role = $role->refresh()->load('permissions');
+                $this->activityRecorder->record($role, 'permissions_synced', [
+                    'attributes' => [
+                        'permissions' => $role->permissions->pluck('name')->values()->all(),
+                    ],
+                ]);
+
+                return $role;
+            });
+        } catch (QueryException $exception) {
+            if ($this->isConcurrentPermissionDeletion($exception, $permissions)) {
+                throw new ClientSafeException(
+                    'One or more selected permissions no longer exist.',
+                    $exception,
+                    422,
+                );
+            }
+
+            throw $exception;
+        }
 
         return $this->success([
             'role' => RoleResource::make($role),
@@ -146,6 +164,29 @@ class RoleController extends Controller
         });
 
         return $this->success(message: 'deleted');
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     */
+    private function isConcurrentPermissionDeletion(QueryException $exception, array $permissions): bool
+    {
+        $rolePermissionTable = config('permission.table_names.role_has_permissions');
+
+        if (($exception->errorInfo[0] ?? null) !== '23000'
+            || (int) ($exception->errorInfo[1] ?? 0) !== 1452
+            || ! is_string($rolePermissionTable)
+            || $rolePermissionTable === ''
+            || ! str_contains($exception->getSql(), $rolePermissionTable)) {
+            return false;
+        }
+
+        $permissions = array_values(array_unique($permissions));
+
+        return $permissions !== [] && Permission::query()
+            ->admin()
+            ->whereIn('name', $permissions)
+            ->count() !== count($permissions);
     }
 
     private function abortIfNotAdminGuard(Role $role): void

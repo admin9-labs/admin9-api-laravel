@@ -58,6 +58,7 @@ class AdminRoleSafetyTest extends TestCase
         $this->seedRoleManagementPermissions();
         $role = Role::findOrCreate('operator', 'admin');
         $permission = $this->createPermission('dynamic.operator.view');
+        $replacementPermission = $this->createPermission('dynamic.operator.manage');
         $token = $this->managerTokenFor([
             'system.role.update',
             'system.role.delete',
@@ -72,10 +73,13 @@ class AdminRoleSafetyTest extends TestCase
             ->assertJsonPath('data.role.name', 'operator-renamed');
 
         $this->putJson('/api/admin/roles/'.$role->id.'/permissions', [
-            'permissions' => [],
+            'permissions' => [$replacementPermission->name],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.role.permissions.0.name', $replacementPermission->name);
+
+        $this->assertSame([$replacementPermission->name], $this->rolePermissionNames($role));
 
         $this->deleteJson('/api/admin/roles/'.$role->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()

@@ -132,107 +132,122 @@ class AdminSuperAdminConcurrencyTest extends TestCase
 
     public function test_permission_deletion_serializes_concurrent_role_and_direct_user_assignments(): void
     {
-        $this->resetDatabase();
-        $this->createPermission('system.permission.delete');
-        $this->createPermission('system.role.update');
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.permission.delete');
+            $this->createPermission('system.role.update');
 
-        $permission = $this->createPermission('dynamic.concurrent.assignment');
-        $role = Role::findOrCreate('concurrent-permission-role', 'admin');
-        $directUser = User::factory()->create(['email' => 'concurrent-direct-permission@example.com']);
-        $manager = User::factory()->create(['email' => 'concurrent-permission-manager@example.com']);
-        $manager->givePermissionTo(['system.permission.delete', 'system.role.update']);
-        $token = $this->tokenFor($manager);
+            $permission = $this->createPermission("dynamic.concurrent.assignment.{$round}");
+            $retainedPermission = $this->createPermission("dynamic.concurrent.retained.{$round}");
+            $role = Role::findOrCreate("concurrent-permission-role-{$round}", 'admin');
+            $role->givePermissionTo($retainedPermission);
+            $directUser = User::factory()->create(['email' => "concurrent-direct-permission-{$round}@example.com"]);
+            $manager = User::factory()->create(['email' => "concurrent-permission-manager-{$round}@example.com"]);
+            $manager->givePermissionTo(['system.permission.delete', 'system.role.update']);
+            $token = $this->tokenFor($manager);
 
-        $temporaryDirectory = $this->createTemporaryDirectory('permission-assignment');
-        $pausedFile = $temporaryDirectory.'/permission-delete-paused';
-        $releaseFile = $temporaryDirectory.'/permission-delete-release';
-        $processes = [];
+            $temporaryDirectory = $this->createTemporaryDirectory("permission-assignment-round-{$round}");
+            $pausedFile = $temporaryDirectory.'/permission-delete-paused';
+            $releaseFile = $temporaryDirectory.'/permission-delete-release';
+            $processes = [];
 
-        try {
-            $deleteReadyFile = $temporaryDirectory.'/delete-worker.json';
-            $deleteProcess = $this->startRequestProcess(
-                $this->request('DELETE', "/api/admin/permissions/{$permission->id}", $token),
-                $deleteReadyFile,
-                [
-                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_ID' => (string) $permission->id,
-                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_PAUSED_FILE' => $pausedFile,
-                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_RELEASE_FILE' => $releaseFile,
-                ],
-            );
-            $processes[] = ['process' => $deleteProcess, 'ready_file' => $deleteReadyFile];
-            $deleteConnectionId = $this->waitForReadyWorkers($processes)[0];
-            $this->waitForBarrierFile($pausedFile, $deleteProcess);
+            try {
+                $deleteReadyFile = $temporaryDirectory.'/delete-worker.json';
+                $deleteProcess = $this->startRequestProcess(
+                    $this->request('DELETE', "/api/admin/permissions/{$permission->id}", $token),
+                    $deleteReadyFile,
+                    [
+                        'MYSQL_CONCURRENCY_PERMISSION_DELETE_ID' => (string) $permission->id,
+                        'MYSQL_CONCURRENCY_PERMISSION_DELETE_PAUSED_FILE' => $pausedFile,
+                        'MYSQL_CONCURRENCY_PERMISSION_DELETE_RELEASE_FILE' => $releaseFile,
+                    ],
+                );
+                $processes[] = ['process' => $deleteProcess, 'ready_file' => $deleteReadyFile];
+                $deleteConnectionId = $this->waitForReadyWorkers($processes)[0];
+                $this->waitForBarrierFile($pausedFile, $deleteProcess);
 
-            $roleReadyFile = $temporaryDirectory.'/role-assignment-worker.json';
-            $roleAssignmentProcess = $this->startRequestProcess(
-                $this->request(
-                    'PUT',
-                    "/api/admin/roles/{$role->id}/permissions",
-                    $token,
-                    ['permissions' => [$permission->name]],
-                ),
-                $roleReadyFile,
-            );
-            $directReadyFile = $temporaryDirectory.'/direct-assignment-worker.json';
-            $directAssignmentProcess = $this->startDirectPermissionAssignmentProcess(
-                $directUser->id,
-                $permission->id,
-                $directReadyFile,
-            );
-            $assignmentProcesses = [
-                ['process' => $roleAssignmentProcess, 'ready_file' => $roleReadyFile],
-                ['process' => $directAssignmentProcess, 'ready_file' => $directReadyFile],
-            ];
-            $processes = [...$processes, ...$assignmentProcesses];
+                $roleReadyFile = $temporaryDirectory.'/role-assignment-worker.json';
+                $roleAssignmentProcess = $this->startRequestProcess(
+                    $this->request(
+                        'PUT',
+                        "/api/admin/roles/{$role->id}/permissions",
+                        $token,
+                        ['permissions' => [$permission->name]],
+                    ),
+                    $roleReadyFile,
+                );
+                $directReadyFile = $temporaryDirectory.'/direct-assignment-worker.json';
+                $directAssignmentProcess = $this->startDirectPermissionAssignmentProcess(
+                    $directUser->id,
+                    $permission->id,
+                    $directReadyFile,
+                );
+                $assignmentProcesses = [
+                    ['process' => $roleAssignmentProcess, 'ready_file' => $roleReadyFile],
+                    ['process' => $directAssignmentProcess, 'ready_file' => $directReadyFile],
+                ];
+                $processes = [...$processes, ...$assignmentProcesses];
 
-            $assignmentConnectionIds = $this->waitForReadyWorkers($assignmentProcesses);
-            $parentConnectionId = $this->connectionId(DB::connection());
-            $this->assertCount(4, array_unique([
-                $parentConnectionId,
-                $deleteConnectionId,
-                ...$assignmentConnectionIds,
-            ]));
-            $this->waitForLockWaits(DB::connection(), $assignmentConnectionIds, $assignmentProcesses);
-            $this->assertSame(
-                [$deleteConnectionId, $deleteConnectionId],
-                $this->permissionBlockingConnectionIds(DB::connection(), $assignmentConnectionIds),
-            );
+                $assignmentConnectionIds = $this->waitForReadyWorkers($assignmentProcesses);
+                $parentConnectionId = $this->connectionId(DB::connection());
+                $this->assertCount(4, array_unique([
+                    $parentConnectionId,
+                    $deleteConnectionId,
+                    ...$assignmentConnectionIds,
+                ]));
+                $this->waitForLockWaits(DB::connection(), $assignmentConnectionIds, $assignmentProcesses);
+                $this->assertSame(
+                    [$deleteConnectionId, $deleteConnectionId],
+                    $this->permissionBlockingConnectionIds(DB::connection(), $assignmentConnectionIds),
+                );
 
-            $this->assertNotFalse(file_put_contents($releaseFile, 'release', LOCK_EX));
-            [$deleteResult, $roleAssignmentResult, $directAssignmentResult] = $this->waitForResults($processes);
-            $resultDiagnostics = json_encode([
-                'delete' => $deleteResult,
-                'role_assignment' => $roleAssignmentResult,
-                'direct_assignment' => $directAssignmentResult,
-            ], JSON_THROW_ON_ERROR);
+                $this->assertNotFalse(file_put_contents($releaseFile, 'release', LOCK_EX));
+                [$deleteResult, $roleAssignmentResult, $directAssignmentResult] = $this->waitForResults($processes);
+                $resultDiagnostics = json_encode([
+                    'round' => $round,
+                    'delete' => $deleteResult,
+                    'role_assignment' => $roleAssignmentResult,
+                    'direct_assignment' => $directAssignmentResult,
+                ], JSON_THROW_ON_ERROR);
 
-            $this->assertSame(200, $deleteResult['status'], $resultDiagnostics);
-            $this->assertTrue($deleteResult['body']['success'] ?? false);
-            $this->assertSame('deleted', $deleteResult['body']['message'] ?? null);
-            $this->assertFalse($roleAssignmentResult['body']['success'] ?? true, $resultDiagnostics);
-            $this->assertSame(500, $roleAssignmentResult['body']['code'] ?? null, $resultDiagnostics);
-            $this->assertSame(409, $directAssignmentResult['status']);
-            $this->assertFalse($directAssignmentResult['body']['success'] ?? true);
-            $this->assertSame('23000', $directAssignmentResult['body']['sql_state'] ?? null);
-            $this->assertSame(1452, $directAssignmentResult['body']['driver_code'] ?? null);
+                $this->assertSame(200, $deleteResult['status'], $resultDiagnostics);
+                $this->assertTrue($deleteResult['body']['success'] ?? false);
+                $this->assertSame('deleted', $deleteResult['body']['message'] ?? null);
+                $this->assertSame(422, $roleAssignmentResult['status'], $resultDiagnostics);
+                $this->assertFalse($roleAssignmentResult['body']['success'] ?? true, $resultDiagnostics);
+                $this->assertSame(422, $roleAssignmentResult['body']['code'] ?? null, $resultDiagnostics);
+                $this->assertSame(
+                    'One or more selected permissions no longer exist.',
+                    $roleAssignmentResult['body']['message'] ?? null,
+                    $resultDiagnostics,
+                );
+                $this->assertSame(409, $directAssignmentResult['status']);
+                $this->assertFalse($directAssignmentResult['body']['success'] ?? true);
+                $this->assertSame('23000', $directAssignmentResult['body']['sql_state'] ?? null);
+                $this->assertSame(1452, $directAssignmentResult['body']['driver_code'] ?? null);
 
-            $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
-            $this->assertDatabaseMissing('role_has_permissions', [
-                'permission_id' => $permission->id,
-                'role_id' => $role->id,
-            ]);
-            $this->assertDatabaseMissing('model_has_permissions', [
-                'permission_id' => $permission->id,
-                'model_id' => $directUser->id,
-                'model_type' => User::class,
-            ]);
-        } finally {
-            if (! is_file($releaseFile)) {
-                file_put_contents($releaseFile, 'release', LOCK_EX);
+                $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
+                $this->assertDatabaseMissing('role_has_permissions', [
+                    'permission_id' => $permission->id,
+                    'role_id' => $role->id,
+                ]);
+                $this->assertDatabaseHas('role_has_permissions', [
+                    'permission_id' => $retainedPermission->id,
+                    'role_id' => $role->id,
+                ]);
+                $this->assertDatabaseMissing('model_has_permissions', [
+                    'permission_id' => $permission->id,
+                    'model_id' => $directUser->id,
+                    'model_type' => User::class,
+                ]);
+            } finally {
+                if (! is_file($releaseFile)) {
+                    file_put_contents($releaseFile, 'release', LOCK_EX);
+                }
+
+                $this->stopProcesses($processes);
+                $this->removeTemporaryDirectory($temporaryDirectory);
             }
-
-            $this->stopProcesses($processes);
-            $this->removeTemporaryDirectory($temporaryDirectory);
         }
     }
 
