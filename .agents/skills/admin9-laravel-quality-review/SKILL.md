@@ -1,115 +1,129 @@
 ---
 name: admin9-laravel-quality-review
-description: "Project-specific Laravel 13 middle/back-office quality workflow for Admin9 API Laravel. Use when the user asks to review, audit, score, benchmark, optimize, refactor, fix, verify, or improve the current Laravel admin/backend project quality against a fixed standard. Covers read-only quality reviews, P0/P1/P2/P3 finding classification, evidence-based remediation planning, safe Laravel best-practice fixes, and post-fix verification."
+description: "Explicit-invocation repository checklist for Admin9 API Laravel quality work. Use only when the user invokes `$admin9-laravel-quality-review` and requests a review, remediation plan, fix, or verification pass grounded in project evidence, P0-P3 risk, and Unknowns. Do not use it as a maturity score, pass/fail standard, Laravel-official convention, third-party package convention, or general architecture authority."
 ---
 
 # Admin9 Laravel Quality Review
 
-Use this project skill to keep Laravel 13 quality reviews and follow-up fixes stable across different sessions. It defines a fixed rubric, severity rules, evidence requirements, and mode boundaries for the Admin9 API Laravel project.
+Use this project skill as a reusable inspection checklist for Laravel 13 reviews and follow-up work. It helps gather evidence consistently and triage risk; it does not score the repository, certify maturity, or decide that one architecture is universally correct.
+
+## Authority boundary
+
+- Treat the checklist as project-local process guidance only.
+- Do not present checklist items as Laravel official guidance, third-party package requirements, industry consensus, or proof of architecture quality.
+- Do not infer maturity from the presence or absence of `Services`, `Repositories`, Actions, DDD layers, or any other directory pattern.
+- Do not present personal preferences as best practices. Tie a convention claim to version-matched documentation, an explicit project decision, or concrete risk evidence.
+- Limit conclusions to supported findings, observed strengths, and `Unknown` areas. Do not derive a score, maturity band, or pass/fail verdict from checklist coverage.
 
 ## Required reference
 
-Read `references/review-standard-v1.md` before every review, remediation plan, fix, or verification pass. Treat it as the stable scoring and severity contract for this project.
+Read `references/review-standard-v1.md` before every review, remediation plan, fix, or verification pass. Use it only as the review-scope, evidence, and risk checklist.
 
-Also use the project `laravel-best-practices` skill for Laravel code changes, refactors, or implementation reviews.
+Also use the project `laravel-best-practices` skill whenever reviewing or changing Laravel PHP code. That skill remains guidance rather than a substitute for version-matched official or package documentation.
 
 ## Mode selection
 
-Choose exactly one mode from the user's wording:
+Choose exactly one mode from the user's request:
 
-1. **Review mode** — user asks whether the project is mature, compliant, high quality, risky, or asks for audit / review / score.
+1. **Read-only review mode**
+   - Do not edit files, create documentation, run migrations, or commit.
+   - Inspect the requested scope and report evidence-backed risks, strengths, and `Unknown` areas.
+   - Do not assign scores, maturity bands, or checklist-based approval status.
+2. **Optimization planning mode**
    - Stay read-only.
-   - Do not edit files, create docs, run migrations, or commit.
-   - Use the fixed rubric and output evidence-backed findings.
+   - Convert supported findings into a phased plan with expected tests and risk controls.
+3. **Fix mode**
+   - Edit only when the user explicitly requests implementation.
+   - Bind changes to specific findings or a clearly scoped target.
+   - Prefer small, reversible changes that match verified repository and Laravel conventions.
+   - Add or update tests when behavior changes.
+4. **Verification mode**
+   - Re-check impacted findings unless the user requests a full review.
+   - Compare before-and-after evidence when available.
+   - Do not generalize narrow verification into repository-wide quality claims.
 
-2. **Optimization planning mode** — user asks how to improve, optimize, clean up, or prepare remediation, but does not ask to execute.
-   - Stay read-only.
-   - Convert review findings into a phased plan.
-   - Include expected tests and risk controls.
+## Documentation discipline
 
-3. **Fix mode** — user explicitly asks to fix, optimize, refactor, or implement improvements.
-   - Before editing, bind the work to specific findings or a clearly scoped target.
-   - Prefer small reversible changes and existing Laravel conventions.
-   - Add or update tests for behavior changes.
-   - Run targeted tests, then Pint for PHP changes.
+For Laravel behavior, syntax, or convention claims, use Laravel Boost `search-docs` first when available. Scope it to the relevant installed package, usually `laravel/framework`, and use topic-based queries such as `form request validation`, `authorization policies`, `eloquent resources`, `queue timeouts`, or `database testing`.
 
-4. **Verification mode** — user asks whether a fix is complete, whether quality improved, or asks for re-review after changes.
-   - Re-check only the impacted rubric areas unless the user asks for a full review.
-   - Compare before/after findings where evidence is available.
-   - Do not claim global maturity from a narrow verification.
+For third-party behavior or conventions, use documentation or source that matches the installed package version. If the appropriate source cannot be checked, mark the claim `Unknown` or clearly label it as reviewer inference.
 
-## Official-doc discipline
+## Evidence discipline
 
-For Laravel behavior, syntax, or best-practice claims, use Laravel Boost `search-docs` first when available. Scope queries to the relevant package, usually `laravel/framework`, and keep queries topic-based, such as `form request validation`, `authorization policies`, `eloquent resources`, `queues timeouts`, or `database testing`.
+Use the source closest to each claim and keep these labels distinct:
 
-## Evidence rules
+- **Repository fact**: current code, config, migration, route, test, dependency lockfile, schema, or command output. Cite source files as `path:line` or `path:line-line`.
+- **Laravel official convention**: version-matched Laravel documentation, verified with `search-docs` when available.
+- **Third-party convention**: version-matched package documentation or source.
+- **Project design**: explicit user requirements, repository documentation, or a consistent local decision supported by concrete paths.
+- **Reviewer inference**: a reasoned conclusion from cited facts; explain the reasoning and do not phrase it as authority.
+- **Unknown**: evidence is missing, inaccessible, stale, or too narrow to decide.
 
-- Every finding must cite concrete repository evidence using `path:line-line`.
-- Do not report a missing pattern until the relevant directories/files have been searched.
-- Label unsupported areas as `Unknown`, not as defects.
-- Separate direct evidence from inference.
-- Prefer current project evidence over generic Laravel opinions.
-- Keep unrelated dirty work untouched.
+Prioritize direct current-repository evidence, then the explicit project design source relevant to the decision, then version-matched framework or package sources. Use reviewer inference last. Do not report an absent pattern until the relevant locations have been searched, and do not turn incomplete coverage into a defect.
 
 ## Review workflow
 
 1. Read `references/review-standard-v1.md`.
-2. Capture project shape: `composer.json`, `routes/`, `app/Http`, `app/Models`, `app/Policies`, `app/Providers`, `database/migrations`, `database/factories`, `database/seeders`, `tests/`, `config/`, and `bootstrap/app.php`.
-3. Inspect route and controller boundaries before judging API quality.
-4. Inspect representative write paths before judging validation, authorization, and transactions.
-5. Inspect representative list/read paths before judging Eloquent performance.
-6. Inspect tests before judging maturity.
-7. Score only what the repository evidence supports.
+2. Confirm the requested scope, mode, current diff, and dirty-work boundaries.
+3. Inventory only the repository surfaces needed for the requested review; use the reference's broader surface for a full-repository review.
+4. Inspect route and controller boundaries before evaluating API behavior.
+5. Inspect representative write paths before evaluating validation, authorization, transactions, and side effects.
+6. Inspect representative read/list paths before evaluating Eloquent performance.
+7. Inspect relevant tests before claiming a regression gap.
+8. Verify framework and package convention claims against the appropriate authority.
+9. Classify supported risks as P0-P3, without converting severity counts into a score or maturity verdict.
+10. Record uninspected or unsupported areas as `Unknown`.
 
 ## Review output contract
 
-Use this structure for full reviews:
+Use this structure for a full review, adapting detail to the requested scope:
 
 ```markdown
-## 总体结论
-- 成熟度评分：X/100
-- 结论：成熟 / 基本可用 / 有明显生产风险 / 原型级
-- 置信度：High / Medium / Low
+## Scope and mode
+- Mode: Read-only review
+- Reviewed: ...
+- Not reviewed / unavailable: ...
 
-## 分项评分
-| 维度 | 分数 | 证据摘要 |
-|---|---:|---|
+## Risk summary
+- P0: ...
+- P1: ...
+- P2: ...
+- P3: ...
 
-## P0/P1/P2/P3 问题清单
-### P0
-- 无 / ...
-
-### P1
-- 问题：...
-  - Evidence: `path:line-line`
+## Findings
+- Finding: ...
+  - Severity: P0/P1/P2/P3
+  - Repository fact: `path:line-line` - ...
+  - Convention or project design source: Laravel official / third-party / project design / none
+  - Reviewer inference: ...
   - Impact: ...
   - Recommendation: ...
 
-## 做得好的地方
-- Evidence: `path:line-line` — ...
+## Observed strengths
+- Repository fact: `path:line-line` - ...
 
-## 优先改进路线
-1. ...
+## Checklist coverage
+| Area | Status | Evidence or limitation |
+|---|---|---|
+| ... | Reviewed / Not applicable / Unknown | ... |
 
-## Unknown / 限制
+## Unknown / limitations
 - ...
+
+## Prioritized next steps
+1. ...
 ```
+
+Do not add an overall numeric score, category weights, maturity band, or checklist-derived pass/fail verdict.
 
 ## Fix workflow
 
 When executing fixes:
 
-1. Restate the selected findings and write scope.
-2. Check sibling patterns before editing.
+1. Restate the selected findings and allowed write scope.
+2. Check sibling patterns and current documentation before editing.
 3. Use Artisan generators for new Laravel classes when appropriate.
-4. Keep migrations, controllers, requests, policies, resources, and tests aligned.
+4. Keep migrations, controllers, requests, policies, resources, and tests aligned where the change crosses those boundaries.
 5. Run the narrowest relevant tests first.
 6. Run `vendor/bin/pint --dirty --format agent` after PHP changes.
-7. Report changed files, verification commands, and remaining risks.
-
-## Scoring stability rules
-
-- Use the same `references/review-standard-v1.md` weights every time unless the user explicitly asks to revise the standard.
-- Do not change category weights mid-review.
-- Do not compare scores from different rubric versions without noting the version.
-- If evidence is incomplete, lower confidence instead of inventing a score.
+7. Report changed files, verification commands, and remaining P0-P2 risks or `Unknown` areas.
