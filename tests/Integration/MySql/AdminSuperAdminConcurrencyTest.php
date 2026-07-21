@@ -2,6 +2,7 @@
 
 namespace Tests\Integration\MySql;
 
+use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
 use Illuminate\Database\Connection;
@@ -130,125 +131,251 @@ class AdminSuperAdminConcurrencyTest extends TestCase
         }
     }
 
-    public function test_permission_deletion_serializes_concurrent_role_and_direct_user_assignments(): void
+    public function test_permission_deletion_serializes_concurrent_role_creation(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.permission.delete');
+            $this->createPermission('system.role.create');
+
+            $permission = $this->createPermission("dynamic.concurrent.create.{$round}");
+            $roleName = "concurrent-created-role-{$round}";
+            $directUser = User::factory()->create(['email' => "concurrent-create-direct-{$round}@example.com"]);
+            $manager = User::factory()->create(['email' => "concurrent-create-manager-{$round}@example.com"]);
+            $manager->givePermissionTo(['system.permission.delete', 'system.role.create']);
+            $token = $this->tokenFor($manager);
+
+            $results = $this->racePermissionDeletionWithRoleWrite(
+                scenario: "permission-role-create-round-{$round}",
+                permission: $permission,
+                token: $token,
+                roleRequest: $this->request('POST', '/api/admin/roles', $token, [
+                    'name' => $roleName,
+                    'permissions' => [$permission->name],
+                ]),
+                directUser: $directUser,
+            );
+
+            $this->assertPermissionDeletionConflict($results, "role-create-round-{$round}");
+            $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
+            $this->assertDatabaseMissing('roles', [
+                'name' => $roleName,
+                'guard_name' => 'admin',
+            ]);
+            $this->assertDatabaseMissing('role_has_permissions', [
+                'permission_id' => $permission->id,
+            ]);
+            $this->assertDatabaseMissing('model_has_permissions', [
+                'permission_id' => $permission->id,
+                'model_id' => $directUser->id,
+                'model_type' => User::class,
+            ]);
+        }
+    }
+
+    public function test_permission_deletion_serializes_concurrent_role_update(): void
     {
         foreach (range(1, $this->rounds()) as $round) {
             $this->resetDatabase();
             $this->createPermission('system.permission.delete');
             $this->createPermission('system.role.update');
 
-            $permission = $this->createPermission("dynamic.concurrent.assignment.{$round}");
-            $retainedPermission = $this->createPermission("dynamic.concurrent.retained.{$round}");
-            $role = Role::findOrCreate("concurrent-permission-role-{$round}", 'admin');
+            $permission = $this->createPermission("dynamic.concurrent.update.{$round}");
+            $retainedPermission = $this->createPermission("dynamic.concurrent.update.retained.{$round}");
+            $originalRoleName = "concurrent-original-role-{$round}";
+            $updatedRoleName = "concurrent-updated-role-{$round}";
+            $role = Role::findOrCreate($originalRoleName, 'admin');
             $role->givePermissionTo($retainedPermission);
-            $directUser = User::factory()->create(['email' => "concurrent-direct-permission-{$round}@example.com"]);
-            $manager = User::factory()->create(['email' => "concurrent-permission-manager-{$round}@example.com"]);
+            $directUser = User::factory()->create(['email' => "concurrent-update-direct-{$round}@example.com"]);
+            $manager = User::factory()->create(['email' => "concurrent-update-manager-{$round}@example.com"]);
             $manager->givePermissionTo(['system.permission.delete', 'system.role.update']);
             $token = $this->tokenFor($manager);
 
-            $temporaryDirectory = $this->createTemporaryDirectory("permission-assignment-round-{$round}");
-            $pausedFile = $temporaryDirectory.'/permission-delete-paused';
-            $releaseFile = $temporaryDirectory.'/permission-delete-release';
-            $processes = [];
+            $results = $this->racePermissionDeletionWithRoleWrite(
+                scenario: "permission-role-update-round-{$round}",
+                permission: $permission,
+                token: $token,
+                roleRequest: $this->request('PATCH', "/api/admin/roles/{$role->id}", $token, [
+                    'name' => $updatedRoleName,
+                    'permissions' => [$permission->name],
+                ]),
+                directUser: $directUser,
+            );
 
-            try {
-                $deleteReadyFile = $temporaryDirectory.'/delete-worker.json';
-                $deleteProcess = $this->startRequestProcess(
-                    $this->request('DELETE', "/api/admin/permissions/{$permission->id}", $token),
-                    $deleteReadyFile,
-                    [
-                        'MYSQL_CONCURRENCY_PERMISSION_DELETE_ID' => (string) $permission->id,
-                        'MYSQL_CONCURRENCY_PERMISSION_DELETE_PAUSED_FILE' => $pausedFile,
-                        'MYSQL_CONCURRENCY_PERMISSION_DELETE_RELEASE_FILE' => $releaseFile,
-                    ],
-                );
-                $processes[] = ['process' => $deleteProcess, 'ready_file' => $deleteReadyFile];
-                $deleteConnectionId = $this->waitForReadyWorkers($processes)[0];
-                $this->waitForBarrierFile($pausedFile, $deleteProcess);
-
-                $roleReadyFile = $temporaryDirectory.'/role-assignment-worker.json';
-                $roleAssignmentProcess = $this->startRequestProcess(
-                    $this->request(
-                        'PUT',
-                        "/api/admin/roles/{$role->id}/permissions",
-                        $token,
-                        ['permissions' => [$permission->name]],
-                    ),
-                    $roleReadyFile,
-                );
-                $directReadyFile = $temporaryDirectory.'/direct-assignment-worker.json';
-                $directAssignmentProcess = $this->startDirectPermissionAssignmentProcess(
-                    $directUser->id,
-                    $permission->id,
-                    $directReadyFile,
-                );
-                $assignmentProcesses = [
-                    ['process' => $roleAssignmentProcess, 'ready_file' => $roleReadyFile],
-                    ['process' => $directAssignmentProcess, 'ready_file' => $directReadyFile],
-                ];
-                $processes = [...$processes, ...$assignmentProcesses];
-
-                $assignmentConnectionIds = $this->waitForReadyWorkers($assignmentProcesses);
-                $parentConnectionId = $this->connectionId(DB::connection());
-                $this->assertCount(4, array_unique([
-                    $parentConnectionId,
-                    $deleteConnectionId,
-                    ...$assignmentConnectionIds,
-                ]));
-                $this->waitForLockWaits(DB::connection(), $assignmentConnectionIds, $assignmentProcesses);
-                $this->assertSame(
-                    [$deleteConnectionId, $deleteConnectionId],
-                    $this->permissionBlockingConnectionIds(DB::connection(), $assignmentConnectionIds),
-                );
-
-                $this->assertNotFalse(file_put_contents($releaseFile, 'release', LOCK_EX));
-                [$deleteResult, $roleAssignmentResult, $directAssignmentResult] = $this->waitForResults($processes);
-                $resultDiagnostics = json_encode([
-                    'round' => $round,
-                    'delete' => $deleteResult,
-                    'role_assignment' => $roleAssignmentResult,
-                    'direct_assignment' => $directAssignmentResult,
-                ], JSON_THROW_ON_ERROR);
-
-                $this->assertSame(200, $deleteResult['status'], $resultDiagnostics);
-                $this->assertTrue($deleteResult['body']['success'] ?? false);
-                $this->assertSame('deleted', $deleteResult['body']['message'] ?? null);
-                $this->assertSame(422, $roleAssignmentResult['status'], $resultDiagnostics);
-                $this->assertFalse($roleAssignmentResult['body']['success'] ?? true, $resultDiagnostics);
-                $this->assertSame(422, $roleAssignmentResult['body']['code'] ?? null, $resultDiagnostics);
-                $this->assertSame(
-                    'One or more selected permissions no longer exist.',
-                    $roleAssignmentResult['body']['message'] ?? null,
-                    $resultDiagnostics,
-                );
-                $this->assertSame(409, $directAssignmentResult['status']);
-                $this->assertFalse($directAssignmentResult['body']['success'] ?? true);
-                $this->assertSame('23000', $directAssignmentResult['body']['sql_state'] ?? null);
-                $this->assertSame(1452, $directAssignmentResult['body']['driver_code'] ?? null);
-
-                $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
-                $this->assertDatabaseMissing('role_has_permissions', [
-                    'permission_id' => $permission->id,
-                    'role_id' => $role->id,
-                ]);
-                $this->assertDatabaseHas('role_has_permissions', [
-                    'permission_id' => $retainedPermission->id,
-                    'role_id' => $role->id,
-                ]);
-                $this->assertDatabaseMissing('model_has_permissions', [
-                    'permission_id' => $permission->id,
-                    'model_id' => $directUser->id,
-                    'model_type' => User::class,
-                ]);
-            } finally {
-                if (! is_file($releaseFile)) {
-                    file_put_contents($releaseFile, 'release', LOCK_EX);
-                }
-
-                $this->stopProcesses($processes);
-                $this->removeTemporaryDirectory($temporaryDirectory);
-            }
+            $this->assertPermissionDeletionConflict($results, "role-update-round-{$round}");
+            $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
+            $this->assertDatabaseHas('roles', [
+                'id' => $role->id,
+                'name' => $originalRoleName,
+                'guard_name' => 'admin',
+            ]);
+            $this->assertDatabaseMissing('roles', [
+                'id' => $role->id,
+                'name' => $updatedRoleName,
+            ]);
+            $this->assertDatabaseMissing('role_has_permissions', [
+                'permission_id' => $permission->id,
+                'role_id' => $role->id,
+            ]);
+            $this->assertDatabaseHas('role_has_permissions', [
+                'permission_id' => $retainedPermission->id,
+                'role_id' => $role->id,
+            ]);
+            $this->assertDatabaseMissing('model_has_permissions', [
+                'permission_id' => $permission->id,
+                'model_id' => $directUser->id,
+                'model_type' => User::class,
+            ]);
         }
+    }
+
+    public function test_permission_deletion_serializes_concurrent_role_permission_sync_and_direct_user_assignment(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.permission.delete');
+            $this->createPermission('system.role.update');
+
+            $permission = $this->createPermission("dynamic.concurrent.sync.{$round}");
+            $retainedPermission = $this->createPermission("dynamic.concurrent.sync.retained.{$round}");
+            $role = Role::findOrCreate("concurrent-sync-role-{$round}", 'admin');
+            $role->givePermissionTo($retainedPermission);
+            $directUser = User::factory()->create(['email' => "concurrent-sync-direct-{$round}@example.com"]);
+            $manager = User::factory()->create(['email' => "concurrent-sync-manager-{$round}@example.com"]);
+            $manager->givePermissionTo(['system.permission.delete', 'system.role.update']);
+            $token = $this->tokenFor($manager);
+
+            $results = $this->racePermissionDeletionWithRoleWrite(
+                scenario: "permission-role-sync-round-{$round}",
+                permission: $permission,
+                token: $token,
+                roleRequest: $this->request(
+                    'PUT',
+                    "/api/admin/roles/{$role->id}/permissions",
+                    $token,
+                    ['permissions' => [$permission->name]],
+                ),
+                directUser: $directUser,
+            );
+
+            $this->assertPermissionDeletionConflict($results, "role-sync-round-{$round}");
+            $this->assertDatabaseMissing('permissions', ['id' => $permission->id]);
+            $this->assertDatabaseMissing('role_has_permissions', [
+                'permission_id' => $permission->id,
+                'role_id' => $role->id,
+            ]);
+            $this->assertDatabaseHas('role_has_permissions', [
+                'permission_id' => $retainedPermission->id,
+                'role_id' => $role->id,
+            ]);
+            $this->assertDatabaseMissing('model_has_permissions', [
+                'permission_id' => $permission->id,
+                'model_id' => $directUser->id,
+                'model_type' => User::class,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array{method: string, uri: string, token: string, payload: array<string, mixed>}  $roleRequest
+     * @return array<int, array{status: int, body: array<string, mixed>, connection_id: int}>
+     */
+    private function racePermissionDeletionWithRoleWrite(
+        string $scenario,
+        Permission $permission,
+        string $token,
+        array $roleRequest,
+        User $directUser,
+    ): array {
+        $temporaryDirectory = $this->createTemporaryDirectory($scenario);
+        $pausedFile = $temporaryDirectory.'/permission-delete-paused';
+        $releaseFile = $temporaryDirectory.'/permission-delete-release';
+        $processes = [];
+
+        try {
+            $deleteReadyFile = $temporaryDirectory.'/delete-worker.json';
+            $deleteProcess = $this->startRequestProcess(
+                $this->request('DELETE', "/api/admin/permissions/{$permission->id}", $token),
+                $deleteReadyFile,
+                [
+                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_ID' => (string) $permission->id,
+                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_PAUSED_FILE' => $pausedFile,
+                    'MYSQL_CONCURRENCY_PERMISSION_DELETE_RELEASE_FILE' => $releaseFile,
+                ],
+            );
+            $processes[] = ['process' => $deleteProcess, 'ready_file' => $deleteReadyFile];
+            $deleteConnectionId = $this->waitForReadyWorkers($processes)[0];
+            $this->waitForBarrierFile($pausedFile, $deleteProcess);
+
+            $roleReadyFile = $temporaryDirectory.'/role-write-worker.json';
+            $roleWriteProcess = $this->startRequestProcess($roleRequest, $roleReadyFile);
+            $directReadyFile = $temporaryDirectory.'/direct-assignment-worker.json';
+            $directAssignmentProcess = $this->startDirectPermissionAssignmentProcess(
+                $directUser->id,
+                $permission->id,
+                $directReadyFile,
+            );
+            $assignmentProcesses = [
+                ['process' => $roleWriteProcess, 'ready_file' => $roleReadyFile],
+                ['process' => $directAssignmentProcess, 'ready_file' => $directReadyFile],
+            ];
+            $processes = [...$processes, ...$assignmentProcesses];
+
+            $assignmentConnectionIds = $this->waitForReadyWorkers($assignmentProcesses);
+            $parentConnectionId = $this->connectionId(DB::connection());
+            $this->assertCount(4, array_unique([
+                $parentConnectionId,
+                $deleteConnectionId,
+                ...$assignmentConnectionIds,
+            ]));
+            $this->waitForLockWaits(DB::connection(), $assignmentConnectionIds, $assignmentProcesses);
+            $this->assertSame(
+                [$deleteConnectionId, $deleteConnectionId],
+                $this->permissionBlockingConnectionIds(DB::connection(), $assignmentConnectionIds),
+            );
+
+            $this->assertNotFalse(file_put_contents($releaseFile, 'release', LOCK_EX));
+
+            return $this->waitForResults($processes);
+        } finally {
+            if (! is_file($releaseFile)) {
+                file_put_contents($releaseFile, 'release', LOCK_EX);
+            }
+
+            $this->stopProcesses($processes);
+            $this->removeTemporaryDirectory($temporaryDirectory);
+        }
+    }
+
+    /**
+     * @param  array<int, array{status: int, body: array<string, mixed>, connection_id: int}>  $results
+     */
+    private function assertPermissionDeletionConflict(array $results, string $scenario): void
+    {
+        $this->assertCount(3, $results);
+        [$deleteResult, $roleWriteResult, $directAssignmentResult] = $results;
+        $resultDiagnostics = json_encode([
+            'scenario' => $scenario,
+            'delete' => $deleteResult,
+            'role_write' => $roleWriteResult,
+            'direct_assignment' => $directAssignmentResult,
+        ], JSON_THROW_ON_ERROR);
+
+        $this->assertSame(200, $deleteResult['status'], $resultDiagnostics);
+        $this->assertTrue($deleteResult['body']['success'] ?? false, $resultDiagnostics);
+        $this->assertSame('deleted', $deleteResult['body']['message'] ?? null, $resultDiagnostics);
+        $this->assertSame(422, $roleWriteResult['status'], $resultDiagnostics);
+        $this->assertFalse($roleWriteResult['body']['success'] ?? true, $resultDiagnostics);
+        $this->assertSame(422, $roleWriteResult['body']['code'] ?? null, $resultDiagnostics);
+        $this->assertSame(
+            'One or more selected permissions no longer exist.',
+            $roleWriteResult['body']['message'] ?? null,
+            $resultDiagnostics,
+        );
+        $this->assertSame(409, $directAssignmentResult['status'], $resultDiagnostics);
+        $this->assertFalse($directAssignmentResult['body']['success'] ?? true, $resultDiagnostics);
+        $this->assertSame('23000', $directAssignmentResult['body']['sql_state'] ?? null, $resultDiagnostics);
+        $this->assertSame(1452, $directAssignmentResult['body']['driver_code'] ?? null, $resultDiagnostics);
     }
 
     private function resetDatabase(): void

@@ -10,6 +10,7 @@ use App\Http\Resources\Admin\RoleResource;
 use App\Models\Permission;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\Audit\AdminActivityRecorder;
+use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -35,10 +36,11 @@ class RoleController extends Controller
      */
     public function store(StoreRoleRequest $request): JsonResponse
     {
+        /** @var array<int, string> $permissions */
         $permissions = $request->validated('permissions', []);
         $shouldSyncPermissions = $request->has('permissions');
 
-        $role = DB::transaction(function () use ($request, $permissions, $shouldSyncPermissions): Role {
+        $role = $this->runRoleWriteTransaction($permissions, function () use ($request, $permissions, $shouldSyncPermissions): Role {
             $role = Role::query()->create([
                 'name' => $request->validated('name'),
                 'guard_name' => 'admin',
@@ -85,10 +87,11 @@ class RoleController extends Controller
         $this->abortIfNotAdminGuard($role);
         $this->abortIfReservedRole($role);
 
+        /** @var array<int, string> $permissions */
         $permissions = $request->validated('permissions', []);
         $shouldSyncPermissions = $request->has('permissions');
 
-        $role = DB::transaction(function () use ($request, $role, $permissions, $shouldSyncPermissions): Role {
+        $role = $this->runRoleWriteTransaction($permissions, function () use ($request, $role, $permissions, $shouldSyncPermissions): Role {
             $role->update($request->safe(['name']));
 
             if ($shouldSyncPermissions) {
@@ -120,29 +123,17 @@ class RoleController extends Controller
         /** @var array<int, string> $permissions */
         $permissions = $request->validated('permissions');
 
-        try {
-            $role = DB::transaction(function () use ($permissions, $role): Role {
-                $role->syncPermissions($permissions);
-                $role = $role->refresh()->load('permissions');
-                $this->activityRecorder->record($role, 'permissions_synced', [
-                    'attributes' => [
-                        'permissions' => $role->permissions->pluck('name')->values()->all(),
-                    ],
-                ]);
+        $role = $this->runRoleWriteTransaction($permissions, function () use ($permissions, $role): Role {
+            $role->syncPermissions($permissions);
+            $role = $role->refresh()->load('permissions');
+            $this->activityRecorder->record($role, 'permissions_synced', [
+                'attributes' => [
+                    'permissions' => $role->permissions->pluck('name')->values()->all(),
+                ],
+            ]);
 
-                return $role;
-            });
-        } catch (QueryException $exception) {
-            if ($this->isConcurrentPermissionDeletion($exception, $permissions)) {
-                throw new ClientSafeException(
-                    'One or more selected permissions no longer exist.',
-                    $exception,
-                    422,
-                );
-            }
-
-            throw $exception;
-        }
+            return $role;
+        });
 
         return $this->success([
             'role' => RoleResource::make($role),
@@ -164,6 +155,27 @@ class RoleController extends Controller
         });
 
         return $this->success(message: 'deleted');
+    }
+
+    /**
+     * @param  array<int, string>  $permissions
+     * @param  Closure(): Role  $callback
+     */
+    private function runRoleWriteTransaction(array $permissions, Closure $callback): Role
+    {
+        try {
+            return DB::transaction($callback);
+        } catch (QueryException $exception) {
+            if ($this->isConcurrentPermissionDeletion($exception, $permissions)) {
+                throw new ClientSafeException(
+                    'One or more selected permissions no longer exist.',
+                    $exception,
+                    422,
+                );
+            }
+
+            throw $exception;
+        }
     }
 
     /**
