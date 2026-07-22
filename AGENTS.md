@@ -95,9 +95,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Use `get-absolute-url` to resolve the correct scheme, domain, and port for project URLs. Always use this before sharing a URL with the user.
 - Use `browser-logs` to read browser logs, errors, and exceptions. Only recent logs are useful, ignore old entries.
 
-## Searching Documentation (IMPORTANT)
+## Searching Documentation
 
-- Always use `search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
+- Use `search-docs` once before modifying Laravel behavior when the change depends on Laravel or ecosystem package conventions. It returns version-specific docs based on installed packages automatically.
+- Do not repeat `search-docs` for Git-only landing, merge, commit, test reruns, diff review, or other read-only verification when the relevant documentation evidence has already been collected, unless the user explicitly requests a fresh lookup.
+- If the hosted documentation service is unavailable, verify behavior against `composer.lock` and the installed `vendor/` source, and report that the hosted documentation lookup was not completed. Do not block a pure Git landing task on documentation availability.
 - Pass a `packages` array to scope results when you know which packages are relevant.
 - Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
 - Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
