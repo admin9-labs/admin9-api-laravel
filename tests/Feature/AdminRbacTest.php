@@ -108,6 +108,19 @@ class AdminRbacTest extends TestCase
         $this->assertFalse(User::query()->where('email', 'root@example.com')->exists());
     }
 
+    public function test_admin_rbac_seeder_rejects_a_non_default_too_short_password_in_production(): void
+    {
+        $this->app->detectEnvironment(fn (): string => 'production');
+        config([
+            'admin.bootstrap.email' => 'root@example.com',
+            'admin.bootstrap.password' => 'short7',
+        ]);
+
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class, '--force' => true]);
+
+        $this->assertFalse(User::query()->where('email', 'root@example.com')->exists());
+    }
+
     public function test_direct_user_permission_grants_access_to_declared_permission_route(): void
     {
         $permission = $this->createAdminPermission('system.role.view');
@@ -207,7 +220,9 @@ class AdminRbacTest extends TestCase
             ->where('is_system', true)
             ->get();
 
-        $this->assertCount(25, $permissions);
+        $this->assertCount(27, $permissions);
+        $this->assertContains('system.activity-log.view', $permissions->pluck('name'));
+        $this->assertContains('system.login-log.view', $permissions->pluck('name'));
 
         $permissions->each(function (Permission $permission): void {
             $this->assertNotEmpty($permission->getAttribute('display_name'));
@@ -235,6 +250,8 @@ class AdminRbacTest extends TestCase
         $this->assertSame('system.role.create', $roleCreate->load('permission')->permission?->name);
         $this->assertSame('system.user.assign-role', $assignRole->load('permission')->permission?->name);
         $this->assertFalse($roleCreate->is_visible);
+        $this->assertFalse(Menu::query()->where('code', 'system.activity-logs')->exists());
+        $this->assertFalse(Menu::query()->where('code', 'system.login-logs')->exists());
     }
 
     public function test_permission_managed_admin_routes_declare_existing_seed_permission_names(): void
@@ -255,7 +272,11 @@ class AdminRbacTest extends TestCase
     {
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
-        $routePermissionNames = $this->managedAdminPermissionNames()->all();
+        $routePermissionNames = $this->managedAdminPermissionNames();
+        $apiOnlyPermissionNames = collect([
+            'system.activity-log.view',
+            'system.login-log.view',
+        ]);
         $menus = Menu::query()
             ->whereNotNull('permission_id')
             ->with('permission')
@@ -266,7 +287,14 @@ class AdminRbacTest extends TestCase
             ->values()
             ->all();
 
-        $this->assertSame($routePermissionNames, $menuPermissionNames);
+        $this->assertEqualsCanonicalizing(
+            $apiOnlyPermissionNames->all(),
+            $routePermissionNames->intersect($apiOnlyPermissionNames)->values()->all(),
+        );
+        $this->assertSame(
+            $routePermissionNames->diff($apiOnlyPermissionNames)->values()->all(),
+            $menuPermissionNames,
+        );
 
         $menus->each(function (Menu $menu): void {
             $this->assertNotNull($menu->permission_id);

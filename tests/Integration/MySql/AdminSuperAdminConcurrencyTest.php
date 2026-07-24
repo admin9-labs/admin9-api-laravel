@@ -51,16 +51,15 @@ class AdminSuperAdminConcurrencyTest extends TestCase
 
             $firstSuperAdmin = $this->createSuperAdmin("disable-first-{$round}@example.com");
             $secondSuperAdmin = $this->createSuperAdmin("disable-second-{$round}@example.com");
-            $manager = User::factory()->create(['email' => "disable-manager-{$round}@example.com"]);
-            $manager->givePermissionTo('system.user.update');
-            $token = $this->tokenFor($manager);
+            $firstToken = $this->tokenFor($firstSuperAdmin);
+            $secondToken = $this->tokenFor($secondSuperAdmin);
 
             $results = $this->raceRequests(
                 scenario: "disable-round-{$round}",
                 targetIds: [$firstSuperAdmin->id, $secondSuperAdmin->id],
                 requests: [
-                    $this->request('PATCH', "/api/admin/users/{$firstSuperAdmin->id}", $token, ['is_active' => false]),
-                    $this->request('PATCH', "/api/admin/users/{$secondSuperAdmin->id}", $token, ['is_active' => false]),
+                    $this->request('PATCH', "/api/admin/users/{$secondSuperAdmin->id}", $firstToken, ['is_active' => false]),
+                    $this->request('PATCH', "/api/admin/users/{$firstSuperAdmin->id}", $secondToken, ['is_active' => false]),
                 ],
             );
 
@@ -81,16 +80,15 @@ class AdminSuperAdminConcurrencyTest extends TestCase
 
             $firstSuperAdmin = $this->createSuperAdmin("delete-first-{$round}@example.com");
             $secondSuperAdmin = $this->createSuperAdmin("delete-second-{$round}@example.com");
-            $manager = User::factory()->create(['email' => "delete-manager-{$round}@example.com"]);
-            $manager->givePermissionTo('system.user.delete');
-            $token = $this->tokenFor($manager);
+            $firstToken = $this->tokenFor($firstSuperAdmin);
+            $secondToken = $this->tokenFor($secondSuperAdmin);
 
             $results = $this->raceRequests(
                 scenario: "delete-round-{$round}",
                 targetIds: [$firstSuperAdmin->id, $secondSuperAdmin->id],
                 requests: [
-                    $this->request('DELETE', "/api/admin/users/{$firstSuperAdmin->id}", $token),
-                    $this->request('DELETE', "/api/admin/users/{$secondSuperAdmin->id}", $token),
+                    $this->request('DELETE', "/api/admin/users/{$secondSuperAdmin->id}", $firstToken),
+                    $this->request('DELETE', "/api/admin/users/{$firstSuperAdmin->id}", $secondToken),
                 ],
             );
 

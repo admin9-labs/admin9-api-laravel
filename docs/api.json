@@ -16,6 +16,168 @@
         }
     ],
     "paths": {
+        "/api/admin/activity-logs": {
+            "get": {
+                "operationId": "admin.activity-logs.index",
+                "tags": [
+                    "ActivityLog"
+                ],
+                "parameters": [
+                    {
+                        "name": "log_name",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "event",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "subject_type",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "subject_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "causer_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "created_at",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort field. Prefix with - for descending order.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "id",
+                                "created_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "description": "Items per page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 15,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ActivityLogResource"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pagination": {
+                                                    "type": "string",
+                                                    "description": "Pagination strategy"
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "description": "Current page number"
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "description": "Items per page"
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean",
+                                                    "description": "Whether more pages exist"
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items"
+                                                }
+                                            },
+                                            "required": [
+                                                "pagination",
+                                                "page",
+                                                "page_size",
+                                                "has_more",
+                                                "total"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "meta",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
         "/api/auth/login": {
             "post": {
                 "operationId": "member.auth.login",
@@ -306,6 +468,69 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/api/auth/password": {
+            "put": {
+                "operationId": "member.auth.password.update",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -671,6 +896,69 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/api/admin/auth/password": {
+            "put": {
+                "operationId": "admin.auth.password.update",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/App.Http.Requests.Admin.ChangePasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
                     }
                 }
             }
@@ -1634,6 +1922,175 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    }
+                }
+            }
+        },
+        "/api/admin/login-logs": {
+            "get": {
+                "operationId": "admin.login-logs.index",
+                "tags": [
+                    "LoginLog"
+                ],
+                "parameters": [
+                    {
+                        "name": "guard",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "event",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "successful",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "account",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "subject_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "ip_address",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "created_at",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "Sort field. Prefix with - for descending order.",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "id",
+                                "created_at"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "description": "Items per page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 15,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated list",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/LoginLogResource"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object",
+                                            "properties": {
+                                                "pagination": {
+                                                    "type": "string",
+                                                    "description": "Pagination strategy"
+                                                },
+                                                "page": {
+                                                    "type": "integer",
+                                                    "description": "Current page number"
+                                                },
+                                                "page_size": {
+                                                    "type": "integer",
+                                                    "description": "Items per page"
+                                                },
+                                                "has_more": {
+                                                    "type": "boolean",
+                                                    "description": "Whether more pages exist"
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "description": "Total number of items"
+                                                }
+                                            },
+                                            "required": [
+                                                "pagination",
+                                                "page",
+                                                "page_size",
+                                                "has_more",
+                                                "total"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "meta",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
@@ -3670,6 +4127,83 @@
                 }
             }
         },
+        "/api/admin/users/{user}/password": {
+            "put": {
+                "operationId": "admin.users.password.update",
+                "tags": [
+                    "User"
+                ],
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "description": "The user ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ResetUserPasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ModelNotFoundException"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ValidationException"
+                    }
+                }
+            }
+        },
         "/api/admin/users/{user}/roles": {
             "put": {
                 "operationId": "admin.users.roles.update",
@@ -3764,6 +4298,82 @@
             }
         },
         "schemas": {
+            "ActivityLogResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "log_name": {
+                        "type": "string"
+                    },
+                    "event": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "subject_type": {
+                        "type": "string"
+                    },
+                    "subject_id": {
+                        "type": "string"
+                    },
+                    "causer_type": {
+                        "type": "string"
+                    },
+                    "causer_id": {
+                        "type": "string"
+                    },
+                    "properties": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "log_name",
+                    "event",
+                    "description",
+                    "subject_type",
+                    "subject_id",
+                    "causer_type",
+                    "causer_id",
+                    "properties",
+                    "created_at"
+                ],
+                "title": "ActivityLogResource"
+            },
+            "App.Http.Requests.Admin.ChangePasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "current_password": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 255
+                    },
+                    "password_confirmation": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "current_password",
+                    "password",
+                    "password_confirmation"
+                ],
+                "title": "App.Http.Requests.Admin.ChangePasswordRequest"
+            },
             "App.Http.Requests.Admin.LoginRequest": {
                 "type": "object",
                 "properties": {
@@ -3780,6 +4390,30 @@
                     "password"
                 ],
                 "title": "App.Http.Requests.Admin.LoginRequest"
+            },
+            "ChangePasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "current_password": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 255
+                    },
+                    "password_confirmation": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "current_password",
+                    "password",
+                    "password_confirmation"
+                ],
+                "title": "ChangePasswordRequest"
             },
             "DictionaryItemResource": {
                 "type": "object",
@@ -3909,6 +4543,91 @@
                     "updated_at"
                 ],
                 "title": "DictionaryTypeResource"
+            },
+            "LoginLogResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "guard": {
+                        "type": "string"
+                    },
+                    "account": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "subject_type": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "subject_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "event": {
+                        "type": "string"
+                    },
+                    "successful": {
+                        "type": "boolean"
+                    },
+                    "failure_reason": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "ip_address": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "user_agent": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "request_id": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "context": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "guard",
+                    "account",
+                    "subject_type",
+                    "subject_id",
+                    "event",
+                    "successful",
+                    "failure_reason",
+                    "ip_address",
+                    "user_agent",
+                    "request_id",
+                    "context",
+                    "created_at"
+                ],
+                "title": "LoginLogResource"
             },
             "LoginRequest": {
                 "type": "object",
@@ -4138,6 +4857,26 @@
                     "updated_at"
                 ],
                 "title": "PermissionResource"
+            },
+            "ResetUserPasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "password": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 255
+                    },
+                    "password_confirmation": {
+                        "type": "string",
+                        "minLength": 8,
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "password",
+                    "password_confirmation"
+                ],
+                "title": "ResetUserPasswordRequest"
             },
             "RoleResource": {
                 "type": "object",
@@ -4467,7 +5206,8 @@
                     },
                     "password": {
                         "type": "string",
-                        "minLength": 8
+                        "minLength": 8,
+                        "maxLength": 255
                     },
                     "is_active": {
                         "type": "boolean"
@@ -4850,10 +5590,6 @@
                         "type": "string",
                         "format": "email",
                         "maxLength": 255
-                    },
-                    "password": {
-                        "type": "string",
-                        "minLength": 8
                     },
                     "is_active": {
                         "type": "boolean"

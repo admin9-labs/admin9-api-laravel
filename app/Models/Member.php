@@ -19,6 +19,7 @@ class Member extends Authenticatable implements JWTSubject
     use HasFactory, HasModelDefaults, Notifiable;
 
     protected $attributes = [
+        'auth_version' => 1,
         'is_active' => true,
     ];
 
@@ -28,6 +29,7 @@ class Member extends Authenticatable implements JWTSubject
     protected function casts(): array
     {
         return [
+            'auth_version' => 'integer',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
@@ -40,12 +42,13 @@ class Member extends Authenticatable implements JWTSubject
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, int|string>
      */
     public function getJWTCustomClaims(): array
     {
         return [
             'guard' => 'member',
+            'auth_version' => $this->auth_version,
         ];
     }
 }

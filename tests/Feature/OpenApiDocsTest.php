@@ -18,12 +18,17 @@ class OpenApiDocsTest extends TestCase
         foreach ([
             '/api/admin/auth/login' => 'post',
             '/api/admin/auth/me' => 'get',
+            '/api/admin/auth/password' => 'put',
             '/api/admin/menus/tree' => 'get',
             '/api/admin/users' => 'get',
+            '/api/admin/users/{user}/password' => 'put',
             '/api/admin/roles' => 'get',
             '/api/admin/permissions' => 'get',
             '/api/admin/dictionary-types' => 'get',
             '/api/admin/system-configs' => 'get',
+            '/api/admin/activity-logs' => 'get',
+            '/api/admin/login-logs' => 'get',
+            '/api/auth/password' => 'put',
         ] as $path => $method) {
             $this->assertArrayHasKey($path, $document['paths']);
             $this->assertArrayHasKey($method, $document['paths'][$path]);
@@ -48,6 +53,21 @@ class OpenApiDocsTest extends TestCase
 
         foreach (['key', 'name', 'config_group', 'type', 'is_public', 'is_active', 'keyword', 'sort', 'page_size', 'page'] as $parameter) {
             $this->assertContains($parameter, $systemConfigParameters);
+        }
+
+        $activityLogParameters = collect($document['paths']['/api/admin/activity-logs']['get']['parameters'])
+            ->pluck('name')
+            ->all();
+        $loginLogParameters = collect($document['paths']['/api/admin/login-logs']['get']['parameters'])
+            ->pluck('name')
+            ->all();
+
+        foreach (['log_name', 'event', 'subject_type', 'subject_id', 'causer_id', 'created_at', 'sort', 'page_size', 'page'] as $parameter) {
+            $this->assertContains($parameter, $activityLogParameters);
+        }
+
+        foreach (['guard', 'event', 'successful', 'account', 'subject_id', 'ip_address', 'created_at', 'sort', 'page_size', 'page'] as $parameter) {
+            $this->assertContains($parameter, $loginLogParameters);
         }
 
         $this->assertSame('bearer', $document['components']['securitySchemes']['http']['scheme'] ?? null);
@@ -146,6 +166,8 @@ class OpenApiDocsTest extends TestCase
             '/api/admin/dictionary-types',
             '/api/admin/dictionary-items',
             '/api/admin/system-configs',
+            '/api/admin/activity-logs',
+            '/api/admin/login-logs',
         ] as $path) {
             $schema = $document['paths'][$path]['get']['responses']['200']['content']['application/json']['schema'];
 
@@ -157,6 +179,32 @@ class OpenApiDocsTest extends TestCase
                 "{$path} must document the business pagination metadata shape.",
             );
         }
+    }
+
+    public function test_generated_openapi_document_separates_profile_updates_from_password_operations(): void
+    {
+        $document = $this->openApiDocument();
+        $schemas = $document['components']['schemas'];
+
+        $this->assertArrayNotHasKey('password', $schemas['UpdateUserRequest']['properties']);
+
+        foreach ([
+            '/api/admin/auth/password' => ['current_password', 'password', 'password_confirmation'],
+            '/api/auth/password' => ['current_password', 'password', 'password_confirmation'],
+            '/api/admin/users/{user}/password' => ['password', 'password_confirmation'],
+        ] as $path => $required) {
+            $reference = $document['paths'][$path]['put']['requestBody']['content']['application/json']['schema']['$ref'];
+            $schemaName = str($reference)->afterLast('/')->toString();
+
+            $this->assertSame($required, $schemas[$schemaName]['required']);
+            $this->assertSame(8, $schemas[$schemaName]['properties']['password']['minLength']);
+            $this->assertSame(255, $schemas[$schemaName]['properties']['password']['maxLength']);
+            $this->assertSame(8, $schemas[$schemaName]['properties']['password_confirmation']['minLength']);
+            $this->assertSame(255, $schemas[$schemaName]['properties']['password_confirmation']['maxLength']);
+        }
+
+        $this->assertSame(8, $schemas['StoreUserRequest']['properties']['password']['minLength']);
+        $this->assertSame(255, $schemas['StoreUserRequest']['properties']['password']['maxLength']);
     }
 
     public function test_generated_openapi_document_keeps_bounded_admin_catalogs_unpaginated(): void

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -26,8 +27,21 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique(User::class, 'email')->ignore($this->route('user'))],
-            'password' => ['sometimes', 'required', 'string', 'min:8'],
             'is_active' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                if ($this->exists('password')) {
+                    $validator->errors()->add('password', 'Use the dedicated password reset endpoint.');
+                }
+            },
         ];
     }
 }

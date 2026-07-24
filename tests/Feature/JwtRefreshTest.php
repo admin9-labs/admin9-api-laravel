@@ -122,6 +122,35 @@ class JwtRefreshTest extends TestCase
         $this->assertUnauthenticatedRefresh($guard, $this->tokenWithClaims($claims));
     }
 
+    #[DataProvider('guardProvider')]
+    public function test_token_missing_authentication_version_cannot_be_refreshed(string $guard): void
+    {
+        $account = $guard === 'admin'
+            ? User::factory()->create(['email' => 'missing-version-admin@example.com'])
+            : Member::factory()->create(['email' => 'missing-version-member@example.com']);
+
+        $this->assertUnauthenticatedRefresh($guard, $this->tokenWithClaims([
+            'sub' => $account->getKey(),
+            'guard' => $guard,
+            'prv' => sha1($account::class),
+        ]));
+    }
+
+    #[DataProvider('guardProvider')]
+    public function test_token_with_mismatched_authentication_version_cannot_be_refreshed(string $guard): void
+    {
+        $account = $guard === 'admin'
+            ? User::factory()->create(['email' => 'mismatched-version-admin@example.com'])
+            : Member::factory()->create(['email' => 'mismatched-version-member@example.com']);
+
+        $this->assertUnauthenticatedRefresh($guard, $this->tokenWithClaims([
+            'sub' => $account->getKey(),
+            'guard' => $guard,
+            'prv' => sha1($account::class),
+            'auth_version' => $account->auth_version + 1,
+        ]));
+    }
+
     #[DataProvider('invalidTokenProvider')]
     public function test_missing_or_malformed_token_cannot_be_refreshed(?string $token): void
     {
@@ -158,6 +187,7 @@ class JwtRefreshTest extends TestCase
         $loginPayload = $this->payload($token);
         $this->assertSame($guard, $loginPayload['guard'] ?? null);
         $this->assertSame($expectedProviderClaim, $loginPayload['prv'] ?? null);
+        $this->assertSame($account->auth_version, $loginPayload['auth_version'] ?? null);
 
         $refresh = $this->postJson(
             $this->refreshUri($guard),
@@ -171,6 +201,7 @@ class JwtRefreshTest extends TestCase
         $this->assertSame($guard, $refreshPayload['guard'] ?? null);
         $this->assertSame($expectedProviderClaim, $refreshPayload['prv'] ?? null);
         $this->assertSame((string) $account->getKey(), (string) ($refreshPayload['sub'] ?? ''));
+        $this->assertSame($account->auth_version, $refreshPayload['auth_version'] ?? null);
 
         $this->getJson($this->meUri($guard), $this->authorizationHeader($refreshedToken))
             ->assertOk()

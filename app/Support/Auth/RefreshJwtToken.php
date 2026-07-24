@@ -61,6 +61,13 @@ final class RefreshJwtToken
                 throw new AuthenticationException(guards: [$guardName]);
             }
 
+            $authenticationVersion = $payload->get('auth_version');
+
+            if (! is_int($authenticationVersion)
+                || $authenticationVersion !== (int) data_get($subject, 'auth_version')) {
+                throw new AuthenticationException(guards: [$guardName]);
+            }
+
             if (! (bool) data_get($subject, 'is_active', true)) {
                 throw new HttpException(Response::HTTP_FORBIDDEN, 'Account disabled');
             }
@@ -69,6 +76,7 @@ final class RefreshJwtToken
                 ->customClaims([
                     'guard' => $guardName,
                     'prv' => $providerClaim,
+                    'auth_version' => $authenticationVersion,
                 ])
                 ->refresh($token, resetClaims: true)
                 ->get();

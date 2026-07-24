@@ -26,6 +26,7 @@ class User extends Authenticatable implements JWTSubject
     protected string $guard_name = 'admin';
 
     protected $attributes = [
+        'auth_version' => 1,
         'is_active' => true,
     ];
 
@@ -38,6 +39,7 @@ class User extends Authenticatable implements JWTSubject
     {
         return [
             'email_verified_at' => 'datetime',
+            'auth_version' => 'integer',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'password' => 'hashed',
@@ -50,12 +52,13 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, int|string>
      */
     public function getJWTCustomClaims(): array
     {
         return [
             'guard' => 'admin',
+            'auth_version' => $this->auth_version,
         ];
     }
 

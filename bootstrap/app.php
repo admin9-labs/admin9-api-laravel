@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AddContext;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureJwtAuthenticationVersion;
 use App\Http\Middleware\RefreshJwtGuards;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(AddContext::class);
         $middleware->alias([
             'account.active' => EnsureAccountIsActive::class,
+            'jwt.version' => EnsureJwtAuthenticationVersion::class,
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,

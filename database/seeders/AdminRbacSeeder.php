@@ -5,9 +5,11 @@ namespace Database\Seeders;
 use App\Models\Menu;
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\Security\PasswordPolicy;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use LogicException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -96,8 +98,11 @@ class AdminRbacSeeder extends Seeder
         $password = $this->filledBootstrapConfig('password');
 
         if (! app()->environment(['local', 'testing'])) {
-            if ($email === null || $password === null || $password === self::DEFAULT_BOOTSTRAP_PASSWORD) {
-                Log::warning('Skipping non-local bootstrap admin creation because explicit ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD are required.');
+            if ($email === null
+                || $password === null
+                || $password === self::DEFAULT_BOOTSTRAP_PASSWORD
+                || Validator::make(['password' => $password], ['password' => PasswordPolicy::rules()])->fails()) {
+                Log::warning('Skipping non-local bootstrap admin creation because explicit credentials meeting the admin password policy are required.');
 
                 return null;
             }
@@ -215,6 +220,8 @@ class AdminRbacSeeder extends Seeder
             ['name' => 'system.config.create', 'display_name' => '系统配置创建', 'group' => 'system.config', 'description' => '创建系统配置', 'sort' => 620],
             ['name' => 'system.config.update', 'display_name' => '系统配置更新', 'group' => 'system.config', 'description' => '更新系统配置', 'sort' => 630],
             ['name' => 'system.config.delete', 'display_name' => '系统配置删除', 'group' => 'system.config', 'description' => '删除系统配置', 'sort' => 640],
+            ['name' => 'system.activity-log.view', 'display_name' => '操作日志查看', 'group' => 'system.audit', 'description' => '查看后台操作与凭据变更日志', 'sort' => 710],
+            ['name' => 'system.login-log.view', 'display_name' => '登录日志查看', 'group' => 'system.audit', 'description' => '查看管理员与会员认证日志', 'sort' => 720],
         ];
     }
 

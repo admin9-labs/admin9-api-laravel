@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ResetUserPasswordRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\Admin\UserResource;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
+use App\Support\Audit\SecurityActivityRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -16,6 +18,8 @@ use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
+    public function __construct(private SecurityActivityRecorder $activityRecorder) {}
+
     /**
      * Display a listing of the resource.
      */
@@ -56,14 +60,26 @@ class UserController extends Controller
         $validated = $request->validated();
 
         $user = DB::transaction(function () use ($request, $user, $validated): User {
+            $activeSuperAdminIds = collect();
+
             if (array_key_exists('is_active', $validated) && ! (bool) $validated['is_active']) {
                 $activeSuperAdminIds = ReservedAdminRole::activeSuperAdminIdsForUpdate();
-                $user = ReservedAdminRole::lockUserForUpdate($user);
-
-                $this->assertUserCanBeDisabled($request, $user, $activeSuperAdminIds);
             }
 
-            $user->update($validated);
+            $user = ReservedAdminRole::lockUserForUpdate($user);
+            $this->assertReservedRoleHolderCanBeManaged($request, $user);
+
+            if (array_key_exists('is_active', $validated) && ! (bool) $validated['is_active']) {
+                $this->assertUserCanBeDisabled($request, $user, $activeSuperAdminIds);
+
+                if ($user->is_active) {
+                    $user->forceFill([
+                        'auth_version' => $user->auth_version + 1,
+                    ]);
+                }
+            }
+
+            $user->fill($validated)->save();
 
             return $user;
         }, attempts: 3);
@@ -87,6 +103,36 @@ class UserController extends Controller
         }, attempts: 3);
 
         return $this->success(message: 'deleted');
+    }
+
+    public function resetPassword(ResetUserPasswordRequest $request, User $user): JsonResponse
+    {
+        /** @var User|null $actor */
+        $actor = $request->user('admin');
+        $password = $request->validated('password');
+
+        DB::transaction(function () use ($actor, $password, $request, $user): void {
+            $user = ReservedAdminRole::lockUserForUpdate($user);
+
+            if ($this->isCurrentAdmin($request, $user)) {
+                throw ValidationException::withMessages([
+                    'user' => ['Use the current-password change endpoint for your own account.'],
+                ]);
+            }
+
+            $this->assertReservedRoleHolderCanBeManaged($request, $user);
+
+            $user->forceFill([
+                'password' => $password,
+                'auth_version' => $user->auth_version + 1,
+            ])->save();
+
+            if ($actor instanceof User) {
+                $this->activityRecorder->record($user, $actor, 'admin', 'password_reset');
+            }
+        });
+
+        return $this->success(message: 'password reset');
     }
 
     /**
@@ -118,6 +164,8 @@ class UserController extends Controller
             ]);
         }
 
+        $this->assertReservedRoleHolderCanBeManaged($request, $user);
+
         if (ReservedAdminRole::isLastActiveSuperAdmin($user, $activeSuperAdminIds)) {
             throw ValidationException::withMessages([
                 'user' => ['The last active super-admin cannot be deleted.'],
@@ -129,5 +177,17 @@ class UserController extends Controller
     {
         return $request->user('admin') instanceof User
             && $request->user('admin')->is($user);
+    }
+
+    private function assertReservedRoleHolderCanBeManaged(Request $request, User $user): void
+    {
+        $actor = $request->user('admin');
+
+        if (ReservedAdminRole::userHasReservedRole($user)
+            && (! $actor instanceof User || ! ReservedAdminRole::userIsSuperAdmin($actor))) {
+            throw ValidationException::withMessages([
+                'user' => ['Only super-admin users may manage accounts with reserved admin roles.'],
+            ]);
+        }
     }
 }

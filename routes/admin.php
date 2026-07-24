@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\ActivityLogController;
 use App\Http\Controllers\Api\Admin\AuthController;
 use App\Http\Controllers\Api\Admin\DictionaryItemController;
 use App\Http\Controllers\Api\Admin\DictionaryTypeController;
+use App\Http\Controllers\Api\Admin\LoginLogController;
 use App\Http\Controllers\Api\Admin\MenuController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RoleController;
@@ -19,8 +21,9 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
         ->name('auth.login');
     Route::post('/auth/refresh', [AuthController::class, 'refresh'])->name('auth.refresh');
 
-    Route::middleware(['auth:admin', 'account.active:admin'])->group(function () use ($adminPermission): void {
+    Route::middleware(['auth:admin', 'jwt.version:admin', 'account.active:admin'])->group(function () use ($adminPermission): void {
         Route::get('/auth/me', [AuthController::class, 'me'])->name('auth.me');
+        Route::put('/auth/password', [AuthController::class, 'changePassword'])->name('auth.password.update');
         Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
 
         Route::get('/menus/tree', [MenuController::class, 'tree'])->name('menus.tree');
@@ -53,6 +56,9 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
         Route::put('/users/{user}/roles', [UserRoleController::class, 'update'])
             ->middleware($adminPermission('system.user.assign-role'))
             ->name('users.roles.update');
+        Route::put('/users/{user}/password', [UserController::class, 'resetPassword'])
+            ->middleware($adminPermission('system.user.update'))
+            ->name('users.password.update');
 
         Route::apiResource('dictionary-types', DictionaryTypeController::class)
             ->middlewareFor(['index', 'show'], $adminPermission('system.dictionary.view'))
@@ -74,5 +80,12 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
             ->middlewareFor('update', $adminPermission('system.config.update'))
             ->middlewareFor('destroy', $adminPermission('system.config.delete'))
             ->parameters(['system-configs' => 'system_config']);
+
+        Route::get('/activity-logs', [ActivityLogController::class, 'index'])
+            ->middleware($adminPermission('system.activity-log.view'))
+            ->name('activity-logs.index');
+        Route::get('/login-logs', [LoginLogController::class, 'index'])
+            ->middleware($adminPermission('system.login-log.view'))
+            ->name('login-logs.index');
     });
 });

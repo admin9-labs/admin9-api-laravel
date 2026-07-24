@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\Member;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Member\ChangePasswordRequest;
 use App\Http\Requests\Member\LoginRequest;
 use App\Http\Resources\Member\MemberResource;
 use App\Models\Member;
+use App\Support\Auth\ChangePassword;
 use App\Support\Auth\LoginLogRecorder;
 use App\Support\Auth\RefreshJwtToken;
 use Illuminate\Auth\AuthenticationException;
@@ -20,6 +22,7 @@ class AuthController extends Controller
     public function __construct(
         private LoginLogRecorder $loginLogRecorder,
         private RefreshJwtToken $refreshJwtToken,
+        private ChangePassword $changePasswordAction,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -64,6 +67,18 @@ class AuthController extends Controller
         return $this->success([
             'member' => MemberResource::make($request->user('member')),
         ]);
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        /** @var Member $member */
+        $member = $request->user('member');
+        /** @var array{current_password: string, password: string} $validated */
+        $validated = $request->validated();
+
+        $this->changePasswordAction->handle($member, $validated['current_password'], $validated['password'], 'member');
+
+        return $this->success(message: 'password changed');
     }
 
     /**

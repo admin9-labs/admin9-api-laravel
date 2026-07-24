@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ChangePasswordRequest;
 use App\Http\Requests\Admin\LoginRequest;
 use App\Http\Resources\Admin\UserResource;
 use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
+use App\Support\Auth\ChangePassword;
 use App\Support\Auth\LoginLogRecorder;
 use App\Support\Auth\RefreshJwtToken;
 use Illuminate\Auth\AuthenticationException;
@@ -22,6 +24,7 @@ class AuthController extends Controller
     public function __construct(
         private LoginLogRecorder $loginLogRecorder,
         private RefreshJwtToken $refreshJwtToken,
+        private ChangePassword $changePasswordAction,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -59,6 +62,18 @@ class AuthController extends Controller
         $user = $request->user('admin');
 
         return $this->success($this->identityPayload($user));
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('admin');
+        /** @var array{current_password: string, password: string} $validated */
+        $validated = $request->validated();
+
+        $this->changePasswordAction->handle($user, $validated['current_password'], $validated['password'], 'admin');
+
+        return $this->success(message: 'password changed');
     }
 
     /**

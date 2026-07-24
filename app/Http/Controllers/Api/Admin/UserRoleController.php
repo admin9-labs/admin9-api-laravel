@@ -27,6 +27,12 @@ class UserRoleController extends Controller
             $user = ReservedAdminRole::lockUserForUpdate($user);
 
             if (! $actor instanceof User || ! ReservedAdminRole::userIsSuperAdmin($actor)) {
+                if (ReservedAdminRole::userHasReservedRole($user)) {
+                    throw ValidationException::withMessages([
+                        'roles' => ['Only super-admin users may manage accounts with reserved admin roles.'],
+                    ]);
+                }
+
                 $this->assertReservedRolesUnchanged($user, $roles);
             }
 

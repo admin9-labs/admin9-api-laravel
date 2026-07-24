@@ -36,6 +36,14 @@ class ReservedAdminRole
         return $user->hasRole(self::SUPER_ADMIN, self::ADMIN_GUARD);
     }
 
+    public static function userHasReservedRole(User $user): bool
+    {
+        return $user->roles()
+            ->where('guard_name', self::ADMIN_GUARD)
+            ->whereIn('name', self::names())
+            ->exists();
+    }
+
     /**
      * @return Collection<int, int>
      */

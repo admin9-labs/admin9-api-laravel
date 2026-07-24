@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StorePermissionRequest;
 use App\Http\Requests\Admin\UpdatePermissionRequest;
 use App\Http\Resources\Admin\PermissionResource;
 use App\Models\Permission;
+use App\Support\Audit\AdminActivityRecorder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Arr;
@@ -17,6 +18,8 @@ use Spatie\Permission\PermissionRegistrar;
 class PermissionController extends Controller
 {
     private const ADMIN_GUARD = 'admin';
+
+    public function __construct(private AdminActivityRecorder $activityRecorder) {}
 
     /**
      * Return the complete bounded RBAC permission catalog for configuration UIs.
@@ -42,6 +45,10 @@ class PermissionController extends Controller
 
         $permission = DB::transaction(function () use ($validated): Permission {
             $permission = Permission::query()->create($this->permissionAttributes($validated, creating: true));
+
+            $this->activityRecorder->record($permission, 'created', [
+                'attributes' => $this->auditableAttributes($permission),
+            ]);
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -74,6 +81,7 @@ class PermissionController extends Controller
         $validated = $request->validated();
 
         DB::transaction(function () use ($validated, $permission): void {
+            $old = $this->auditableAttributes($permission);
             $attributes = $this->permissionAttributes($validated, creating: false);
 
             if ($this->isSystemPermission($permission) && isset($attributes['name']) && $attributes['name'] !== $permission->name) {
@@ -85,6 +93,11 @@ class PermissionController extends Controller
             if ($attributes !== []) {
                 $permission->update($attributes);
             }
+
+            $this->activityRecorder->record($permission, 'updated', [
+                'attributes' => $this->auditableAttributes($permission->refresh()),
+                'old' => $old,
+            ]);
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
         });
@@ -123,7 +136,9 @@ class PermissionController extends Controller
                     return 'Assigned permissions cannot be deleted.';
                 }
 
+                $old = $this->auditableAttributes($lockedPermission);
                 $lockedPermission->delete();
+                $this->activityRecorder->record($lockedPermission, 'deleted', ['old' => $old]);
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
 
                 return null;
@@ -169,6 +184,23 @@ class PermissionController extends Controller
     private function isSystemPermission(Permission $permission): bool
     {
         return (bool) $permission->getAttribute('is_system');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function auditableAttributes(Permission $permission): array
+    {
+        return Arr::only($permission->getAttributes(), [
+            'name',
+            'guard_name',
+            'display_name',
+            'group',
+            'description',
+            'sort',
+            'is_system',
+            'is_active',
+        ]);
     }
 
     private function abortIfNotAdminGuard(Permission $permission): void

@@ -2,13 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Member;
 use App\Models\Menu;
+use App\Models\Permission;
 use App\Models\SystemConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
-use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Support\FailingActivity;
@@ -62,7 +63,7 @@ class ActivityAuditTest extends TestCase
         $this->assertActivityPropertiesAreSanitized($activity);
     }
 
-    public function test_admin_user_password_changes_are_not_stored_in_activity_properties(): void
+    public function test_admin_user_creation_and_updates_do_not_store_passwords_in_activity_properties(): void
     {
         $this->createPermission('system.user.create');
         $this->createPermission('system.user.update');
@@ -82,8 +83,15 @@ class ActivityAuditTest extends TestCase
         $userId = $create->json('data.user.id');
         $this->assertIsInt($userId);
 
+        /** @var Activity $createdActivity */
+        $createdActivity = Activity::query()
+            ->where('subject_type', (new User)->getMorphClass())
+            ->where('subject_id', $userId)
+            ->where('event', 'created')
+            ->firstOrFail();
+        $this->assertActivityPropertiesAreSanitized($createdActivity);
+
         $this->patchJson('/api/admin/users/'.$userId, [
-            'password' => 'new-secret-password',
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk();
@@ -179,6 +187,177 @@ class ActivityAuditTest extends TestCase
         $this->assertActivityPropertiesAreSanitized($activity);
     }
 
+    public function test_permission_create_update_and_delete_are_audited(): void
+    {
+        $this->createPermission('system.permission.create');
+        $this->createPermission('system.permission.update');
+        $this->createPermission('system.permission.delete');
+
+        $admin = User::factory()->create(['email' => 'audit-permission-admin@example.com']);
+        $admin->givePermissionTo([
+            'system.permission.create',
+            'system.permission.update',
+            'system.permission.delete',
+        ]);
+        $token = $this->adminTokenFor($admin);
+
+        $create = $this->postJson('/api/admin/permissions', [
+            'name' => 'dynamic.audit.lifecycle',
+            'display_name' => 'Audit lifecycle',
+            'group' => 'dynamic.audit',
+            'description' => 'Permission lifecycle audit coverage',
+            'sort' => 80,
+            'is_active' => true,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $permissionId = $create->json('data.permission.id');
+        $this->assertIsInt($permissionId);
+        $permission = Permission::query()->findOrFail($permissionId);
+
+        /** @var Activity $created */
+        $created = Activity::query()
+            ->where('subject_type', $permission->getMorphClass())
+            ->where('subject_id', $permissionId)
+            ->where('event', 'created')
+            ->firstOrFail();
+        $this->assertSame('dynamic.audit.lifecycle', $created->properties->get('attributes')['name']);
+        $this->assertSame('admin.permissions.store', $created->properties->get('route'));
+        $this->assertActivityPropertiesAreSanitized($created);
+
+        $this->patchJson('/api/admin/permissions/'.$permissionId, [
+            'display_name' => 'Audit lifecycle updated',
+            'sort' => 90,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $updated */
+        $updated = Activity::query()
+            ->where('subject_type', $permission->getMorphClass())
+            ->where('subject_id', $permissionId)
+            ->where('event', 'updated')
+            ->firstOrFail();
+        $this->assertSame('Audit lifecycle updated', $updated->properties->get('attributes')['display_name']);
+        $this->assertSame('Audit lifecycle', $updated->properties->get('old')['display_name']);
+        $this->assertSame('admin.permissions.update', $updated->properties->get('route'));
+        $this->assertActivityPropertiesAreSanitized($updated);
+
+        $this->deleteJson('/api/admin/permissions/'.$permissionId, [], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $deleted */
+        $deleted = Activity::query()
+            ->where('subject_type', $permission->getMorphClass())
+            ->where('subject_id', $permissionId)
+            ->where('event', 'deleted')
+            ->firstOrFail();
+        $this->assertSame('dynamic.audit.lifecycle', $deleted->properties->get('old')['name']);
+        $this->assertSame('admin.permissions.destroy', $deleted->properties->get('route'));
+        $this->assertActivityPropertiesAreSanitized($deleted);
+    }
+
+    public function test_password_changed_and_reset_events_do_not_store_plaintext_or_hashes(): void
+    {
+        $this->createPermission('system.user.update');
+
+        $resetActor = User::factory()->create(['email' => 'audit-password-reset-actor@example.com']);
+        $resetActor->givePermissionTo('system.user.update');
+        $resetToken = $this->adminTokenFor($resetActor);
+        $resetTarget = User::factory()->create(['email' => 'audit-password-reset-target@example.com']);
+        $resetOldHash = $resetTarget->password;
+
+        $this->putJson('/api/admin/users/'.$resetTarget->id.'/password', [
+            'password' => 'Reset-password-123',
+            'password_confirmation' => 'Reset-password-123',
+        ], ['Authorization' => 'Bearer '.$resetToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $resetActivity */
+        $resetActivity = Activity::query()
+            ->where('subject_type', $resetTarget->getMorphClass())
+            ->where('subject_id', $resetTarget->id)
+            ->where('event', 'password_reset')
+            ->firstOrFail();
+        $this->assertSame($resetActor->id, $resetActivity->causer_id);
+        $this->assertSame('admin.users.password.update', $resetActivity->properties->get('route'));
+        $this->assertCredentialActivityContainsNoSecrets($resetActivity, [
+            'Reset-password-123',
+            $resetOldHash,
+            $resetTarget->refresh()->password,
+        ]);
+
+        $adminCurrentPassword = 'Current-admin-credential-123';
+        $admin = User::factory()->create([
+            'email' => 'audit-password-change-admin@example.com',
+            'password' => $adminCurrentPassword,
+        ]);
+        $adminToken = $this->adminTokenFor($admin, $adminCurrentPassword);
+        $adminOldHash = $admin->password;
+
+        $this->putJson('/api/admin/auth/password', [
+            'current_password' => $adminCurrentPassword,
+            'password' => 'Changed-admin-password-123',
+            'password_confirmation' => 'Changed-admin-password-123',
+        ], ['Authorization' => 'Bearer '.$adminToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $adminActivity */
+        $adminActivity = Activity::query()
+            ->where('subject_type', $admin->getMorphClass())
+            ->where('subject_id', $admin->id)
+            ->where('event', 'password_changed')
+            ->firstOrFail();
+        $this->assertSame($admin->id, $adminActivity->causer_id);
+        $this->assertSame('admin.auth.password.update', $adminActivity->properties->get('route'));
+        $this->assertCredentialActivityContainsNoSecrets($adminActivity, [
+            $adminCurrentPassword,
+            'Changed-admin-password-123',
+            $adminOldHash,
+            $admin->refresh()->password,
+        ]);
+
+        $memberCurrentPassword = 'Current-member-credential-123';
+        $member = Member::factory()->create([
+            'email' => 'audit-password-change-member@example.com',
+            'password' => $memberCurrentPassword,
+        ]);
+        $memberLogin = $this->postJson('/api/auth/login', [
+            'account' => $member->email,
+            'password' => $memberCurrentPassword,
+        ])->assertOk();
+        $memberToken = $memberLogin->json('data.access_token');
+        $this->assertIsString($memberToken);
+        $memberOldHash = $member->password;
+
+        $this->putJson('/api/auth/password', [
+            'current_password' => $memberCurrentPassword,
+            'password' => 'Changed-member-password-123',
+            'password_confirmation' => 'Changed-member-password-123',
+        ], ['Authorization' => 'Bearer '.$memberToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $memberActivity */
+        $memberActivity = Activity::query()
+            ->where('subject_type', $member->getMorphClass())
+            ->where('subject_id', $member->id)
+            ->where('event', 'password_changed')
+            ->firstOrFail();
+        $this->assertSame($member->id, $memberActivity->causer_id);
+        $this->assertSame('member.auth.password.update', $memberActivity->properties->get('route'));
+        $this->assertCredentialActivityContainsNoSecrets($memberActivity, [
+            $memberCurrentPassword,
+            'Changed-member-password-123',
+            $memberOldHash,
+            $member->refresh()->password,
+        ]);
+    }
+
     public function test_menu_create_rolls_back_when_activity_log_write_fails(): void
     {
         $this->createPermission('system.menu.create');
@@ -250,11 +429,11 @@ class ActivityAuditTest extends TestCase
         return $permission;
     }
 
-    private function adminTokenFor(User $user): string
+    private function adminTokenFor(User $user, string $password = 'password'): string
     {
         $response = $this->postJson('/api/admin/auth/login', [
             'email' => $user->email,
-            'password' => 'password',
+            'password' => $password,
         ])->assertOk();
 
         $token = $response->json('data.access_token');
@@ -273,6 +452,41 @@ class ActivityAuditTest extends TestCase
         $this->assertStringNotContainsString('authorization', strtolower($payload));
         $this->assertStringNotContainsString('token', strtolower($payload));
         $this->assertStringNotContainsString('jwt', strtolower($payload));
+    }
+
+    /**
+     * @param  array<int, string>  $secrets
+     */
+    private function assertCredentialActivityContainsNoSecrets(Activity $activity, array $secrets): void
+    {
+        $properties = $activity->properties->toArray();
+        $this->assertPayloadHasNoSensitiveKeys($properties);
+
+        $payload = $activity->properties->toJson();
+        $this->assertIsString($payload);
+
+        foreach ($secrets as $secret) {
+            $this->assertStringNotContainsString($secret, $payload);
+        }
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $payload
+     */
+    private function assertPayloadHasNoSensitiveKeys(array $payload): void
+    {
+        foreach ($payload as $key => $value) {
+            if (is_string($key)) {
+                $this->assertDoesNotMatchRegularExpression(
+                    '/password|token|secret|jwt|authorization|api[\s._-]*key/i',
+                    $key,
+                );
+            }
+
+            if (is_array($value)) {
+                $this->assertPayloadHasNoSensitiveKeys($value);
+            }
+        }
     }
 
     private function useFailingActivityModel(): void
