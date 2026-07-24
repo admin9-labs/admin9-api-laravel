@@ -4,6 +4,15 @@
 
 This is a Laravel 13 application on PHP 8.3. Application code lives in `app/`, with HTTP concerns under `app/Http`, models in `app/Models`, and providers in `app/Providers`. Routes are split across `routes/web.php`, `routes/api.php`, `routes/admin.php`, and `routes/console.php`. Database migrations, factories, seeders, and the local SQLite database live in `database/`. Frontend assets are in `resources/css`, `resources/js`, and `resources/views`, compiled through Vite into `public/`. Tests are organized in `tests/Feature` and `tests/Unit`.
 
+## HTTP Layer Organization
+
+- `Controllers/Api` is the default application API boundary; use dedicated directories only for independently managed API surfaces such as Admin.
+- API boundary directories must represent distinct routing, authentication, permission, or contract boundaries, not merely guards, models, or client labels.
+- Organize Form Requests by API boundary and feature.
+- Organize API Resources by represented entity or contract variant, and avoid redundant directory and class naming.
+- Controllers, Requests, and Resources do not need mechanically identical directory trees; each should express its actual responsibility.
+- File-organization changes must not implicitly change URLs, route names, guards, middleware, validation, response fields, or OpenAPI operation IDs.
+
 ## Build, Test, and Development Commands
 
 - `composer setup`: install PHP and JS dependencies, create `.env`, generate the app key, run migrations, and build assets.

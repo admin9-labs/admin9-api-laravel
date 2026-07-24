@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Http\Resources\Member;
+namespace App\Http\Resources;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use Illuminate\Http\Request;
 
 class MemberResource extends PaginationAwareJsonResource

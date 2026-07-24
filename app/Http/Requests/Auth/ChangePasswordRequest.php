@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Requests\Member;
+namespace App\Http\Requests\Auth;
 
 use App\Support\Security\PasswordPolicy;
 use Illuminate\Contracts\Validation\ValidationRule;

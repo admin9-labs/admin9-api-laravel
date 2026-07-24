@@ -9,7 +9,7 @@ use App\Http\Resources\Admin\PermissionResource;
 use App\Http\Resources\Admin\RoleResource;
 use App\Http\Resources\Admin\SystemConfigResource;
 use App\Http\Resources\Admin\UserResource;
-use App\Http\Resources\Member\MemberResource;
+use App\Http\Resources\MemberResource;
 use App\Models\DictionaryItem;
 use App\Models\DictionaryType;
 use App\Models\Member;

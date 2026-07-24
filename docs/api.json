@@ -596,7 +596,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/App.Http.Requests.Admin.LoginRequest"
+                                "$ref": "#/components/schemas/App.Http.Requests.Admin.Auth.LoginRequest"
                             }
                         }
                     }
@@ -911,7 +911,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/App.Http.Requests.Admin.ChangePasswordRequest"
+                                "$ref": "#/components/schemas/App.Http.Requests.Admin.Auth.ChangePasswordRequest"
                             }
                         }
                     }
@@ -4350,7 +4350,7 @@
                 ],
                 "title": "ActivityLogResource"
             },
-            "App.Http.Requests.Admin.ChangePasswordRequest": {
+            "App.Http.Requests.Admin.Auth.ChangePasswordRequest": {
                 "type": "object",
                 "properties": {
                     "current_password": {
@@ -4372,9 +4372,9 @@
                     "password",
                     "password_confirmation"
                 ],
-                "title": "App.Http.Requests.Admin.ChangePasswordRequest"
+                "title": "App.Http.Requests.Admin.Auth.ChangePasswordRequest"
             },
-            "App.Http.Requests.Admin.LoginRequest": {
+            "App.Http.Requests.Admin.Auth.LoginRequest": {
                 "type": "object",
                 "properties": {
                     "email": {
@@ -4389,7 +4389,7 @@
                     "email",
                     "password"
                 ],
-                "title": "App.Http.Requests.Admin.LoginRequest"
+                "title": "App.Http.Requests.Admin.Auth.LoginRequest"
             },
             "ChangePasswordRequest": {
                 "type": "object",

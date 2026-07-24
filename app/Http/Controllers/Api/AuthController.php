@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Controllers\Api\Member;
+namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Member\ChangePasswordRequest;
-use App\Http\Requests\Member\LoginRequest;
-use App\Http\Resources\Member\MemberResource;
+use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Resources\MemberResource;
 use App\Models\Member;
 use App\Support\Auth\ChangePassword;
 use App\Support\Auth\LoginLogRecorder;

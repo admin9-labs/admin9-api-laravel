@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Admin\ChangePasswordRequest;
-use App\Http\Requests\Admin\LoginRequest;
+use App\Http\Requests\Admin\Auth\ChangePasswordRequest;
+use App\Http\Requests\Admin\Auth\LoginRequest;
 use App\Http\Resources\Admin\UserResource;
 use App\Models\Permission;
 use App\Models\User;
