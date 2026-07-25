@@ -48,21 +48,29 @@
                         "name": "subject_id",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": "integer",
+                            "format": "int64"
                         }
                     },
                     {
                         "name": "causer_id",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": "integer",
+                            "format": "int64"
                         }
                     },
                     {
                         "name": "created_at",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
                         }
                     },
                     {
@@ -174,6 +182,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -405,6 +416,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 },
                 "security": [
@@ -826,6 +840,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 },
                 "security": [
@@ -1184,6 +1201,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -1254,6 +1274,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -1327,6 +1350,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -1410,6 +1436,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -1473,6 +1502,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -1626,6 +1658,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -1696,6 +1731,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -1769,6 +1807,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -1852,6 +1893,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -1925,6 +1969,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -1968,7 +2015,8 @@
                         "name": "subject_id",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": "integer",
+                            "format": "int64"
                         }
                     },
                     {
@@ -1982,7 +2030,13 @@
                         "name": "created_at",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
                         }
                     },
                     {
@@ -2094,6 +2148,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -2202,6 +2259,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -2272,6 +2332,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -2345,6 +2408,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -2428,6 +2494,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -2501,6 +2570,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -2555,6 +2627,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -2625,6 +2700,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -2698,6 +2776,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -2781,6 +2862,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -2854,6 +2938,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -2908,6 +2995,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -2978,6 +3068,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -3051,6 +3144,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -3134,6 +3230,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -3197,6 +3296,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -3282,6 +3384,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -3458,6 +3563,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -3528,6 +3636,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -3601,6 +3712,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -3684,6 +3798,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -3747,6 +3864,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -3834,6 +3954,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -3904,6 +4027,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -3977,6 +4103,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -4060,6 +4189,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             },
@@ -4123,6 +4255,9 @@
                     },
                     "401": {
                         "$ref": "#/components/responses/AuthenticationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -4200,6 +4335,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -4285,6 +4423,9 @@
                     },
                     "422": {
                         "$ref": "#/components/responses/ValidationException"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ForbiddenResponse"
                     }
                 }
             }
@@ -4302,28 +4443,49 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "string"
+                        "type": "integer",
+                        "format": "int64"
                     },
                     "log_name": {
-                        "type": "string"
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "event": {
-                        "type": "string"
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "description": {
                         "type": "string"
                     },
                     "subject_type": {
-                        "type": "string"
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "subject_id": {
-                        "type": "string"
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int64"
                     },
                     "causer_type": {
-                        "type": "string"
+                        "type": [
+                            "string",
+                            "null"
+                        ]
                     },
                     "causer_id": {
-                        "type": "string"
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
+                        "format": "int64"
                     },
                     "properties": {
                         "type": "object",
@@ -4444,10 +4606,10 @@
                     },
                     "meta": {
                         "type": [
-                            "array",
+                            "object",
                             "null"
                         ],
-                        "items": {}
+                        "additionalProperties": {}
                     },
                     "sort": {
                         "type": "integer"
@@ -4548,7 +4710,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int64"
                     },
                     "guard": {
                         "type": "string"
@@ -4569,7 +4732,8 @@
                         "type": [
                             "integer",
                             "null"
-                        ]
+                        ],
+                        "format": "int64"
                     },
                     "event": {
                         "type": "string"
@@ -4694,13 +4858,15 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int64"
                     },
                     "parent_id": {
                         "type": [
                             "integer",
                             "null"
-                        ]
+                        ],
+                        "format": "int64"
                     },
                     "name": {
                         "type": "string"
@@ -4729,20 +4895,24 @@
                     "type": {
                         "type": "string"
                     },
-                    "permission_id": {
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
+                    "permission_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
                     },
-                    "permission_name": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
+                    "permission_names": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
-                    "permission": {
-                        "$ref": "#/components/schemas/PermissionResource"
+                    "permissions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PermissionResource"
+                        }
                     },
                     "sort": {
                         "type": "integer"
@@ -4781,8 +4951,9 @@
                     "component",
                     "icon",
                     "type",
-                    "permission_id",
-                    "permission_name",
+                    "permission_ids",
+                    "permission_names",
+                    "permissions",
                     "sort",
                     "is_visible",
                     "is_active",
@@ -4949,12 +5120,10 @@
                     },
                     "meta": {
                         "type": [
-                            "array",
+                            "object",
                             "null"
                         ],
-                        "items": {
-                            "type": "string"
-                        }
+                        "additionalProperties": {}
                     },
                     "sort": {
                         "type": "integer",
@@ -5050,12 +5219,6 @@
                             "button"
                         ]
                     },
-                    "permission_id": {
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
                     "sort": {
                         "type": "integer",
                         "minimum": 0
@@ -5065,6 +5228,13 @@
                     },
                     "is_active": {
                         "type": "boolean"
+                    },
+                    "permission_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
                     }
                 },
                 "required": [
@@ -5265,16 +5435,27 @@
                     "value": {
                         "anyOf": [
                             {
+                                "type": "string"
+                            },
+                            {
                                 "type": "integer"
                             },
                             {
+                                "type": "number"
+                            },
+                            {
+                                "type": "boolean"
+                            },
+                            {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            {
+                                "type": "array",
+                                "items": {}
+                            },
+                            {
                                 "type": "null"
-                            },
-                            {
-                                "type": "object"
-                            },
-                            {
-                                "type": "string"
                             }
                         ]
                     },
@@ -5359,12 +5540,10 @@
                     },
                     "meta": {
                         "type": [
-                            "array",
+                            "object",
                             "null"
                         ],
-                        "items": {
-                            "type": "string"
-                        }
+                        "additionalProperties": {}
                     },
                     "sort": {
                         "type": "integer",
@@ -5451,12 +5630,6 @@
                             "button"
                         ]
                     },
-                    "permission_id": {
-                        "type": [
-                            "integer",
-                            "null"
-                        ]
-                    },
                     "sort": {
                         "type": "integer",
                         "minimum": 0
@@ -5466,6 +5639,13 @@
                     },
                     "is_active": {
                         "type": "boolean"
+                    },
+                    "permission_ids": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int64"
+                        }
                     }
                 },
                 "title": "UpdateMenuRequest"
@@ -5720,6 +5900,51 @@
                             },
                             "required": [
                                 "message"
+                            ]
+                        }
+                    }
+                }
+            },
+            "ForbiddenResponse": {
+                "description": "Forbidden",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "example": false
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "example": 403
+                                },
+                                "message": {
+                                    "type": "string",
+                                    "example": "Forbidden"
+                                },
+                                "data": {
+                                    "type": "array",
+                                    "items": {},
+                                    "maxItems": 0
+                                },
+                                "errors": {
+                                    "type": "array",
+                                    "items": {},
+                                    "maxItems": 0
+                                },
+                                "request_id": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
                             ]
                         }
                     }

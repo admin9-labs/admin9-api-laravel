@@ -236,10 +236,8 @@ class AdminPermissionManagementTest extends TestCase
     public function test_menu_referenced_permission_cannot_be_deleted(): void
     {
         $permission = $this->createPermission('dynamic.menu.protected');
-        $menu = Menu::factory()->create([
-            'code' => 'dynamic.menu.protected',
-            'permission_id' => $permission->id,
-        ]);
+        $menu = Menu::factory()->create(['code' => 'dynamic.menu.protected']);
+        $menu->permissions()->sync([$permission->id]);
         $token = $this->managerTokenFor(['system.permission.delete']);
 
         $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
@@ -249,16 +247,14 @@ class AdminPermissionManagementTest extends TestCase
             ->assertJsonPath('message', 'Permissions used by menus cannot be deleted. Detach the menus first.');
 
         $this->assertModelExists($permission);
-        $this->assertSame($permission->id, $menu->refresh()->permission_id);
+        $this->assertTrue($menu->refresh()->permissions()->whereKey($permission->id)->exists());
     }
 
     public function test_permission_can_be_deleted_only_after_menu_is_explicitly_detached(): void
     {
         $permission = $this->createPermission('dynamic.menu.detachable');
-        $menu = Menu::factory()->create([
-            'code' => 'dynamic.menu.detachable',
-            'permission_id' => $permission->id,
-        ]);
+        $menu = Menu::factory()->create(['code' => 'dynamic.menu.detachable']);
+        $menu->permissions()->sync([$permission->id]);
         $viewerToken = $this->adminTokenFor(User::factory()->create([
             'email' => 'menu-detach-viewer@example.com',
         ]));
@@ -272,11 +268,11 @@ class AdminPermissionManagementTest extends TestCase
             ->assertJsonMissing(['code' => 'dynamic.menu.detachable']);
 
         $this->patchJson('/api/admin/menus/'.$menu->id, [
-            'permission_id' => null,
+            'permission_ids' => [],
         ], ['Authorization' => 'Bearer '.$managerToken])
             ->assertOk()
-            ->assertJsonPath('data.menu.permission_id', null)
-            ->assertJsonPath('data.menu.permission_name', null);
+            ->assertJsonPath('data.menu.permission_ids', [])
+            ->assertJsonPath('data.menu.permission_names', []);
 
         $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$viewerToken])
             ->assertOk()
@@ -287,7 +283,7 @@ class AdminPermissionManagementTest extends TestCase
             ->assertJsonPath('success', true);
 
         $this->assertModelMissing($permission);
-        $this->assertNull($menu->refresh()->permission_id);
+        $this->assertFalse($menu->refresh()->permissions()->exists());
     }
 
     public function test_unassigned_dynamic_permission_can_be_deleted(): void

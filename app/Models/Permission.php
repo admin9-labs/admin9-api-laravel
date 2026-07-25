@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Permission\Models\Permission as SpatiePermission;
 
 #[Fillable(['name', 'guard_name', 'display_name', 'group', 'description', 'sort', 'is_system', 'is_active'])]
@@ -57,10 +57,10 @@ class Permission extends SpatiePermission
     }
 
     /**
-     * @return HasMany<Menu>
+     * @return BelongsToMany<Menu, Permission>
      */
-    public function menus(): HasMany
+    public function menus(): BelongsToMany
     {
-        return $this->hasMany(Menu::class);
+        return $this->belongsToMany(Menu::class, 'menu_permission');
     }
 }

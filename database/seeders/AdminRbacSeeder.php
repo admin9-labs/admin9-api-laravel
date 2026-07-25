@@ -45,6 +45,7 @@ class AdminRbacSeeder extends Seeder
 
         $this->seedSuperAdmin($superAdmin);
         $this->seedMenus($permissions);
+        $this->call(AdminAuditLogMenuSeeder::class);
 
         app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
@@ -148,12 +149,12 @@ class AdminRbacSeeder extends Seeder
                 'component' => 'Layout',
                 'icon' => 'settings',
                 'type' => Menu::TYPE_DIRECTORY,
-                'permission_id' => null,
                 'sort' => 10,
                 'is_visible' => true,
                 'is_active' => true,
             ]
         );
+        $system->permissions()->sync([]);
 
         $menus = ['system' => $system];
 
@@ -171,7 +172,7 @@ class AdminRbacSeeder extends Seeder
 
             $parent = $menus[$definition['parent_code']];
 
-            $menus[$definition['code']] = Menu::query()->updateOrCreate(
+            $menu = Menu::query()->updateOrCreate(
                 ['code' => $definition['code']],
                 [
                     'parent_id' => $parent->id,
@@ -180,12 +181,13 @@ class AdminRbacSeeder extends Seeder
                     'component' => $definition['component'],
                     'icon' => $definition['icon'],
                     'type' => $definition['type'],
-                    'permission_id' => $permission?->id,
                     'sort' => $definition['sort'],
                     'is_visible' => $definition['is_visible'],
                     'is_active' => true,
                 ]
             );
+            $menu->permissions()->sync($permission === null ? [] : [$permission->id]);
+            $menus[$definition['code']] = $menu;
         }
     }
 

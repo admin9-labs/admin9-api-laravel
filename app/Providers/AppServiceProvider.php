@@ -6,8 +6,10 @@ use App\Http\Responses\ApiResponseGenerator;
 use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
+use App\Support\AdminApiOpenApiContract;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\Header;
+use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Operation;
 use Dedoc\Scramble\Support\Generator\Response as OpenApiResponse;
 use Dedoc\Scramble\Support\Generator\Schema;
@@ -68,9 +70,13 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('admin-login', static fn (Request $request): Limit => Limit::perMinute(5)->by('admin:login:ip:'.$request->ip()));
 
         if (class_exists(Scramble::class)) {
+            $openApiContract = app(AdminApiOpenApiContract::class);
+
             Scramble::configure()->withOperationTransformers(
-                static function (Operation $operation, RouteInfo $routeInfo): void {
+                static function (Operation $operation, RouteInfo $routeInfo) use ($openApiContract): void {
                     $routeName = $routeInfo->route->getName();
+
+                    $openApiContract->transformOperation($operation, $routeInfo);
 
                     if (in_array($routeName, ['member.auth.refresh', 'admin.auth.refresh'], true)) {
                         $operation->addSecurity(new SecurityRequirement(['http' => []]));
@@ -80,6 +86,8 @@ class AppServiceProvider extends ServiceProvider
                         $operation->addResponse(self::openApiRateLimitResponse());
                     }
                 },
+            )->withDocumentTransformers(
+                static fn (OpenApi $document): mixed => $openApiContract->transformDocument($document),
             );
         }
 

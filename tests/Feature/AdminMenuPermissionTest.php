@@ -24,10 +24,10 @@ class AdminMenuPermissionTest extends TestCase
         $rolePermission = $this->createAdminPermission('system.role.view');
 
         $root = Menu::factory()->create(['code' => 'system', 'name' => '系统管理', 'sort' => 1]);
-        Menu::factory()->create(['parent_id' => $root->id, 'code' => 'system.menus', 'permission_id' => $menuPermission->id, 'sort' => 1]);
-        Menu::factory()->create(['parent_id' => $root->id, 'code' => 'system.roles', 'permission_id' => $rolePermission->id, 'sort' => 2]);
-        Menu::factory()->hidden()->create(['parent_id' => $root->id, 'code' => 'system.hidden', 'permission_id' => $rolePermission->id, 'sort' => 3]);
-        Menu::factory()->inactive()->create(['parent_id' => $root->id, 'code' => 'system.inactive', 'permission_id' => $rolePermission->id, 'sort' => 4]);
+        $this->createMenu(['parent_id' => $root->id, 'code' => 'system.menus', 'sort' => 1], [$menuPermission]);
+        $this->createMenu(['parent_id' => $root->id, 'code' => 'system.roles', 'sort' => 2], [$rolePermission]);
+        $this->createMenu(['parent_id' => $root->id, 'code' => 'system.hidden', 'sort' => 3, 'is_visible' => false], [$rolePermission]);
+        $this->createMenu(['parent_id' => $root->id, 'code' => 'system.inactive', 'sort' => 4, 'is_active' => false], [$rolePermission]);
 
         $user = User::factory()->create(['email' => 'menus@example.com']);
         $user->givePermissionTo($rolePermission);
@@ -52,17 +52,15 @@ class AdminMenuPermissionTest extends TestCase
         $deniedPermission = $this->createAdminPermission('system.denied.view');
         $canonicalPermission = $this->createAdminPermission('system.canonical.view');
 
-        $root = Menu::factory()->create(['code' => 'canonical.root', 'permission_id' => null]);
-        Menu::factory()->create([
+        $root = Menu::factory()->create(['code' => 'canonical.root']);
+        $this->createMenu([
             'parent_id' => $root->id,
             'code' => 'canonical.allowed',
-            'permission_id' => $canonicalPermission->id,
-        ]);
-        Menu::factory()->create([
+        ], [$canonicalPermission]);
+        $this->createMenu([
             'parent_id' => $root->id,
             'code' => 'canonical.denied',
-            'permission_id' => $deniedPermission->id,
-        ]);
+        ], [$deniedPermission]);
 
         $user = User::factory()->create(['email' => 'canonical-menu@example.com']);
         $user->givePermissionTo($canonicalPermission);
@@ -78,13 +76,53 @@ class AdminMenuPermissionTest extends TestCase
         $this->assertNotContains('canonical.denied', $codes);
     }
 
-    public function test_menu_tree_response_includes_permission_name(): void
+    public function test_menu_tree_allows_any_bound_permission_and_empty_bindings(): void
+    {
+        $activityPermission = $this->createAdminPermission('system.activity-log.view');
+        $loginPermission = $this->createAdminPermission('system.login-log.view');
+        $root = Menu::factory()->directory()->create(['code' => 'system']);
+        $this->createMenu([
+            'parent_id' => $root->id,
+            'code' => 'system.logs',
+        ], [$activityPermission, $loginPermission]);
+        $this->createMenu([
+            'parent_id' => $root->id,
+            'code' => 'system.public',
+        ]);
+
+        foreach ([
+            'activity-only@example.com' => [$activityPermission],
+            'login-only@example.com' => [$loginPermission],
+            'both-logs@example.com' => [$activityPermission, $loginPermission],
+            'neither-log@example.com' => [],
+        ] as $email => $permissions) {
+            $user = User::factory()->create(['email' => $email]);
+
+            if ($permissions !== []) {
+                $user->givePermissionTo($permissions);
+            }
+
+            $response = $this->getJson('/api/admin/menus/tree', [
+                'Authorization' => 'Bearer '.$this->adminTokenFor($user),
+            ])->assertOk();
+            $codes = $this->menuCodes(collect($response->json('data')));
+
+            $this->assertContains('system.public', $codes);
+
+            if ($permissions === []) {
+                $this->assertNotContains('system.logs', $codes);
+            } else {
+                $this->assertContains('system.logs', $codes);
+            }
+        }
+    }
+
+    public function test_menu_tree_response_includes_permission_collections(): void
     {
         $permission = $this->createAdminPermission('system.compat.view');
-        Menu::factory()->create([
+        $this->createMenu([
             'code' => 'compat.menu',
-            'permission_id' => $permission->id,
-        ]);
+        ], [$permission]);
 
         $user = User::factory()->create(['email' => 'compat-menu@example.com']);
         $user->givePermissionTo($permission);
@@ -95,12 +133,13 @@ class AdminMenuPermissionTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonFragment([
                 'code' => 'compat.menu',
-                'permission_id' => $permission->id,
-                'permission_name' => $permission->name,
-            ]);
+                'permission_ids' => [$permission->id],
+                'permission_names' => [$permission->name],
+            ])
+            ->assertJsonPath('data.0.permissions.0.name', $permission->name);
     }
 
-    public function test_menu_store_uses_permission_id_as_only_persisted_permission_source(): void
+    public function test_menu_store_syncs_permission_ids_and_omission_creates_empty_binding(): void
     {
         $permission = $this->createAdminPermission('system.menu.synced');
         $token = $this->managerTokenFor(['system.menu.create']);
@@ -111,62 +150,76 @@ class AdminMenuPermissionTest extends TestCase
             'path' => '/synced/menu',
             'component' => 'synced/menu/index',
             'type' => Menu::TYPE_PAGE,
-            'permission_id' => $permission->id,
+            'permission_ids' => [$permission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.menu.permission_id', $permission->id)
-            ->assertJsonPath('data.menu.permission_name', $permission->name);
+            ->assertJsonPath('data.menu.permission_ids', [$permission->id])
+            ->assertJsonPath('data.menu.permission_names', [$permission->name])
+            ->assertJsonPath('data.menu.permissions.0.name', $permission->name);
 
         $menu = Menu::query()->find($response->json('data.menu.id'));
 
         $this->assertNotNull($menu);
-        $this->assertSame($permission->id, $menu->permission_id);
-        $this->assertArrayNotHasKey('permission_name', $menu->getAttributes());
-        $this->assertSame($permission->name, $menu->load('permission')->permission?->name);
+        $this->assertSame([$permission->id], $menu->permissions()->pluck('permissions.id')->all());
+
+        $unrestricted = $this->postJson('/api/admin/menus', [
+            'name' => 'Unrestricted Menu',
+            'code' => 'unrestricted.menu',
+            'type' => Menu::TYPE_PAGE,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.menu.permission_ids', [])
+            ->assertJsonPath('data.menu.permission_names', [])
+            ->assertJsonPath('data.menu.permissions', []);
+
+        $this->assertFalse(Menu::query()->findOrFail($unrestricted->json('data.menu.id'))->permissions()->exists());
     }
 
-    public function test_menu_update_uses_and_clears_permission_id_as_only_persisted_permission_source(): void
+    public function test_menu_update_omission_preserves_permissions_and_explicit_empty_array_unbinds(): void
     {
         $oldPermission = $this->createAdminPermission('system.menu.old');
         $newPermission = $this->createAdminPermission('system.menu.new');
-        $menu = Menu::factory()->create([
+        $menu = $this->createMenu([
             'code' => 'synced.menu.update',
-            'permission_id' => $oldPermission->id,
-        ]);
+        ], [$oldPermission]);
         $token = $this->managerTokenFor(['system.menu.update']);
 
         $this->patchJson('/api/admin/menus/'.$menu->id, [
-            'permission_id' => $newPermission->id,
+            'name' => 'Permissions Preserved',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.menu.permission_id', $newPermission->id)
-            ->assertJsonPath('data.menu.permission_name', $newPermission->name);
+            ->assertJsonPath('data.menu.permission_ids', [$oldPermission->id]);
 
-        $this->assertSame($newPermission->name, $menu->refresh()->load('permission')->permission?->name);
-        $this->assertArrayNotHasKey('permission_name', $menu->getAttributes());
+        $this->assertSame([$oldPermission->id], $menu->refresh()->permissions()->pluck('permissions.id')->all());
 
         $this->patchJson('/api/admin/menus/'.$menu->id, [
-            'permission_id' => null,
+            'permission_ids' => [$newPermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.menu.permission_id', null)
-            ->assertJsonPath('data.menu.permission_name', null);
+            ->assertJsonPath('data.menu.permission_ids', [$newPermission->id])
+            ->assertJsonPath('data.menu.permission_names', [$newPermission->name]);
 
-        $this->assertNull($menu->refresh()->permission_id);
-        $this->assertNull($menu->load('permission')->permission);
-        $this->assertArrayNotHasKey('permission_name', $menu->getAttributes());
+        $this->assertSame([$newPermission->id], $menu->refresh()->permissions()->pluck('permissions.id')->all());
+
+        $this->patchJson('/api/admin/menus/'.$menu->id, [
+            'permission_ids' => [],
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.menu.permission_ids', [])
+            ->assertJsonPath('data.menu.permission_names', []);
+
+        $this->assertFalse($menu->refresh()->permissions()->exists());
     }
 
     public function test_legacy_permission_name_input_is_rejected_instead_of_becoming_unrestricted(): void
     {
         $permission = $this->createAdminPermission('system.menu.legacy-input');
-        $menu = Menu::factory()->create([
+        $menu = $this->createMenu([
             'code' => 'legacy-input.existing',
-            'permission_id' => $permission->id,
-        ]);
+        ], [$permission]);
         $token = $this->managerTokenFor(['system.menu.create', 'system.menu.update']);
 
         $this->postJson('/api/admin/menus', [
@@ -180,22 +233,29 @@ class AdminMenuPermissionTest extends TestCase
 
         $this->assertDatabaseMissing('menus', ['code' => 'legacy-input.created']);
 
+        $this->postJson('/api/admin/menus', [
+            'name' => 'Legacy ID Input',
+            'code' => 'legacy-id.created',
+            'permission_id' => $permission->id,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
         $this->patchJson('/api/admin/menus/'.$menu->id, [
             'permission_name' => null,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
 
-        $this->assertSame($permission->id, $menu->refresh()->permission_id);
+        $this->assertSame([$permission->id], $menu->refresh()->permissions()->pluck('permissions.id')->all());
     }
 
     public function test_menu_response_reflects_permission_rename_from_relation(): void
     {
         $permission = $this->createAdminPermission('system.menu.before-rename');
-        $menu = Menu::factory()->create([
+        $menu = $this->createMenu([
             'code' => 'renamed.permission.menu',
-            'permission_id' => $permission->id,
-        ]);
+        ], [$permission]);
         $token = $this->managerTokenFor(['system.menu.view', 'system.permission.update']);
 
         $this->patchJson('/api/admin/permissions/'.$permission->id, [
@@ -206,9 +266,9 @@ class AdminMenuPermissionTest extends TestCase
 
         $this->getJson('/api/admin/menus/'.$menu->id, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
-            ->assertJsonPath('data.menu.permission_id', $permission->id)
-            ->assertJsonPath('data.menu.permission_name', 'system.menu.after-rename')
-            ->assertJsonPath('data.menu.permission.name', 'system.menu.after-rename');
+            ->assertJsonPath('data.menu.permission_ids', [$permission->id])
+            ->assertJsonPath('data.menu.permission_names', ['system.menu.after-rename'])
+            ->assertJsonPath('data.menu.permissions.0.name', 'system.menu.after-rename');
     }
 
     public function test_menu_store_and_update_reject_non_admin_guard_permissions(): void
@@ -221,7 +281,7 @@ class AdminMenuPermissionTest extends TestCase
             'name' => 'Member Guard Menu',
             'code' => 'member-guard.menu',
             'type' => Menu::TYPE_PAGE,
-            'permission_id' => $memberPermission->id,
+            'permission_ids' => [$memberPermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
@@ -229,12 +289,12 @@ class AdminMenuPermissionTest extends TestCase
         $this->assertDatabaseMissing('menus', ['code' => 'member-guard.menu']);
 
         $this->patchJson('/api/admin/menus/'.$menu->id, [
-            'permission_id' => $memberPermission->id,
+            'permission_ids' => [$memberPermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false);
 
-        $this->assertNull($menu->refresh()->permission_id);
+        $this->assertFalse($menu->refresh()->permissions()->exists());
     }
 
     public function test_menu_tree_returns_only_directory_and_page_nodes_for_navigation(): void
@@ -242,18 +302,20 @@ class AdminMenuPermissionTest extends TestCase
         $permission = $this->createAdminPermission('system.navigation.view');
         $root = Menu::factory()->directory()->create([
             'code' => 'navigation.root',
-            'permission_id' => null,
         ]);
-        Menu::factory()->page()->create([
+        $this->createMenu([
             'parent_id' => $root->id,
             'code' => 'navigation.page',
-            'permission_id' => $permission->id,
-        ]);
-        Menu::factory()->button()->create([
+            'type' => Menu::TYPE_PAGE,
+        ], [$permission]);
+        $this->createMenu([
             'parent_id' => $root->id,
             'code' => 'navigation.page.create',
-            'permission_id' => $permission->id,
-        ]);
+            'type' => Menu::TYPE_BUTTON,
+            'path' => null,
+            'component' => null,
+            'is_visible' => false,
+        ], [$permission]);
 
         $user = User::factory()->create(['email' => 'navigation-types@example.com']);
         $user->givePermissionTo($permission);
@@ -313,12 +375,11 @@ class AdminMenuPermissionTest extends TestCase
         $root = Menu::factory()->create(['code' => 'bounded.root', 'sort' => 1]);
 
         foreach (range(1, 6) as $number) {
-            Menu::factory()->create([
+            $this->createMenu([
                 'parent_id' => $root->id,
                 'code' => "bounded.child.{$number}",
-                'permission_id' => $permission->id,
                 'sort' => $number,
-            ]);
+            ], [$permission]);
         }
 
         $user = User::factory()->create(['email' => 'bounded-menu-tree@example.com']);
@@ -344,10 +405,9 @@ class AdminMenuPermissionTest extends TestCase
     public function test_super_admin_menu_tree_uses_shared_permission_checker(): void
     {
         $permission = $this->createAdminPermission('system.super-menu.view');
-        Menu::factory()->create([
+        $this->createMenu([
             'code' => 'system.super-menu',
-            'permission_id' => $permission->id,
-        ]);
+        ], [$permission]);
 
         $user = User::factory()->create(['email' => 'super-menu@example.com']);
         $user->assignRole(Role::findOrCreate('super-admin', 'admin'));
@@ -365,16 +425,15 @@ class AdminMenuPermissionTest extends TestCase
         $permission = $this->createAdminPermission('system.query-budget.view');
         $root = Menu::factory()->directory()->create([
             'code' => 'query-budget.root',
-            'permission_id' => null,
         ]);
 
         foreach (range(1, 5) as $number) {
-            Menu::factory()->page()->create([
+            $this->createMenu([
                 'parent_id' => $root->id,
                 'code' => "query-budget.child.{$number}",
-                'permission_id' => $permission->id,
                 'sort' => $number,
-            ]);
+                'type' => Menu::TYPE_PAGE,
+            ], [$permission]);
         }
 
         $user = User::factory()->create(['email' => 'query-budget-menu@example.com']);
@@ -398,10 +457,10 @@ class AdminMenuPermissionTest extends TestCase
     public function test_hidden_menu_is_not_an_authorization_boundary(): void
     {
         $permission = $this->createAdminPermission('system.menu.view');
-        $menu = Menu::factory()->hidden()->create([
+        $menu = $this->createMenu([
             'code' => 'system.hidden-visible-by-api',
-            'permission_id' => $permission->id,
-        ]);
+            'is_visible' => false,
+        ], [$permission]);
 
         $user = User::factory()->create(['email' => 'hidden-menu@example.com']);
         $user->givePermissionTo($permission);
@@ -500,5 +559,19 @@ class AdminMenuPermissionTest extends TestCase
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<int, SpatiePermission>  $permissions
+     */
+    private function createMenu(array $attributes, array $permissions = []): Menu
+    {
+        $menu = Menu::factory()->create($attributes);
+        $menu->permissions()->sync(
+            collect($permissions)->map(fn (SpatiePermission $permission): int => (int) $permission->getKey())->all()
+        );
+
+        return $menu;
     }
 }

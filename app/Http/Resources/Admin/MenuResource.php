@@ -3,7 +3,9 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\Permission;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class MenuResource extends PaginationAwareJsonResource
 {
@@ -14,6 +16,11 @@ class MenuResource extends PaginationAwareJsonResource
      */
     public function toArray(Request $request): array
     {
+        /** @var Collection<int, Permission> $permissions */
+        $permissions = $this->resource->relationLoaded('permissions')
+            ? $this->resource->getRelation('permissions')->sortBy([['sort', 'asc'], ['name', 'asc']])->values()
+            : collect();
+
         return [
             'id' => $this->id,
             'parent_id' => $this->parent_id,
@@ -23,9 +30,9 @@ class MenuResource extends PaginationAwareJsonResource
             'component' => $this->component,
             'icon' => $this->icon,
             'type' => $this->type,
-            'permission_id' => $this->permission_id,
-            'permission_name' => $this->whenLoaded('permission', fn (): ?string => $this->permission?->name, null),
-            'permission' => PermissionResource::make($this->whenLoaded('permission')),
+            'permission_ids' => $permissions->pluck('id')->map(fn (mixed $id): int => (int) $id)->all(),
+            'permission_names' => $permissions->pluck('name')->values()->all(),
+            'permissions' => PermissionResource::collection($permissions),
             'sort' => $this->sort,
             'is_visible' => $this->is_visible,
             'is_active' => $this->is_active,

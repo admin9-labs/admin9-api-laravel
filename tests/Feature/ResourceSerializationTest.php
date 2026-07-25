@@ -90,22 +90,22 @@ class ResourceSerializationTest extends TestCase
         $this->assertTrue($resource['is_active']);
     }
 
-    public function test_menu_resource_includes_canonical_permission_id(): void
+    public function test_menu_resource_includes_canonical_permission_collections(): void
     {
         $permission = Permission::query()->create([
             'name' => 'resource.menu.view',
             'guard_name' => 'admin',
         ]);
-        $menu = Menu::factory()->create([
-            'code' => 'resource.compat.menu',
-            'permission_id' => $permission->id,
-        ])->load('permission');
+        $menu = Menu::factory()->create(['code' => 'resource.compat.menu']);
+        $menu->permissions()->sync([$permission->id]);
+        $menu->load('permissions');
 
         $resource = MenuResource::make($menu)->resolve(Request::create('/resource-serialization-test'));
 
         $this->assertSame('resource.compat.menu', $resource['code']);
-        $this->assertSame($permission->id, $resource['permission_id']);
-        $this->assertSame('resource.menu.view', $resource['permission_name']);
+        $this->assertSame([$permission->id], $resource['permission_ids']);
+        $this->assertSame(['resource.menu.view'], $resource['permission_names']);
+        $this->assertSame('resource.menu.view', $resource['permissions']->resolve()[0]['name']);
         $this->assertArrayHasKey('created_at', $resource);
         $this->assertArrayHasKey('updated_at', $resource);
     }

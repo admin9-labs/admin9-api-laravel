@@ -10,9 +10,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['parent_id', 'name', 'code', 'path', 'component', 'icon', 'type', 'permission_id', 'sort', 'is_visible', 'is_active'])]
+#[Fillable(['parent_id', 'name', 'code', 'path', 'component', 'icon', 'type', 'sort', 'is_visible', 'is_active'])]
 class Menu extends Model
 {
     /** @use HasFactory<MenuFactory> */
@@ -49,7 +50,6 @@ class Menu extends Model
     protected function casts(): array
     {
         return [
-            'permission_id' => 'integer',
             'is_visible' => 'boolean',
             'is_active' => 'boolean',
         ];
@@ -64,11 +64,11 @@ class Menu extends Model
     }
 
     /**
-     * @return BelongsTo<Permission, Menu>
+     * @return BelongsToMany<Permission, Menu>
      */
-    public function permission(): BelongsTo
+    public function permissions(): BelongsToMany
     {
-        return $this->belongsTo(Permission::class);
+        return $this->belongsToMany(Permission::class, 'menu_permission');
     }
 
     /**

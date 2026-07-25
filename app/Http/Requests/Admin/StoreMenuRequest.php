@@ -33,7 +33,8 @@ class StoreMenuRequest extends FormRequest
             'component' => ['nullable', 'string', 'max:255'],
             'icon' => ['nullable', 'string', 'max:100'],
             'type' => ['sometimes', 'string', Rule::in(Menu::allowedTypes())],
-            'permission_id' => ['nullable', 'integer', Rule::exists(Permission::class, 'id')->where('guard_name', 'admin')],
+            'permission_ids' => ['sometimes', 'array'],
+            'permission_ids.*' => ['integer', 'distinct', Rule::exists(Permission::class, 'id')->where('guard_name', 'admin')],
             'sort' => ['sometimes', 'integer', 'min:0'],
             'is_visible' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
@@ -47,8 +48,12 @@ class StoreMenuRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($this->exists('permission_id')) {
+                    $validator->errors()->add('permission_id', 'The permission_id field is no longer supported. Use permission_ids instead.');
+                }
+
                 if ($this->exists('permission_name')) {
-                    $validator->errors()->add('permission_name', 'The permission_name field is response-only. Use permission_id instead.');
+                    $validator->errors()->add('permission_name', 'The permission_name field is no longer supported. Use permission_ids instead.');
                 }
             },
         ];

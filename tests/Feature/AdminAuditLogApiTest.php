@@ -34,7 +34,9 @@ class AdminAuditLogApiTest extends TestCase
         $this->getJson('/api/admin/login-logs', ['Authorization' => 'Bearer '.$activityToken])
             ->assertForbidden()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 403);
+            ->assertJsonPath('code', 403)
+            ->assertJsonPath('data', [])
+            ->assertJsonPath('errors', []);
 
         $this->getJson('/api/admin/login-logs', ['Authorization' => 'Bearer '.$loginToken])
             ->assertOk()
@@ -184,7 +186,7 @@ class AdminAuditLogApiTest extends TestCase
      */
     private function createLoginLog(User $subject, string $account, string $createdAt, array $context = []): LoginLog
     {
-        return LoginLog::query()->create([
+        $loginLog = LoginLog::query()->create([
             'guard' => 'admin',
             'account' => $account,
             'subject_type' => $subject->getMorphClass(),
@@ -194,9 +196,14 @@ class AdminAuditLogApiTest extends TestCase
             'failure_reason' => 'Invalid credentials',
             'ip_address' => '127.0.0.1',
             'context' => $context,
+        ]);
+
+        $loginLog->forceFill([
             'created_at' => $createdAt,
             'updated_at' => $createdAt,
-        ]);
+        ])->saveQuietly();
+
+        return $loginLog;
     }
 
     private function createPermission(string $permissionName): Permission

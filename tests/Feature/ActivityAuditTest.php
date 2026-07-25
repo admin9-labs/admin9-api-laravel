@@ -32,7 +32,7 @@ class ActivityAuditTest extends TestCase
             'name' => '审计菜单',
             'code' => 'audit.menu',
             'path' => '/audit/menu',
-            'permission_id' => $createPermission->id,
+            'permission_ids' => [$createPermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
@@ -42,25 +42,42 @@ class ActivityAuditTest extends TestCase
 
         $this->patchJson('/api/admin/menus/'.$menuId, [
             'name' => '审计菜单更新',
-            'permission_id' => $updatePermission->id,
+            'permission_ids' => [$updatePermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        /** @var Activity $activity */
-        $activity = Activity::query()->where('subject_type', (new Menu)->getMorphClass())->where('subject_id', $menuId)->latest('id')->firstOrFail();
-        $properties = $activity->properties->toArray();
+        /** @var Activity $permissionActivity */
+        $permissionActivity = Activity::query()
+            ->where('subject_type', (new Menu)->getMorphClass())
+            ->where('subject_id', $menuId)
+            ->where('event', 'permissions_synced')
+            ->latest('id')
+            ->firstOrFail();
+        $properties = $permissionActivity->properties->toArray();
 
-        $this->assertSame('admin', $activity->log_name);
-        $this->assertSame('updated', $activity->event);
+        $this->assertSame('admin', $permissionActivity->log_name);
+        $this->assertSame('permissions_synced', $permissionActivity->event);
         $this->assertSame('admin', $properties['guard']);
         $this->assertSame('admin.menus.update', $properties['route']);
         $this->assertNotEmpty($properties['request_id']);
         $this->assertSame('127.0.0.1', $properties['ip_address']);
-        $this->assertSame($admin->id, $activity->causer_id);
-        $this->assertSame('审计菜单更新', $properties['attributes']['name']);
+        $this->assertSame($admin->id, $permissionActivity->causer_id);
+        $this->assertSame([$createPermission->id], $properties['old']['permission_ids']);
+        $this->assertSame([$createPermission->name], $properties['old']['permission_names']);
+        $this->assertSame([$updatePermission->id], $properties['attributes']['permission_ids']);
+        $this->assertSame([$updatePermission->name], $properties['attributes']['permission_names']);
 
-        $this->assertActivityPropertiesAreSanitized($activity);
+        /** @var Activity $updatedActivity */
+        $updatedActivity = Activity::query()
+            ->where('subject_type', (new Menu)->getMorphClass())
+            ->where('subject_id', $menuId)
+            ->where('event', 'updated')
+            ->latest('id')
+            ->firstOrFail();
+        $this->assertSame('审计菜单更新', $updatedActivity->properties->get('attributes')['name']);
+
+        $this->assertActivityPropertiesAreSanitized($permissionActivity);
     }
 
     public function test_admin_user_creation_and_updates_do_not_store_passwords_in_activity_properties(): void

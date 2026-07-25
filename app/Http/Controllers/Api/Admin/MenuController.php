@@ -8,15 +8,20 @@ use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\MenuResource;
 use App\Models\Menu;
 use App\Support\Admin\AdminPermissionChecker;
+use App\Support\Audit\AdminActivityRecorder;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class MenuController extends Controller
 {
-    public function __construct(private AdminPermissionChecker $permissionChecker) {}
+    public function __construct(
+        private AdminPermissionChecker $permissionChecker,
+        private AdminActivityRecorder $activityRecorder,
+    ) {}
 
     /**
      * Return the complete bounded admin menu catalog for management UIs.
@@ -24,7 +29,7 @@ class MenuController extends Controller
     public function index(): JsonResponse
     {
         return $this->success(MenuResource::collection(
-            Menu::query()->with(['children.permission', 'permission'])->ordered()->get()
+            Menu::query()->with(['children.permissions', 'permissions'])->ordered()->get()
         ));
     }
 
@@ -38,7 +43,7 @@ class MenuController extends Controller
             ->visible()
             ->navigation()
             ->ordered()
-            ->with('permission')
+            ->with('permissions')
             ->get();
         $user = $request->user('admin');
 
@@ -54,12 +59,24 @@ class MenuController extends Controller
      */
     public function store(StoreMenuRequest $request): JsonResponse
     {
-        $menu = DB::transaction(
-            fn (): Menu => Menu::query()->create($request->validated())
-        );
+        $validated = $request->validated();
+        /** @var array<int, int> $permissionIds */
+        $permissionIds = Arr::pull($validated, 'permission_ids', []);
+
+        $menu = DB::transaction(function () use ($validated, $permissionIds): Menu {
+            $menu = Menu::query()->create($validated);
+            $menu->permissions()->sync($permissionIds);
+            $menu->load('permissions');
+
+            if ($permissionIds !== []) {
+                $this->recordPermissionSync($menu, ['permission_ids' => [], 'permission_names' => []]);
+            }
+
+            return $menu;
+        });
 
         return $this->success([
-            'menu' => MenuResource::make($menu->load(['children.permission', 'permission'])),
+            'menu' => MenuResource::make($menu->load('children.permissions')),
         ]);
     }
 
@@ -69,7 +86,7 @@ class MenuController extends Controller
     public function show(Menu $menu): JsonResponse
     {
         return $this->success([
-            'menu' => MenuResource::make($menu->load(['children.permission', 'permission'])),
+            'menu' => MenuResource::make($menu->load(['children.permissions', 'permissions'])),
         ]);
     }
 
@@ -78,12 +95,30 @@ class MenuController extends Controller
      */
     public function update(UpdateMenuRequest $request, Menu $menu): JsonResponse
     {
-        DB::transaction(function () use ($request, $menu): void {
-            $menu->update($request->validated());
+        $validated = $request->validated();
+        $shouldSyncPermissions = $request->exists('permission_ids');
+        /** @var array<int, int> $permissionIds */
+        $permissionIds = Arr::pull($validated, 'permission_ids', []);
+
+        $menu = DB::transaction(function () use ($menu, $permissionIds, $shouldSyncPermissions, $validated): Menu {
+            $menu->load('permissions');
+            $oldPermissions = $this->permissionAuditSnapshot($menu);
+            $menu->update($validated);
+
+            if ($shouldSyncPermissions) {
+                $menu->permissions()->sync($permissionIds);
+                $menu->load('permissions');
+
+                if ($oldPermissions !== $this->permissionAuditSnapshot($menu)) {
+                    $this->recordPermissionSync($menu, $oldPermissions);
+                }
+            }
+
+            return $menu->refresh()->load(['children.permissions', 'permissions']);
         });
 
         return $this->success([
-            'menu' => MenuResource::make($menu->refresh()->load(['children.permission', 'permission'])),
+            'menu' => MenuResource::make($menu),
         ]);
     }
 
@@ -105,11 +140,35 @@ class MenuController extends Controller
 
     private function canViewMenu(Menu $menu, ?Authenticatable $user): bool
     {
-        if ($menu->permission === null) {
+        if ($menu->permissions->isEmpty()) {
             return true;
         }
 
-        return $user !== null && $this->permissionChecker->canAccessPermission($user, $menu->permission);
+        return $user !== null && $this->permissionChecker->canAccessAnyPermission($user, $menu->permissions);
+    }
+
+    /**
+     * @return array{permission_ids: array<int, int>, permission_names: array<int, string>}
+     */
+    private function permissionAuditSnapshot(Menu $menu): array
+    {
+        $permissions = $menu->permissions->sortBy('id')->values();
+
+        return [
+            'permission_ids' => $permissions->pluck('id')->map(fn (mixed $id): int => (int) $id)->all(),
+            'permission_names' => $permissions->pluck('name')->all(),
+        ];
+    }
+
+    /**
+     * @param  array{permission_ids: array<int, int>, permission_names: array<int, string>}  $oldPermissions
+     */
+    private function recordPermissionSync(Menu $menu, array $oldPermissions): void
+    {
+        $this->activityRecorder->record($menu, 'permissions_synced', [
+            'old' => $oldPermissions,
+            'attributes' => $this->permissionAuditSnapshot($menu),
+        ]);
     }
 
     /**

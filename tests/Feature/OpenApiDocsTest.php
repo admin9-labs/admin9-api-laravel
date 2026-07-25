@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Route as RouteFacade;
 use Tests\TestCase;
 
 class OpenApiDocsTest extends TestCase
@@ -104,6 +106,35 @@ class OpenApiDocsTest extends TestCase
                 $operation['responses']['401']['$ref'] ?? null,
                 "{$path} must document invalid refresh tokens as authentication failures.",
             );
+        }
+    }
+
+    public function test_permission_middleware_and_disabled_account_refresh_failures_document_forbidden_response(): void
+    {
+        $document = $this->openApiDocument();
+        $operations = $this->operationsById($document);
+        $permissionOperationIds = collect(RouteFacade::getRoutes()->getRoutes())
+            ->filter(fn (Route $route): bool => collect($route->gatherMiddleware())
+                ->contains(fn (string $middleware): bool => str_starts_with($middleware, 'permission:')))
+            ->map(fn (Route $route): ?string => $route->getName())
+            ->filter()
+            ->values();
+
+        foreach ($permissionOperationIds->merge(['member.auth.refresh', 'admin.auth.refresh'])->unique() as $operationId) {
+            $this->assertSame(
+                '#/components/responses/ForbiddenResponse',
+                $operations[$operationId]['responses']['403']['$ref'] ?? null,
+                "{$operationId} must document HTTP 403.",
+            );
+        }
+
+        $forbiddenSchema = $document['components']['responses']['ForbiddenResponse']['content']['application/json']['schema'];
+        $this->assertSame(['success', 'code', 'message', 'data', 'errors', 'request_id'], $forbiddenSchema['required']);
+
+        foreach (['data', 'errors'] as $property) {
+            $this->assertSame('array', $forbiddenSchema['properties'][$property]['type']);
+            $this->assertSame([], $forbiddenSchema['properties'][$property]['items']);
+            $this->assertSame(0, $forbiddenSchema['properties'][$property]['maxItems']);
         }
     }
 
@@ -224,17 +255,127 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
-    public function test_generated_openapi_menu_contract_keeps_relation_derived_permission_name_response_only(): void
+    public function test_generated_openapi_log_contract_uses_precise_date_ranges_bigint_ids_and_nullability(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach (['/api/admin/activity-logs', '/api/admin/login-logs'] as $path) {
+            $parameters = collect($document['paths'][$path]['get']['parameters'])->keyBy('name');
+            $createdAt = $parameters['created_at']['schema'];
+
+            $this->assertSame('array', $createdAt['type']);
+            $this->assertSame(2, $createdAt['minItems']);
+            $this->assertSame(2, $createdAt['maxItems']);
+            $this->assertSame(['type' => 'string', 'format' => 'date'], $createdAt['items']);
+            $this->assertSame('integer', $parameters['subject_id']['schema']['type']);
+            $this->assertSame('int64', $parameters['subject_id']['schema']['format']);
+        }
+
+        $activityParameters = collect($document['paths']['/api/admin/activity-logs']['get']['parameters'])->keyBy('name');
+        $this->assertSame('integer', $activityParameters['causer_id']['schema']['type']);
+        $this->assertSame('int64', $activityParameters['causer_id']['schema']['format']);
+
+        $activity = $document['components']['schemas']['ActivityLogResource']['properties'];
+        $login = $document['components']['schemas']['LoginLogResource']['properties'];
+
+        foreach ([$activity['id'], $login['id']] as $idSchema) {
+            $this->assertSame('integer', $idSchema['type']);
+            $this->assertSame('int64', $idSchema['format']);
+        }
+
+        foreach (['subject_id', 'causer_id'] as $property) {
+            $this->assertSame(['integer', 'null'], $activity[$property]['type']);
+            $this->assertSame('int64', $activity[$property]['format']);
+        }
+
+        foreach (['log_name', 'event', 'subject_type', 'causer_type'] as $property) {
+            $this->assertSame(['string', 'null'], $activity[$property]['type']);
+        }
+
+        $this->assertSame(['integer', 'null'], $login['subject_id']['type']);
+        $this->assertSame('int64', $login['subject_id']['format']);
+    }
+
+    public function test_generated_openapi_dictionary_and_system_config_value_contracts_are_precise(): void
+    {
+        $schemas = $this->openApiDocument()['components']['schemas'];
+
+        foreach (['DictionaryItemResource', 'StoreDictionaryItemRequest', 'UpdateDictionaryItemRequest'] as $schemaName) {
+            $meta = $schemas[$schemaName]['properties']['meta'];
+
+            $this->assertSame(['object', 'null'], $meta['type']);
+            $this->assertSame([], $meta['additionalProperties']);
+        }
+
+        foreach (['StoreSystemConfigRequest', 'UpdateSystemConfigRequest'] as $schemaName) {
+            $value = $schemas[$schemaName]['properties']['value'];
+
+            $this->assertSame(['string', 'null'], $value['type']);
+            $this->assertSame(10000, $value['maxLength']);
+        }
+
+        $resolvedValueTypes = collect($schemas['SystemConfigResource']['properties']['value']['anyOf'])
+            ->pluck('type')
+            ->all();
+        $this->assertEqualsCanonicalizing([
+            'string',
+            'integer',
+            'number',
+            'boolean',
+            'object',
+            'array',
+            'null',
+        ], $resolvedValueTypes);
+    }
+
+    public function test_generated_openapi_menu_contract_uses_permission_collections_only(): void
     {
         $schemas = $this->openApiDocument()['components']['schemas'];
         $menuSchema = $schemas['MenuResource'];
 
-        $this->assertContains('permission_name', $menuSchema['required']);
-        $this->assertSame(['string', 'null'], $menuSchema['properties']['permission_name']['type']);
-        $this->assertArrayHasKey('permission_id', $schemas['StoreMenuRequest']['properties']);
-        $this->assertArrayNotHasKey('permission_name', $schemas['StoreMenuRequest']['properties']);
-        $this->assertArrayHasKey('permission_id', $schemas['UpdateMenuRequest']['properties']);
-        $this->assertArrayNotHasKey('permission_name', $schemas['UpdateMenuRequest']['properties']);
+        $this->assertSame(['permission_ids', 'permission_names', 'permissions'], array_values(array_intersect(
+            $menuSchema['required'],
+            ['permission_ids', 'permission_names', 'permissions'],
+        )));
+        $this->assertSame(['type' => 'integer', 'format' => 'int64'], $menuSchema['properties']['permission_ids']['items']);
+        $this->assertSame(['type' => 'string'], $menuSchema['properties']['permission_names']['items']);
+        $this->assertSame('#/components/schemas/PermissionResource', $menuSchema['properties']['permissions']['items']['$ref']);
+
+        foreach (['StoreMenuRequest', 'UpdateMenuRequest'] as $schemaName) {
+            $properties = $schemas[$schemaName]['properties'];
+
+            $this->assertArrayHasKey('permission_ids', $properties);
+            $this->assertArrayNotHasKey('permission_id', $properties);
+            $this->assertArrayNotHasKey('permission_name', $properties);
+        }
+    }
+
+    public function test_generated_openapi_management_create_and_delete_operations_keep_http_200(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach ([
+            ['/api/admin/users', 'post'],
+            ['/api/admin/users/{user}', 'delete'],
+            ['/api/admin/roles', 'post'],
+            ['/api/admin/roles/{role}', 'delete'],
+            ['/api/admin/permissions', 'post'],
+            ['/api/admin/permissions/{permission}', 'delete'],
+            ['/api/admin/menus', 'post'],
+            ['/api/admin/menus/{menu}', 'delete'],
+            ['/api/admin/dictionary-types', 'post'],
+            ['/api/admin/dictionary-types/{dictionaryType}', 'delete'],
+            ['/api/admin/dictionary-items', 'post'],
+            ['/api/admin/dictionary-items/{dictionaryItem}', 'delete'],
+            ['/api/admin/system-configs', 'post'],
+            ['/api/admin/system-configs/{systemConfig}', 'delete'],
+        ] as [$path, $method]) {
+            $responses = $document['paths'][$path][$method]['responses'];
+
+            $this->assertArrayHasKey('200', $responses, "{$method} {$path} must document HTTP 200.");
+            $this->assertArrayNotHasKey('201', $responses, "{$method} {$path} must not document HTTP 201.");
+            $this->assertArrayNotHasKey('204', $responses, "{$method} {$path} must not document HTTP 204.");
+        }
     }
 
     /**
@@ -275,5 +416,19 @@ class OpenApiDocsTest extends TestCase
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     * @return array<string, array<string, mixed>>
+     */
+    private function operationsById(array $document): array
+    {
+        return collect($document['paths'])
+            ->flatMap(fn (array $path): array => collect($path)
+                ->filter(fn (array $operation): bool => isset($operation['operationId']))
+                ->keyBy('operationId')
+                ->all())
+            ->all();
     }
 }

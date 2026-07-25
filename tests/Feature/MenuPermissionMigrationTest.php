@@ -56,6 +56,7 @@ class MenuPermissionMigrationTest extends TestCase
             $table->string('code')->unique();
             $table->string('permission_name')->nullable()->index();
             $table->foreignId('permission_id')->nullable()->constrained('permissions')->nullOnDelete();
+            $table->index('permission_id');
         });
     }
 
@@ -187,6 +188,99 @@ class MenuPermissionMigrationTest extends TestCase
         $this->assertSame($permissionId, DB::connection(self::CONNECTION)->table('menus')->where('id', $menuId)->value('permission_id'));
     }
 
+    public function test_scalar_permission_is_backfilled_to_unique_restricting_and_cascading_pivot(): void
+    {
+        $database = DB::connection(self::CONNECTION);
+        $permissionId = $this->insertPermission('pivot.backfill.view', 'admin');
+        $menuId = $this->insertMenu('pivot.backfill', $permissionId, null);
+
+        $this->schemaMigration()->up();
+        $this->pivotTableMigration()->up();
+
+        $reverseLookupIndex = collect(Schema::connection(self::CONNECTION)->getIndexes('menu_permission'))
+            ->firstWhere('name', 'menu_permission_permission_id_index');
+
+        $this->assertNotNull($reverseLookupIndex);
+        $this->assertSame(['permission_id'], $reverseLookupIndex['columns']);
+        $this->assertFalse($reverseLookupIndex['unique']);
+
+        $this->pivotBackfillMigration()->up();
+        $this->removeScalarPermissionMigration()->up();
+
+        $this->assertFalse(Schema::connection(self::CONNECTION)->hasColumn('menus', 'permission_id'));
+        $this->assertDatabaseHas('menu_permission', [
+            'menu_id' => $menuId,
+            'permission_id' => $permissionId,
+        ], self::CONNECTION);
+
+        try {
+            $database->table('menu_permission')->insert([
+                'menu_id' => $menuId,
+                'permission_id' => $permissionId,
+            ]);
+            $this->fail('Expected duplicate menu permission binding to violate the composite primary key.');
+        } catch (QueryException) {
+            $this->addToAssertionCount(1);
+        }
+
+        try {
+            $database->table('permissions')->where('id', $permissionId)->delete();
+            $this->fail('Expected a referenced permission delete to be restricted.');
+        } catch (QueryException) {
+            $this->addToAssertionCount(1);
+        }
+
+        $database->table('menus')->where('id', $menuId)->delete();
+
+        $this->assertSame(0, $database->table('menu_permission')->where('menu_id', $menuId)->count());
+        $this->assertSame(1, $database->table('permissions')->where('id', $permissionId)->delete());
+    }
+
+    public function test_pivot_backfill_rejects_non_admin_permission_without_partial_writes(): void
+    {
+        $permissionId = $this->insertPermission('pivot.member.view', 'member');
+        $menuId = $this->insertMenu('pivot.member', $permissionId, null);
+        $this->pivotTableMigration()->up();
+
+        try {
+            $this->pivotBackfillMigration()->up();
+            $this->fail('Expected the pivot backfill to reject a non-admin permission.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString("menu [id={$menuId}, code=pivot.member]", $exception->getMessage());
+            $this->assertStringContainsString('non-admin guard [member]', $exception->getMessage());
+        }
+
+        $this->assertSame(0, DB::connection(self::CONNECTION)->table('menu_permission')->count());
+    }
+
+    public function test_scalar_rollback_refuses_multi_permission_menu_before_changing_schema(): void
+    {
+        $database = DB::connection(self::CONNECTION);
+        $firstPermissionId = $this->insertPermission('pivot.rollback.first', 'admin');
+        $secondPermissionId = $this->insertPermission('pivot.rollback.second', 'admin');
+        $menuId = $this->insertMenu('pivot.rollback', $firstPermissionId, null);
+        $removeScalarPermission = $this->removeScalarPermissionMigration();
+
+        $this->schemaMigration()->up();
+        $this->pivotTableMigration()->up();
+        $this->pivotBackfillMigration()->up();
+        $removeScalarPermission->up();
+        $database->table('menu_permission')->insert([
+            'menu_id' => $menuId,
+            'permission_id' => $secondPermissionId,
+        ]);
+
+        try {
+            $removeScalarPermission->down();
+            $this->fail('Expected rollback to reject a menu with multiple permissions.');
+        } catch (RuntimeException $exception) {
+            $this->assertStringContainsString("menu_id [{$menuId}] has multiple permissions", $exception->getMessage());
+        }
+
+        $this->assertFalse(Schema::connection(self::CONNECTION)->hasColumn('menus', 'permission_id'));
+        $this->assertSame(2, $database->table('menu_permission')->where('menu_id', $menuId)->count());
+    }
+
     private function insertPermission(string $name, string $guardName): int
     {
         return DB::connection(self::CONNECTION)->table('permissions')->insertGetId([
@@ -216,6 +310,30 @@ class MenuPermissionMigrationTest extends TestCase
     {
         /** @var Migration $migration */
         $migration = require database_path('migrations/2026_07_20_181531_enforce_menu_permission_id_as_single_source.php');
+
+        return $migration;
+    }
+
+    private function pivotTableMigration(): Migration
+    {
+        /** @var Migration $migration */
+        $migration = require database_path('migrations/2026_07_25_060850_create_menu_permission_table.php');
+
+        return $migration;
+    }
+
+    private function pivotBackfillMigration(): Migration
+    {
+        /** @var Migration $migration */
+        $migration = require database_path('migrations/2026_07_25_060857_backfill_menu_permissions_to_pivot.php');
+
+        return $migration;
+    }
+
+    private function removeScalarPermissionMigration(): Migration
+    {
+        /** @var Migration $migration */
+        $migration = require database_path('migrations/2026_07_25_060904_remove_permission_id_from_menus_table.php');
 
         return $migration;
     }

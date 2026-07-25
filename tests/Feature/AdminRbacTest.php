@@ -207,8 +207,7 @@ class AdminRbacTest extends TestCase
         $this->assertTrue((bool) $permission->getAttribute('is_active'));
         $this->assertNotNull($menu);
         $this->assertSame(Menu::TYPE_PAGE, $menu->type);
-        $this->assertSame($permission->id, $menu->permission_id);
-        $this->assertSame('system.role.view', $menu->load('permission')->permission?->name);
+        $this->assertSame(['system.role.view'], $menu->permissions()->pluck('name')->all());
     }
 
     public function test_seeder_creates_complete_built_in_permission_metadata(): void
@@ -241,17 +240,27 @@ class AdminRbacTest extends TestCase
         $rolePage = Menu::query()->where('code', 'system.roles')->firstOrFail();
         $roleCreate = Menu::query()->where('code', 'system.roles.create')->firstOrFail();
         $assignRole = Menu::query()->where('code', 'system.users.assign-role')->firstOrFail();
+        $logs = Menu::query()->where('code', 'system.logs')->firstOrFail();
 
         $this->assertSame(Menu::TYPE_DIRECTORY, $system->type);
         $this->assertSame(Menu::TYPE_PAGE, $rolePage->type);
         $this->assertSame(Menu::TYPE_BUTTON, $roleCreate->type);
         $this->assertSame(Menu::TYPE_BUTTON, $assignRole->type);
         $this->assertSame($rolePage->id, $roleCreate->parent_id);
-        $this->assertSame('system.role.create', $roleCreate->load('permission')->permission?->name);
-        $this->assertSame('system.user.assign-role', $assignRole->load('permission')->permission?->name);
+        $this->assertSame(['system.role.create'], $roleCreate->permissions()->pluck('name')->all());
+        $this->assertSame(['system.user.assign-role'], $assignRole->permissions()->pluck('name')->all());
         $this->assertFalse($roleCreate->is_visible);
         $this->assertFalse(Menu::query()->where('code', 'system.activity-logs')->exists());
         $this->assertFalse(Menu::query()->where('code', 'system.login-logs')->exists());
+        $this->assertSame($system->id, $logs->parent_id);
+        $this->assertSame('/system/log', $logs->path);
+        $this->assertSame('system/log/index', $logs->component);
+        $this->assertSame(Menu::TYPE_PAGE, $logs->type);
+        $this->assertSame(70, $logs->sort);
+        $this->assertEqualsCanonicalizing([
+            'system.activity-log.view',
+            'system.login-log.view',
+        ], $logs->permissions()->pluck('name')->all());
     }
 
     public function test_permission_managed_admin_routes_declare_existing_seed_permission_names(): void
@@ -273,34 +282,27 @@ class AdminRbacTest extends TestCase
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
         $routePermissionNames = $this->managedAdminPermissionNames();
-        $apiOnlyPermissionNames = collect([
-            'system.activity-log.view',
-            'system.login-log.view',
-        ]);
         $menus = Menu::query()
-            ->whereNotNull('permission_id')
-            ->with('permission')
+            ->whereHas('permissions')
+            ->with('permissions')
             ->get();
         $menuPermissionNames = $menus
-            ->pluck('permission.name')
+            ->flatMap(fn (Menu $menu) => $menu->permissions->pluck('name'))
+            ->unique()
             ->sort()
             ->values()
             ->all();
 
-        $this->assertEqualsCanonicalizing(
-            $apiOnlyPermissionNames->all(),
-            $routePermissionNames->intersect($apiOnlyPermissionNames)->values()->all(),
-        );
         $this->assertSame(
-            $routePermissionNames->diff($apiOnlyPermissionNames)->values()->all(),
+            $routePermissionNames->all(),
             $menuPermissionNames,
         );
 
         $menus->each(function (Menu $menu): void {
-            $this->assertNotNull($menu->permission_id);
-            $this->assertSame('admin', $menu->permission?->guard_name);
+            $this->assertTrue($menu->permissions->isNotEmpty());
+            $menu->permissions->each(fn (Permission $permission) => $this->assertSame('admin', $permission->guard_name));
 
-            if (str_ends_with((string) $menu->permission?->name, '.view')) {
+            if ($menu->permissions->every(fn (Permission $permission): bool => str_ends_with($permission->name, '.view'))) {
                 $this->assertSame(Menu::TYPE_PAGE, $menu->type);
 
                 return;

@@ -87,13 +87,14 @@ class AdminCoreApiContractTest extends TestCase
             'path' => '/contract/menu',
             'component' => 'contract/menu/index',
             'type' => Menu::TYPE_PAGE,
-            'permission_id' => $permission->id,
+            'permission_ids' => [$permission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.menu.type', Menu::TYPE_PAGE)
-            ->assertJsonPath('data.menu.permission_id', $permission->id)
-            ->assertJsonPath('data.menu.permission_name', $permission->name);
+            ->assertJsonPath('data.menu.permission_ids', [$permission->id])
+            ->assertJsonPath('data.menu.permission_names', [$permission->name])
+            ->assertJsonPath('data.menu.permissions.0.name', $permission->name);
 
         $this->assertWrappedResourceShape($create, 'menu', $this->menuResourceKeys());
 
@@ -386,10 +387,10 @@ class AdminCoreApiContractTest extends TestCase
                 'seedResource' => static function (self $test): void {
                     $permission = $test->createAdminPermission('system.contract.menu.view');
 
-                    Menu::factory()->create([
+                    $menu = Menu::factory()->create([
                         'code' => 'contract.menu.catalog',
-                        'permission_id' => $permission->id,
                     ]);
+                    $menu->permissions()->sync([$permission->id]);
                 },
                 'itemKeys' => self::menuResourceKeys(),
             ],
@@ -429,9 +430,9 @@ class AdminCoreApiContractTest extends TestCase
             'component',
             'icon',
             'type',
-            'permission_id',
-            'permission_name',
-            'permission',
+            'permission_ids',
+            'permission_names',
+            'permissions',
             'sort',
             'is_visible',
             'is_active',
