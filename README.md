@@ -9,7 +9,7 @@ composer setup
 composer dev
 ```
 
-`composer dev` runs the HTTP server, queue listener, scheduler worker, log tailing, and Vite dev server together for local feedback.
+`composer dev` runs the HTTP server at `http://localhost:8000`, queue listener, scheduler worker, log tailing, and Vite dev server together for local feedback. When using Herd or Valet, you may override `APP_URL` in your local `.env`, for example with `http://admin9-api-laravel.test`.
 
 ## Initial admin access
 
@@ -19,7 +19,7 @@ composer dev
 php artisan db:seed
 ```
 
-The local-only development credentials are `admin@example.com` / `password`. They are deliberately never created in staging, production, or any other non-local environment. For those environments, inject a unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` through the hosting platform's secret manager before running `php artisan db:seed --force`.
+The local-only development credentials are `admin@admin9.dev` / `password`. They are deliberately never created in staging, production, or any other non-local environment. For those environments, inject a unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` through the hosting platform's secret manager before running `php artisan db:seed --force`.
 
 ## Test and formatting
 

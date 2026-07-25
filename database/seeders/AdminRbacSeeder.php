@@ -20,7 +20,7 @@ class AdminRbacSeeder extends Seeder
 
     private const DEFAULT_BOOTSTRAP_NAME = 'Admin';
 
-    private const DEFAULT_BOOTSTRAP_EMAIL = 'admin@example.com';
+    private const DEFAULT_BOOTSTRAP_EMAIL = 'admin@admin9.dev';
 
     private const DEFAULT_BOOTSTRAP_PASSWORD = 'password';
 

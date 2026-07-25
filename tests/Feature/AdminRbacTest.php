@@ -23,32 +23,37 @@ class AdminRbacTest extends TestCase
 
     public function test_admin_rbac_seeder_bootstraps_super_admin_idempotently(): void
     {
+        config([
+            'admin.bootstrap.email' => null,
+            'admin.bootstrap.password' => null,
+        ]);
+
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
-        $admin = User::query()->where('email', 'admin@example.com')->first();
+        $admin = User::query()->where('email', 'admin@admin9.dev')->first();
         $this->assertNotNull($admin);
         $this->assertTrue($admin->is_active);
         $this->assertTrue($admin->hasRole('super-admin'));
-        $this->assertSame(1, User::query()->where('email', 'admin@example.com')->count());
+        $this->assertSame(1, User::query()->where('email', 'admin@admin9.dev')->count());
         $this->assertSame(1, Role::query()->where('name', 'super-admin')->where('guard_name', 'admin')->count());
 
         $this->postJson('/api/admin/auth/login', [
-            'email' => 'admin@example.com',
+            'email' => 'admin@admin9.dev',
             'password' => 'password',
         ])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.user.email', 'admin@example.com');
+            ->assertJsonPath('data.user.email', 'admin@admin9.dev');
     }
 
     public function test_admin_rbac_seeder_does_not_elevate_existing_admin_email(): void
     {
-        $existingAdmin = User::factory()->create(['email' => 'admin@example.com']);
+        $existingAdmin = User::factory()->create(['email' => 'admin@admin9.dev']);
 
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
-        $this->assertSame(1, User::query()->where('email', 'admin@example.com')->count());
+        $this->assertSame(1, User::query()->where('email', 'admin@admin9.dev')->count());
         $this->assertFalse($existingAdmin->refresh()->hasRole('super-admin'));
         $this->assertSame(1, Role::query()->where('name', 'super-admin')->where('guard_name', 'admin')->count());
     }
@@ -63,7 +68,7 @@ class AdminRbacTest extends TestCase
 
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class, '--force' => true]);
 
-        $this->assertFalse(User::query()->where('email', 'admin@example.com')->exists());
+        $this->assertFalse(User::query()->where('email', 'admin@admin9.dev')->exists());
         $this->assertSame(1, Role::query()->where('name', 'super-admin')->where('guard_name', 'admin')->count());
         $this->assertGreaterThan(0, Permission::query()->where('guard_name', 'admin')->where('is_system', true)->count());
     }
@@ -84,7 +89,7 @@ class AdminRbacTest extends TestCase
         $this->assertSame('Production Root', $admin->name);
         $this->assertTrue($admin->is_active);
         $this->assertTrue($admin->hasRole('super-admin'));
-        $this->assertFalse(User::query()->where('email', 'admin@example.com')->exists());
+        $this->assertFalse(User::query()->where('email', 'admin@admin9.dev')->exists());
 
         $this->postJson('/api/admin/auth/login', [
             'email' => 'root@example.com',
@@ -350,12 +355,17 @@ class AdminRbacTest extends TestCase
 
     public function test_seeder_creates_missing_bootstrap_admin_once_and_assigns_super_admin(): void
     {
+        config([
+            'admin.bootstrap.email' => null,
+            'admin.bootstrap.password' => null,
+        ]);
+
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
-        $admin = User::query()->where('email', 'admin@example.com')->firstOrFail();
+        $admin = User::query()->where('email', 'admin@admin9.dev')->firstOrFail();
 
-        $this->assertSame(1, User::query()->where('email', 'admin@example.com')->count());
+        $this->assertSame(1, User::query()->where('email', 'admin@admin9.dev')->count());
         $this->assertTrue($admin->hasRole('super-admin'));
     }
 

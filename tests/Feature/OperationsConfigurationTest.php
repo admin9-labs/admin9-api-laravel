@@ -45,6 +45,16 @@ class OperationsConfigurationTest extends TestCase
     {
         $environmentDefaults = parse_ini_file(base_path('.env.example'), false, INI_SCANNER_RAW);
 
+        $this->assertSame('Admin9 API', $environmentDefaults['APP_NAME']);
+        $this->assertSame('http://localhost:8000', $environmentDefaults['APP_URL']);
+        $this->assertSame('admin@admin9.dev', $environmentDefaults['ADMIN_BOOTSTRAP_EMAIL']);
+        $this->assertSame('hello@admin9.dev', $environmentDefaults['MAIL_FROM_ADDRESS']);
+        $this->assertSame('${APP_NAME}', $environmentDefaults['MAIL_FROM_NAME']);
+        $this->assertStringContainsString('`admin@admin9.dev` / `password`', file_get_contents(base_path('README.md')));
+        $this->assertStringContainsString("env('APP_NAME', 'Admin9 API')", file_get_contents(config_path('app.php')));
+        $this->assertStringContainsString("env('MAIL_FROM_ADDRESS', 'hello@admin9.dev')", file_get_contents(config_path('mail.php')));
+        $this->assertStringContainsString("env('MAIL_FROM_NAME', env('APP_NAME', 'Admin9 API'))", file_get_contents(config_path('mail.php')));
+        $this->assertStringContainsString("env('LOG_SLACK_USERNAME', env('APP_NAME', 'Admin9 API'))", file_get_contents(config_path('logging.php')));
         $this->assertSame('database', $environmentDefaults['QUEUE_CONNECTION']);
         $this->assertSame('database', $environmentDefaults['CACHE_STORE']);
         $this->assertSame('stack', $environmentDefaults['LOG_CHANNEL']);
