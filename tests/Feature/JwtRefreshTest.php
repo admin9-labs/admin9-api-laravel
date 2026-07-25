@@ -96,8 +96,13 @@ class JwtRefreshTest extends TestCase
     #[DataProvider('guardProvider')]
     public function test_opposite_guard_token_cannot_be_refreshed(string $guard): void
     {
-        [$admin, $adminToken] = $this->login('admin');
-        [$member, $memberToken] = $this->login('member');
+        $sharedAccountId = max(
+            (int) User::query()->max('id'),
+            (int) Member::query()->max('id'),
+        ) + 1;
+
+        [$admin, $adminToken] = $this->login('admin', $sharedAccountId);
+        [$member, $memberToken] = $this->login('member', $sharedAccountId);
         $this->assertSame($admin->getKey(), $member->getKey());
 
         $oppositeToken = $guard === 'admin' ? $memberToken : $adminToken;
@@ -287,10 +292,13 @@ class JwtRefreshTest extends TestCase
     /**
      * @return array{Model, string}
      */
-    private function login(string $guard): array
+    private function login(string $guard, ?int $accountId = null): array
     {
+        $identity = $accountId === null ? [] : ['id' => $accountId];
+
         if ($guard === 'admin') {
             $account = User::factory()->create([
+                ...$identity,
                 'email' => 'jwt-admin@example.com',
                 'password' => 'password',
             ]);
@@ -300,6 +308,7 @@ class JwtRefreshTest extends TestCase
             ])->assertOk();
         } else {
             $account = Member::factory()->create([
+                ...$identity,
                 'email' => 'jwt-member@example.com',
                 'mobile' => '13900000000',
                 'password' => 'password',
