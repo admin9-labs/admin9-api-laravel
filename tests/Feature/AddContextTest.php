@@ -76,6 +76,19 @@ class AddContextTest extends TestCase
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 
+    public function test_api_authentication_errors_render_json_without_an_accept_header(): void
+    {
+        $response = $this->get('/api/admin/auth/me')
+            ->assertUnauthorized()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 401)
+            ->assertJsonPath('message', 'Unauthenticated')
+            ->assertHeader('X-Request-Id');
+
+        $this->assertStringContainsString('application/json', (string) $response->headers->get('Content-Type'));
+        $this->assertResponseRequestIdMatchesHeader($response);
+    }
+
     public function test_it_uses_403_status_code_for_api_forbidden_errors(): void
     {
         Route::middleware('api')->get('/api/_test/add-context-forbidden', function (JsonResponder $responder) {
