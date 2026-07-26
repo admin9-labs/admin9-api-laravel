@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class MenuController extends Controller
 {
@@ -101,6 +102,13 @@ class MenuController extends Controller
         $permissionIds = Arr::pull($validated, 'permission_ids', []);
 
         $menu = DB::transaction(function () use ($menu, $permissionIds, $shouldSyncPermissions, $validated): Menu {
+            if (array_key_exists('parent_id', $validated)) {
+                $parentId = $validated['parent_id'] === null ? null : (int) $validated['parent_id'];
+
+                $this->lockMenuGraphAndValidateParent($menu, $parentId);
+                $menu->refresh();
+            }
+
             $menu->load('permissions');
             $oldPermissions = $this->permissionAuditSnapshot($menu);
             $menu->update($validated);
@@ -136,6 +144,54 @@ class MenuController extends Controller
         });
 
         return $this->success(message: 'deleted');
+    }
+
+    private function lockMenuGraphAndValidateParent(Menu $menu, ?int $candidateParentId): void
+    {
+        /** @var array<int, int|null> $parentIdsByMenuId */
+        $parentIdsByMenuId = Menu::query()
+            ->select(['id', 'parent_id'])
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->mapWithKeys(static fn (Menu $lockedMenu): array => [
+                (int) $lockedMenu->getKey() => $lockedMenu->parent_id === null
+                    ? null
+                    : (int) $lockedMenu->parent_id,
+            ])
+            ->all();
+
+        if ($candidateParentId === null) {
+            return;
+        }
+
+        $menuId = (int) $menu->getKey();
+        $visitedMenuIds = [];
+        $currentMenuId = $candidateParentId;
+
+        while (true) {
+            if ($currentMenuId === $menuId || isset($visitedMenuIds[$currentMenuId])) {
+                throw ValidationException::withMessages([
+                    'parent_id' => [UpdateMenuRequest::DESCENDANT_PARENT_MESSAGE],
+                ]);
+            }
+
+            $visitedMenuIds[$currentMenuId] = true;
+
+            if (! array_key_exists($currentMenuId, $parentIdsByMenuId)) {
+                throw ValidationException::withMessages([
+                    'parent_id' => [__('validation.exists', ['attribute' => 'parent id'])],
+                ]);
+            }
+
+            $parentId = $parentIdsByMenuId[$currentMenuId];
+
+            if ($parentId === null) {
+                return;
+            }
+
+            $currentMenuId = $parentId;
+        }
     }
 
     private function canViewMenu(Menu $menu, ?Authenticatable $user): bool

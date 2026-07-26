@@ -10,7 +10,7 @@ use Illuminate\Validation\Validator;
 
 class UpdateMenuRequest extends FormRequest
 {
-    private const DESCENDANT_PARENT_MESSAGE = 'The selected parent menu must not be a descendant of this menu.';
+    public const DESCENDANT_PARENT_MESSAGE = 'The selected parent menu must not be a descendant of this menu.';
 
     /**
      * Determine if the user is authorized to make this request.
@@ -85,16 +85,22 @@ class UpdateMenuRequest extends FormRequest
 
     private function isDescendantMenu(int $candidateParentId, int $menuId): bool
     {
-        $parentId = Menu::query()->whereKey($candidateParentId)->value('parent_id');
+        $visitedMenuIds = [];
+        $currentMenuId = $candidateParentId;
 
-        while ($parentId !== null) {
-            if ((int) $parentId === $menuId) {
+        while (true) {
+            if ($currentMenuId === $menuId || isset($visitedMenuIds[$currentMenuId])) {
                 return true;
             }
 
-            $parentId = Menu::query()->whereKey($parentId)->value('parent_id');
-        }
+            $visitedMenuIds[$currentMenuId] = true;
+            $parentId = Menu::query()->whereKey($currentMenuId)->value('parent_id');
 
-        return false;
+            if ($parentId === null) {
+                return false;
+            }
+
+            $currentMenuId = (int) $parentId;
+        }
     }
 }

@@ -477,7 +477,26 @@ class AdminMenuPermissionTest extends TestCase
             ->assertJsonPath('data.menu.code', 'system.hidden-visible-by-api');
     }
 
-    public function test_menu_update_rejects_descendant_parent_cycles(): void
+    public function test_menu_update_rejects_direct_parent_cycles(): void
+    {
+        $permission = $this->createAdminPermission('system.menu.update');
+        $menu = Menu::factory()->create(['code' => 'cycle.direct']);
+        $user = User::factory()->create(['email' => 'menu-direct-cycle@example.com']);
+        $user->givePermissionTo($permission);
+        $token = $this->adminTokenFor($user);
+
+        $this->patchJson('/api/admin/menus/'.$menu->id, [
+            'parent_id' => $menu->id,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 422)
+            ->assertJsonValidationErrors('parent_id');
+
+        $this->assertNull($menu->refresh()->parent_id);
+    }
+
+    public function test_menu_update_rejects_indirect_descendant_parent_cycles(): void
     {
         $permission = $this->createAdminPermission('system.menu.update');
 
@@ -494,9 +513,33 @@ class AdminMenuPermissionTest extends TestCase
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 422);
+            ->assertJsonPath('code', 422)
+            ->assertJsonValidationErrors('parent_id');
 
         $this->assertNull($root->refresh()->parent_id);
+    }
+
+    public function test_menu_update_allows_legal_parent_changes(): void
+    {
+        $permission = $this->createAdminPermission('system.menu.update');
+        $originalParent = Menu::factory()->create(['code' => 'reparent.original']);
+        $newParent = Menu::factory()->create(['code' => 'reparent.new']);
+        $menu = Menu::factory()->create([
+            'parent_id' => $originalParent->id,
+            'code' => 'reparent.child',
+        ]);
+        $user = User::factory()->create(['email' => 'menu-reparent@example.com']);
+        $user->givePermissionTo($permission);
+        $token = $this->adminTokenFor($user);
+
+        $this->patchJson('/api/admin/menus/'.$menu->id, [
+            'parent_id' => $newParent->id,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.menu.parent_id', $newParent->id);
+
+        $this->assertSame($newParent->id, $menu->refresh()->parent_id);
     }
 
     public function test_menu_with_child_menus_cannot_be_deleted(): void

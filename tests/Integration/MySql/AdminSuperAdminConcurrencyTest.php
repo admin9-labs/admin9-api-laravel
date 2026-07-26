@@ -2,6 +2,8 @@
 
 namespace Tests\Integration\MySql;
 
+use App\Http\Requests\Admin\UpdateMenuRequest;
+use App\Models\Menu;
 use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
@@ -274,6 +276,52 @@ class AdminSuperAdminConcurrencyTest extends TestCase
         }
     }
 
+    public function test_concurrent_menu_parent_updates_cannot_commit_a_cycle(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.menu.update');
+
+            $firstMenu = Menu::factory()->create(['code' => "concurrent-menu-first-{$round}"]);
+            $secondMenu = Menu::factory()->create(['code' => "concurrent-menu-second-{$round}"]);
+            $manager = User::factory()->create(['email' => "concurrent-menu-manager-{$round}@example.com"]);
+            $manager->givePermissionTo('system.menu.update');
+            $token = $this->tokenFor($manager);
+
+            $results = $this->raceMenuParentRequests(
+                scenario: "menu-parent-round-{$round}",
+                targetIds: [$firstMenu->id, $secondMenu->id],
+                requests: [
+                    $this->request('PATCH', "/api/admin/menus/{$firstMenu->id}", $token, [
+                        'parent_id' => $secondMenu->id,
+                    ]),
+                    $this->request('PATCH', "/api/admin/menus/{$secondMenu->id}", $token, [
+                        'parent_id' => $firstMenu->id,
+                    ]),
+                ],
+            );
+
+            $this->assertSerializedOutcome(
+                $results,
+                strtolower(UpdateMenuRequest::DESCENDANT_PARENT_MESSAGE),
+            );
+            $rejection = collect($results)->firstWhere('status', 422);
+            $this->assertIsArray($rejection);
+            $this->assertSame(
+                [UpdateMenuRequest::DESCENDANT_PARENT_MESSAGE],
+                $rejection['body']['errors']['parent_id'] ?? null,
+            );
+
+            $firstParentId = $firstMenu->refresh()->parent_id;
+            $secondParentId = $secondMenu->refresh()->parent_id;
+
+            $this->assertTrue(
+                ($firstParentId === $secondMenu->id && $secondParentId === null)
+                || ($firstParentId === null && $secondParentId === $firstMenu->id),
+            );
+        }
+    }
+
     /**
      * @param  array{method: string, uri: string, token: string, payload: array<string, mixed>}  $roleRequest
      * @return array<int, array{status: int, body: array<string, mixed>, connection_id: int}>
@@ -444,6 +492,66 @@ class AdminSuperAdminConcurrencyTest extends TestCase
     }
 
     /**
+     * @param  array<int, int>  $targetIds
+     * @param  array<int, array{method: string, uri: string, token: string, payload: array<string, mixed>}>  $requests
+     * @return array<int, array{status: int, body: array<string, mixed>, connection_id: int}>
+     */
+    private function raceMenuParentRequests(string $scenario, array $targetIds, array $requests): array
+    {
+        $connection = DB::connection();
+        $temporaryDirectory = $this->createTemporaryDirectory($scenario);
+        $processes = [];
+
+        $connection->beginTransaction();
+
+        try {
+            $this->assertSame($this->sortedIntegers($targetIds), Menu::query()
+                ->whereKey($targetIds)
+                ->orderBy('id')
+                ->pluck('id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all());
+
+            Menu::query()
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id']);
+            $parentConnectionId = $this->connectionId($connection);
+
+            foreach ($requests as $index => $request) {
+                $readyFile = $temporaryDirectory.'/worker-'.($index + 1).'.json';
+                $process = $this->startRequestProcess($request, $readyFile);
+                $processes[] = [
+                    'process' => $process,
+                    'ready_file' => $readyFile,
+                ];
+            }
+
+            $workerConnectionIds = $this->waitForReadyWorkers($processes);
+            $this->assertCount(3, array_unique([$parentConnectionId, ...$workerConnectionIds]));
+            $this->waitForLockWaits($connection, $workerConnectionIds, $processes);
+            $this->assertSame(
+                2,
+                count(array_filter(
+                    $this->blockingConnectionIds($connection, 'menus', $workerConnectionIds),
+                    static fn (int $blockingConnectionId): bool => $blockingConnectionId === $parentConnectionId,
+                )),
+            );
+
+            $connection->commit();
+
+            return $this->waitForResults($processes);
+        } finally {
+            if ($connection->transactionLevel() > 0) {
+                $connection->rollBack();
+            }
+
+            $this->stopProcesses($processes);
+            $this->removeTemporaryDirectory($temporaryDirectory);
+        }
+    }
+
+    /**
      * @param  array{method: string, uri: string, token: string, payload: array<string, mixed>}  $request
      * @param  array<string, string>  $environmentOverrides
      */
@@ -598,6 +706,15 @@ class AdminSuperAdminConcurrencyTest extends TestCase
      */
     private function permissionBlockingConnectionIds(Connection $connection, array $workerConnectionIds): array
     {
+        return $this->blockingConnectionIds($connection, 'permissions', $workerConnectionIds);
+    }
+
+    /**
+     * @param  array<int, int>  $workerConnectionIds
+     * @return array<int, int>
+     */
+    private function blockingConnectionIds(Connection $connection, string $table, array $workerConnectionIds): array
+    {
         $rows = $connection->select(
             <<<'SQL'
                 select distinct
@@ -611,12 +728,12 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 inner join performance_schema.threads as blocking_thread
                     on blocking_thread.thread_id = lock_wait.blocking_thread_id
                 where requesting_lock.object_schema = ?
-                    and requesting_lock.object_name = 'permissions'
+                    and requesting_lock.object_name = ?
                     and requesting_lock.index_name = 'PRIMARY'
                     and requesting_thread.processlist_id in (?, ?)
                 order by requesting_connection_id
                 SQL,
-            [$this->databaseMetadata['database'], ...$workerConnectionIds],
+            [$this->databaseMetadata['database'], $table, ...$workerConnectionIds],
         );
 
         return array_map(
