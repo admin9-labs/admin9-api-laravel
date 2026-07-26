@@ -82,7 +82,10 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
         Route::apiResource('media', MediaController::class)
             ->only(['index', 'store', 'destroy'])
             ->middlewareFor('index', $adminPermission('system.media.view'))
-            ->middlewareFor('store', $adminPermission('system.media.create'))
+            ->middlewareFor('store', [
+                $adminPermission('system.media.create'),
+                'throttle:admin-media-upload',
+            ])
             ->middlewareFor('destroy', $adminPermission('system.media.delete'))
             ->parameters(['media' => 'media']);
 

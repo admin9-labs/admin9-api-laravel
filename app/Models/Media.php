@@ -14,6 +14,12 @@ class Media extends Model
     /** @use HasFactory<MediaFactory> */
     use HasFactory;
 
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_READY = 'ready';
+
     /**
      * @return array<string, string>
      */

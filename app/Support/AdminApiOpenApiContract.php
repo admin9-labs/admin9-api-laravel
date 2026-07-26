@@ -7,6 +7,8 @@ use App\Http\Requests\Admin\StoreMediaRequest;
 use App\Http\Requests\Admin\StoreMemberRequest;
 use App\Http\Requests\Admin\StoreMenuRequest;
 use App\Http\Requests\Admin\UpdateDictionaryItemRequest;
+use App\Http\Requests\Admin\UpdateMemberRequest;
+use App\Http\Requests\Admin\UpdateMemberStatusRequest;
 use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\ActivityLogResource;
 use App\Http\Resources\Admin\DictionaryItemResource;
@@ -207,13 +209,22 @@ class AdminApiOpenApiContract
             $storeMemberSchema->type,
             (new AnyOf)->setItems([
                 (new ObjectType)
-                    ->addProperty('email', (new StringType)->format('email'))
+                    ->addProperty('email', (new StringType)->format('email')->setMin(1)->pattern('.*\\S.*'))
                     ->addRequired(['email']),
                 (new ObjectType)
-                    ->addProperty('mobile', new StringType)
+                    ->addProperty('mobile', (new StringType)->setMin(1)->pattern('.*\\S.*'))
                     ->addRequired(['mobile']),
             ]),
         ]);
+
+        $this->objectSchema($document, UpdateMemberRequest::class)
+            ->addProperty('name', (new StringType)->setMax(255))
+            ->addProperty('email', (new StringType)->format('email')->setMax(255)->nullable(true))
+            ->addProperty('mobile', (new StringType)->setMax(32)->nullable(true));
+
+        $this->objectSchema($document, UpdateMemberStatusRequest::class)
+            ->addProperty('is_active', new BooleanType)
+            ->addRequired(['is_active']);
     }
 
     private function normalizeMediaSchemas(OpenApi $document): void
@@ -227,6 +238,11 @@ class AdminApiOpenApiContract
             ->addProperty('size', (new IntegerType)->format('int64'))
             ->addProperty('width', (new IntegerType)->nullable(true))
             ->addProperty('height', (new IntegerType)->nullable(true))
+            ->addProperty('status', (new StringType)->enum([
+                'pending',
+                'ready',
+                'failed',
+            ]))
             ->addProperty('created_at', new StringType)
             ->addRequired([
                 'id',
@@ -237,6 +253,7 @@ class AdminApiOpenApiContract
                 'size',
                 'width',
                 'height',
+                'status',
                 'created_at',
             ]);
 

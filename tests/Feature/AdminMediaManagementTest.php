@@ -53,6 +53,7 @@ class AdminMediaManagementTest extends TestCase
             ->assertJsonPath('data.media.extension', $extension)
             ->assertJsonPath('data.media.width', 32)
             ->assertJsonPath('data.media.height', 24)
+            ->assertJsonPath('data.media.status', Media::STATUS_READY)
             ->assertJsonMissingPath('data.media.disk')
             ->assertJsonMissingPath('data.media.path')
             ->assertJsonMissingPath('data.media.created_by')
@@ -127,7 +128,7 @@ class AdminMediaManagementTest extends TestCase
         $this->assertSame(0, Media::query()->count());
     }
 
-    public function test_database_failure_after_upload_compensates_the_file(): void
+    public function test_database_failure_before_upload_never_writes_a_file(): void
     {
         Storage::fake('public');
         $headers = array_merge(
@@ -148,6 +149,86 @@ class AdminMediaManagementTest extends TestCase
 
         $this->assertSame([], Storage::disk('public')->allFiles('media'));
         $this->assertSame(0, Media::query()->count());
+    }
+
+    #[DataProvider('storageFailureProvider')]
+    public function test_storage_failure_removes_pending_metadata_when_no_file_remains(bool $throws): void
+    {
+        $this->bindStoreFilesystemFailure($throws);
+
+        try {
+            $this->app->make(StoreMedia::class)->handle(
+                UploadedFile::fake()->image('failed.jpg'),
+                User::factory()->create(),
+            );
+            $this->fail('The media store must fail.');
+        } catch (RuntimeException) {
+            $this->assertSame(0, Media::query()->count());
+        }
+    }
+
+    public function test_failed_metadata_cleanup_leaves_a_visible_failed_record_that_delete_can_recover(): void
+    {
+        Storage::fake('public');
+        $this->bindStoreFilesystemFailure(throws: false);
+        Event::listen('eloquent.deleting: '.Media::class, static function (): void {
+            throw new RuntimeException('forced pending media cleanup failure');
+        });
+
+        try {
+            $this->app->make(StoreMedia::class)->handle(
+                UploadedFile::fake()->image('recoverable.jpg'),
+                User::factory()->create(),
+            );
+            $this->fail('The media store must fail.');
+        } catch (RuntimeException) {
+            $this->assertSame(1, Media::query()->count());
+        } finally {
+            Event::forget('eloquent.deleting: '.Media::class);
+        }
+
+        $media = Media::query()->firstOrFail();
+        $this->assertSame(Media::STATUS_FAILED, $media->status);
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+        $this->bindMissingFileFilesystem($media);
+
+        $this->getJson('/api/admin/media', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $media->id)
+            ->assertJsonPath('data.0.status', Media::STATUS_FAILED);
+        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->assertModelMissing($media);
+    }
+
+    public function test_metadata_finalization_failure_keeps_file_and_failed_record_recoverable(): void
+    {
+        Storage::fake('public');
+        Event::listen('eloquent.updating: '.Media::class, static function (Media $media): void {
+            if ($media->isDirty('status') && $media->status === Media::STATUS_READY) {
+                throw new RuntimeException('forced media finalization failure');
+            }
+        });
+
+        try {
+            $this->app->make(StoreMedia::class)->handle(
+                UploadedFile::fake()->image('finalize.jpg'),
+                User::factory()->create(),
+            );
+            $this->fail('The media finalization must fail.');
+        } catch (RuntimeException) {
+            $this->assertSame(1, Media::query()->count());
+        } finally {
+            Event::forget('eloquent.updating: '.Media::class);
+        }
+
+        $media = Media::query()->firstOrFail();
+        $this->assertSame(Media::STATUS_FAILED, $media->status);
+        Storage::disk('public')->assertExists($media->path);
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        Storage::disk('public')->assertMissing($media->path);
+        $this->assertModelMissing($media);
     }
 
     public function test_structural_inspection_failure_never_writes_a_file_or_metadata(): void
@@ -238,6 +319,22 @@ class AdminMediaManagementTest extends TestCase
         $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertNull($media->refresh()->deletion_token);
+    }
+
+    public function test_pending_upload_cannot_be_deleted_before_its_file_is_written(): void
+    {
+        Storage::fake('public');
+        $media = Media::factory()->create([
+            'disk' => 'public',
+            'status' => Media::STATUS_PENDING,
+        ]);
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
+        $this->assertModelExists($media);
+        $this->assertNull($media->refresh()->deletion_token);
+        Storage::disk('public')->assertMissing($media->path);
     }
 
     public function test_active_delete_owner_is_not_replaced_while_the_file_still_exists(): void
@@ -342,16 +439,47 @@ class AdminMediaManagementTest extends TestCase
 
     public function test_each_media_operation_requires_its_exact_permission(): void
     {
-        foreach (self::PERMISSIONS as $permission) {
-            $this->createPermission($permission);
+        $media = Media::factory()->create();
+        $user = User::factory()->create();
+        $headers = $this->authorizationHeader($this->adminTokenFor($user));
+        $cases = [
+            ['GET', '/api/admin/media', [], 'system.media.create'],
+            ['POST', '/api/admin/media', [], 'system.media.view'],
+            ['DELETE', '/api/admin/media/'.$media->id, [], 'system.media.create'],
+        ];
+
+        foreach ($cases as [$method, $uri, $payload, $wrongPermission]) {
+            $user->syncPermissions([$this->createPermission($wrongPermission)]);
+            $this->json($method, $uri, $payload, $headers)->assertForbidden();
+        }
+    }
+
+    public function test_media_upload_has_an_authenticated_admin_rate_limit_with_stable_contract(): void
+    {
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.media.create']));
+
+        for ($attempt = 1; $attempt <= 10; $attempt++) {
+            $this->postJson('/api/admin/media', [], $headers)
+                ->assertUnprocessable()
+                ->assertHeader('X-RateLimit-Limit', '10')
+                ->assertHeader('X-RateLimit-Remaining', (string) (10 - $attempt));
         }
 
-        $media = Media::factory()->create();
-        $headers = $this->authorizationHeader($this->adminTokenFor(User::factory()->create()));
+        $response = $this->postJson('/api/admin/media', [], $headers)
+            ->assertTooManyRequests()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 429)
+            ->assertHeader('Retry-After')
+            ->assertHeader('X-RateLimit-Limit', '10')
+            ->assertHeader('X-RateLimit-Remaining', '0')
+            ->assertHeader('X-RateLimit-Reset')
+            ->assertHeader('X-Request-Id');
 
-        $this->getJson('/api/admin/media', $headers)->assertForbidden();
-        $this->postJson('/api/admin/media', [], $headers)->assertForbidden();
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertForbidden();
+        $payload = json_decode($response->getContent(), flags: JSON_THROW_ON_ERROR);
+        $this->assertInstanceOf(stdClass::class, $payload);
+        $this->assertInstanceOf(stdClass::class, $payload->data);
+        $this->assertInstanceOf(stdClass::class, $payload->errors);
+        $this->assertSame($payload->request_id, $response->headers->get('X-Request-Id'));
     }
 
     /**
@@ -365,6 +493,44 @@ class AdminMediaManagementTest extends TestCase
             'webp' => ['image.webp', 'image/webp', 'webp'],
             'gif' => ['image.gif', 'image/gif', 'gif'],
         ];
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function storageFailureProvider(): array
+    {
+        return [
+            'put returns false' => [false],
+            'put throws' => [true],
+        ];
+    }
+
+    private function bindStoreFilesystemFailure(bool $throws): void
+    {
+        $filesystem = Mockery::mock(Filesystem::class);
+        $put = $filesystem->shouldReceive('put')->once();
+
+        if ($throws) {
+            $put->andThrow(new RuntimeException('storage unavailable'));
+        } else {
+            $put->andReturn(false);
+        }
+
+        $filesystem->shouldReceive('delete')->once()->andReturn(false);
+        $filesystem->shouldReceive('exists')->once()->andReturn(false);
+        $factory = Mockery::mock(FilesystemFactory::class);
+        $factory->shouldReceive('disk')->once()->with('public')->andReturn($filesystem);
+        $this->app->instance(FilesystemFactory::class, $factory);
+    }
+
+    private function bindMissingFileFilesystem(Media $media): void
+    {
+        $filesystem = Mockery::mock(Filesystem::class);
+        $filesystem->shouldReceive('exists')->once()->with($media->path)->andReturn(false);
+        $factory = Mockery::mock(FilesystemFactory::class);
+        $factory->shouldReceive('disk')->once()->with($media->disk)->andReturn($filesystem);
+        $this->app->instance(FilesystemFactory::class, $factory);
     }
 
     private function bindFailingFilesystem(Media $media, bool $returnsFalse): void

@@ -26,6 +26,7 @@ class MediaFactory extends Factory
             'size' => fake()->numberBetween(1_000, 5_000_000),
             'width' => fake()->numberBetween(100, 2_000),
             'height' => fake()->numberBetween(100, 2_000),
+            'status' => Media::STATUS_READY,
             'created_by' => null,
             'deletion_token' => null,
             'deletion_started_at' => null,

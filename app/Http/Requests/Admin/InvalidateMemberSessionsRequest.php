@@ -33,7 +33,7 @@ class InvalidateMemberSessionsRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($this->all() !== []) {
+                if ($this->getContent() !== '') {
                     $validator->errors()->add('body', 'This endpoint does not accept a request body.');
                 }
             },

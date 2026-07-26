@@ -30,37 +30,64 @@ class StoreMedia
         [$width, $height] = $this->imageDimensions($file);
         $directory = 'media/'.now()->format('Y/m');
         $filename = Str::uuid().'.'.$extension;
+        $path = $directory.'/'.$filename;
         $disk = (string) config('filesystems.media', 'public');
         $filesystem = $this->filesystems->disk($disk);
-        $path = $filesystem->putFileAs($directory, $file, $filename, ['visibility' => 'public']);
-
-        if ($path === false) {
-            throw new RuntimeException('Media file could not be stored.');
-        }
+        $media = $this->createPendingMedia($file, $actor, $disk, $path, $mimeType, $extension, $width, $height);
+        $fileWasStored = false;
 
         try {
-            return DB::transaction(function () use ($actor, $disk, $extension, $file, $height, $mimeType, $path, $width): Media {
-                $media = new Media;
-                $media->forceFill([
-                    'name' => Str::limit($file->getClientOriginalName(), 255, ''),
-                    'disk' => $disk,
-                    'path' => $path,
-                    'mime_type' => $mimeType,
-                    'extension' => $extension,
-                    'size' => (int) $file->getSize(),
-                    'width' => $width,
-                    'height' => $height,
-                    'created_by' => $actor->getKey(),
-                ])->save();
-                $this->activityRecorder->record($media, $actor, 'admin', 'media_uploaded');
+            return DB::transaction(function () use ($actor, $file, $filesystem, &$fileWasStored, $media, $path): Media {
+                $lockedMedia = Media::query()->lockForUpdate()->findOrFail($media->getKey());
+                $fileWasStored = $filesystem->put($path, $file->getContent(), ['visibility' => 'public']);
 
-                return $media;
-            });
+                if (! $fileWasStored) {
+                    throw new RuntimeException('Media file could not be stored.');
+                }
+
+                $lockedMedia->forceFill(['status' => Media::STATUS_READY])->save();
+                $this->activityRecorder->record($lockedMedia, $actor, 'admin', 'media_uploaded');
+
+                return $lockedMedia;
+            }, attempts: 3);
         } catch (Throwable $exception) {
-            $this->compensateFailedPersistence($filesystem, $disk, $path, $exception);
+            if ($fileWasStored) {
+                $this->retainFailedMedia($media, $exception, 'metadata_finalization');
+            } else {
+                $this->compensateFailedStorage($filesystem, $media, $exception);
+            }
 
             throw $exception;
         }
+    }
+
+    private function createPendingMedia(
+        UploadedFile $file,
+        User $actor,
+        string $disk,
+        string $path,
+        string $mimeType,
+        string $extension,
+        int $width,
+        int $height,
+    ): Media {
+        return DB::transaction(function () use ($actor, $disk, $extension, $file, $height, $mimeType, $path, $width): Media {
+            $media = new Media;
+            $media->forceFill([
+                'name' => Str::limit($file->getClientOriginalName(), 255, ''),
+                'disk' => $disk,
+                'path' => $path,
+                'mime_type' => $mimeType,
+                'extension' => $extension,
+                'size' => (int) $file->getSize(),
+                'width' => $width,
+                'height' => $height,
+                'status' => Media::STATUS_PENDING,
+                'created_by' => $actor->getKey(),
+            ])->save();
+
+            return $media;
+        }, attempts: 3);
     }
 
     private function extensionForMimeType(string $mimeType): string
@@ -99,24 +126,82 @@ class StoreMedia
         return [(int) $dimensions[0], (int) $dimensions[1]];
     }
 
-    private function compensateFailedPersistence(
+    private function compensateFailedStorage(
         Filesystem $filesystem,
-        string $disk,
-        string $path,
+        Media $media,
         Throwable $exception,
     ): void {
+        $this->markFailed($media);
+
         try {
-            $deleted = $filesystem->delete($path);
+            $fileRemoved = $filesystem->delete($media->path);
+
+            if (! $fileRemoved) {
+                $fileRemoved = ! $filesystem->exists($media->path);
+            }
         } catch (Throwable $deleteException) {
-            $deleted = false;
+            $fileRemoved = false;
             report($deleteException);
         }
 
-        Log::error('Media metadata persistence failed after file upload.', [
-            'disk' => $disk,
+        $metadataDeleted = $fileRemoved && $this->deleteFailedMetadata($media);
+
+        Log::error('Media file storage failed.', [
+            'media_id' => $media->getKey(),
+            'disk' => $media->disk,
             'request_id' => Context::get('request_id'),
-            'compensation_deleted' => $deleted,
+            'file_removed' => $fileRemoved,
+            'metadata_deleted' => $metadataDeleted,
             'exception' => $exception::class,
         ]);
+    }
+
+    private function retainFailedMedia(Media $media, Throwable $exception, string $stage): void
+    {
+        $this->markFailed($media);
+
+        Log::error('Media upload did not complete; metadata was retained.', [
+            'media_id' => $media->getKey(),
+            'disk' => $media->disk,
+            'stage' => $stage,
+            'request_id' => Context::get('request_id'),
+            'exception' => $exception::class,
+        ]);
+    }
+
+    private function markFailed(Media $media): void
+    {
+        try {
+            DB::transaction(function () use ($media): void {
+                $lockedMedia = Media::query()->lockForUpdate()->find($media->getKey());
+
+                if ($lockedMedia !== null) {
+                    $lockedMedia->forceFill(['status' => Media::STATUS_FAILED])->save();
+                }
+            }, attempts: 3);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
+    }
+
+    private function deleteFailedMetadata(Media $media): bool
+    {
+        try {
+            return DB::transaction(function () use ($media): bool {
+                $lockedMedia = Media::query()->lockForUpdate()->find($media->getKey());
+
+                if ($lockedMedia === null) {
+                    return true;
+                }
+
+                $lockedMedia->delete();
+
+                return true;
+            }, attempts: 3);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return false;
+        }
     }
 }

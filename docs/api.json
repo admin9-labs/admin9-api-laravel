@@ -2551,6 +2551,9 @@
                     },
                     "413": {
                         "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 }
             }
@@ -6476,6 +6479,14 @@
                             "null"
                         ]
                     },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "ready",
+                            "failed"
+                        ]
+                    },
                     "created_at": {
                         "type": "string"
                     }
@@ -6489,6 +6500,7 @@
                     "size",
                     "width",
                     "height",
+                    "status",
                     "created_at"
                 ],
                 "title": "MediaResource"
@@ -6942,7 +6954,9 @@
                                 "properties": {
                                     "email": {
                                         "type": "string",
-                                        "format": "email"
+                                        "format": "email",
+                                        "pattern": ".*\\S.*",
+                                        "minLength": 1
                                     }
                                 },
                                 "required": [
@@ -6953,7 +6967,9 @@
                                 "type": "object",
                                 "properties": {
                                     "mobile": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "pattern": ".*\\S.*",
+                                        "minLength": 1
                                     }
                                 },
                                 "required": [

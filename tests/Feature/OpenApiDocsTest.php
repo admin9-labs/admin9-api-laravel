@@ -157,6 +157,7 @@ class OpenApiDocsTest extends TestCase
             ['/api/auth/password', 'put'],
             ['/api/auth/logout', 'post'],
             ['/api/admin/auth/login', 'post'],
+            ['/api/admin/media', 'post'],
         ] as [$path, $method]) {
             $this->assertSame(
                 '#/components/responses/ApiRateLimitResponse',
@@ -560,8 +561,40 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame(['email'], $identityOptions[0]['required']);
         $this->assertSame('string', $identityOptions[0]['properties']['email']['type']);
         $this->assertSame('email', $identityOptions[0]['properties']['email']['format']);
+        $this->assertSame(1, $identityOptions[0]['properties']['email']['minLength']);
+        $this->assertSame('.*\\S.*', $identityOptions[0]['properties']['email']['pattern']);
         $this->assertSame(['mobile'], $identityOptions[1]['required']);
         $this->assertSame('string', $identityOptions[1]['properties']['mobile']['type']);
+        $this->assertSame(1, $identityOptions[1]['properties']['mobile']['minLength']);
+        $this->assertSame('.*\\S.*', $identityOptions[1]['properties']['mobile']['pattern']);
+
+        $updateMember = $document['components']['schemas']['UpdateMemberRequest'];
+        $this->assertSame(['name', 'email', 'mobile'], array_keys($updateMember['properties']));
+        $this->assertArrayNotHasKey('required', $updateMember);
+        $this->assertSame(255, $updateMember['properties']['name']['maxLength']);
+        $this->assertSame(['string', 'null'], $updateMember['properties']['email']['type']);
+        $this->assertSame('email', $updateMember['properties']['email']['format']);
+        $this->assertSame(255, $updateMember['properties']['email']['maxLength']);
+        $this->assertSame(['string', 'null'], $updateMember['properties']['mobile']['type']);
+        $this->assertSame(32, $updateMember['properties']['mobile']['maxLength']);
+
+        $updateStatus = $document['components']['schemas']['UpdateMemberStatusRequest'];
+        $this->assertSame(['is_active'], array_keys($updateStatus['properties']));
+        $this->assertSame(['is_active'], $updateStatus['required']);
+        $this->assertSame('boolean', $updateStatus['properties']['is_active']['type']);
+
+        $resetPassword = $document['components']['schemas']['ResetMemberPasswordRequest'];
+        $this->assertSame(['password', 'password_confirmation'], array_keys($resetPassword['properties']));
+        $this->assertSame(['password', 'password_confirmation'], $resetPassword['required']);
+        foreach ($resetPassword['properties'] as $passwordField) {
+            $this->assertSame(8, $passwordField['minLength']);
+            $this->assertSame(255, $passwordField['maxLength']);
+        }
+
+        $this->assertArrayNotHasKey(
+            'requestBody',
+            $document['paths']['/api/admin/members/{member}/invalidate-sessions']['post'],
+        );
 
         $indexParameters = collect($document['paths']['/api/admin/members']['get']['parameters'])->pluck('name')->all();
         foreach (['page', 'per_page', 'search', 'is_active'] as $parameter) {
@@ -599,6 +632,7 @@ class OpenApiDocsTest extends TestCase
             'size',
             'width',
             'height',
+            'status',
             'created_at',
         ], $mediaSchema['required']);
         $this->assertSame($mediaSchema['required'], array_keys($mediaSchema['properties']));
@@ -609,6 +643,7 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame(['type' => 'integer', 'format' => 'int64'], $mediaSchema['properties']['size']);
         $this->assertSame(['integer', 'null'], $mediaSchema['properties']['width']['type']);
         $this->assertSame(['integer', 'null'], $mediaSchema['properties']['height']['type']);
+        $this->assertSame(['pending', 'ready', 'failed'], $mediaSchema['properties']['status']['enum']);
 
         $serviceUnavailableOperations = collect($document['paths'])
             ->flatMap(fn (array $path, string $pathName): array => collect($path)

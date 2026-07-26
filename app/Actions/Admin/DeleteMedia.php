@@ -27,14 +27,34 @@ class DeleteMedia
     {
         try {
             $filesystem = $this->filesystems->disk($media->disk);
-            $fileExists = $filesystem->exists($media->path);
         } catch (Throwable $exception) {
-            $this->logFailure($media, $exception::class, 'filesystem_inspection');
+            $this->logFailure($media, $exception::class, 'filesystem_resolution');
             throw new MediaDeleteFailedException;
         }
 
         $deletionToken = (string) Str::uuid();
-        $lockedMedia = $this->claimDeletion($media, $deletionToken, $fileExists);
+        [$lockedMedia, $activeDeletionToken] = $this->claimDeletion($media, $deletionToken);
+
+        try {
+            $fileExists = $filesystem->exists($lockedMedia->path);
+        } catch (Throwable $exception) {
+            $this->restoreVisibleMetadata($lockedMedia, $deletionToken);
+            $this->logFailure($lockedMedia, $exception::class, 'filesystem_inspection');
+            throw new MediaDeleteFailedException;
+        }
+
+        if ($activeDeletionToken !== null) {
+            if ($fileExists) {
+                $this->logFailure($lockedMedia, 'deletion_already_in_progress', 'claim');
+                throw new MediaDeleteFailedException;
+            }
+
+            $lockedMedia = $this->claimMissingFileDeletion(
+                $lockedMedia,
+                $activeDeletionToken,
+                $deletionToken,
+            );
+        }
 
         if ($fileExists && ! $this->deletePhysicalFile($filesystem, $lockedMedia, $deletionToken)) {
             throw new MediaDeleteFailedException;
@@ -53,15 +73,54 @@ class DeleteMedia
         }
     }
 
-    private function claimDeletion(Media $media, string $deletionToken, bool $fileExists): Media
+    /**
+     * @return array{Media, ?string}
+     */
+    private function claimDeletion(Media $media, string $deletionToken): array
     {
-        $lockedMedia = DB::transaction(function () use ($deletionToken, $fileExists, $media): ?Media {
+        $claim = DB::transaction(function () use ($deletionToken, $media): ?array {
             $lockedMedia = Media::query()->lockForUpdate()->findOrFail($media->getKey());
 
             $claimIsActive = $lockedMedia->deletion_token !== null
                 && $lockedMedia->deletion_started_at?->isAfter(now()->subMinutes(self::CLAIM_TTL_MINUTES));
 
-            if ($claimIsActive && $fileExists) {
+            if ($lockedMedia->status === Media::STATUS_PENDING) {
+                return null;
+            }
+
+            if ($claimIsActive) {
+                return [$lockedMedia, $lockedMedia->deletion_token];
+            }
+
+            $lockedMedia->forceFill([
+                'deletion_token' => $deletionToken,
+                'deletion_started_at' => now(),
+            ])->save();
+
+            return [$lockedMedia, null];
+        }, attempts: 3);
+
+        if ($claim === null) {
+            $this->logFailure($media, 'deletion_already_in_progress', 'claim');
+            throw new MediaDeleteFailedException;
+        }
+
+        return $claim;
+    }
+
+    private function claimMissingFileDeletion(
+        Media $media,
+        string $activeDeletionToken,
+        string $deletionToken,
+    ): Media {
+        $lockedMedia = DB::transaction(function () use ($activeDeletionToken, $deletionToken, $media): ?Media {
+            $lockedMedia = Media::query()->lockForUpdate()->find($media->getKey());
+
+            if (
+                $lockedMedia === null
+                || $lockedMedia->status === Media::STATUS_PENDING
+                || $lockedMedia->deletion_token !== $activeDeletionToken
+            ) {
                 return null;
             }
 
@@ -74,7 +133,7 @@ class DeleteMedia
         }, attempts: 3);
 
         if ($lockedMedia === null) {
-            $this->logFailure($media, 'deletion_already_in_progress', 'claim');
+            $this->logFailure($media, 'deletion_ownership_changed', 'claim');
             throw new MediaDeleteFailedException;
         }
 

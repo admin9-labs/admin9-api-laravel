@@ -90,6 +90,14 @@ class AdminMemberManagementTest extends TestCase
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors(['email', 'mobile']);
 
         $this->postJson('/api/admin/members', [
+            'name' => 'Blank Identity',
+            'email' => '   ',
+            'mobile' => "\t",
+            'password' => 'member-password',
+            'password_confirmation' => 'member-password',
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors(['email', 'mobile']);
+
+        $this->postJson('/api/admin/members', [
             'name' => 'Duplicate Identity',
             'email' => $existing->email,
             'password' => 'member-password',
@@ -143,7 +151,7 @@ class AdminMemberManagementTest extends TestCase
         $this->postJson('/api/auth/login', ['account' => $member->email, 'password' => 'password'])->assertUnauthorized();
 
         $memberToken = $this->memberTokenFor($member, 'replacement-password');
-        $this->postJson('/api/admin/members/'.$member->id.'/invalidate-sessions', [], $adminHeaders)->assertOk();
+        $this->post('/api/admin/members/'.$member->id.'/invalidate-sessions', [], $adminHeaders)->assertOk();
         $this->assertSame(6, $member->refresh()->auth_version);
         $this->assertOldMemberTokenIsInvalid($memberToken);
 
@@ -222,23 +230,54 @@ class AdminMemberManagementTest extends TestCase
 
     public function test_each_member_operation_requires_its_exact_permission_and_destroy_is_absent(): void
     {
-        foreach (self::PERMISSIONS as $permission) {
-            $this->createPermission($permission);
-        }
-
         $member = Member::factory()->create();
         $user = User::factory()->create();
         $headers = $this->authorizationHeader($this->adminTokenFor($user));
+        $cases = [
+            ['GET', '/api/admin/members', [], 'system.member.create'],
+            ['POST', '/api/admin/members', [], 'system.member.view'],
+            ['GET', '/api/admin/members/'.$member->id, [], 'system.member.create'],
+            ['PUT', '/api/admin/members/'.$member->id, [], 'system.member.status'],
+            ['PUT', '/api/admin/members/'.$member->id.'/status', [], 'system.member.update'],
+            ['PUT', '/api/admin/members/'.$member->id.'/password', [], 'system.member.status'],
+            ['POST', '/api/admin/members/'.$member->id.'/invalidate-sessions', [], 'system.member.reset_password'],
+        ];
 
-        $this->getJson('/api/admin/members', $headers)->assertForbidden();
-        $this->postJson('/api/admin/members', [], $headers)->assertForbidden();
-        $this->getJson('/api/admin/members/'.$member->id, $headers)->assertForbidden();
-        $this->putJson('/api/admin/members/'.$member->id, [], $headers)->assertForbidden();
-        $this->putJson('/api/admin/members/'.$member->id.'/status', [], $headers)->assertForbidden();
-        $this->putJson('/api/admin/members/'.$member->id.'/password', [], $headers)->assertForbidden();
-        $this->postJson('/api/admin/members/'.$member->id.'/invalidate-sessions', [], $headers)->assertForbidden();
+        foreach ($cases as [$method, $uri, $payload, $wrongPermission]) {
+            $user->syncPermissions([$this->createPermission($wrongPermission)]);
+            $this->json($method, $uri, $payload, $headers)->assertForbidden();
+        }
 
         $this->assertNull(Route::getRoutes()->getByName('admin.members.destroy'));
+    }
+
+    public function test_invalidate_sessions_distinguishes_query_parameters_from_raw_request_bodies(): void
+    {
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.invalidate_sessions']));
+        $withoutBody = Member::factory()->create();
+        $withQuery = Member::factory()->create();
+
+        $this->post('/api/admin/members/'.$withoutBody->id.'/invalidate-sessions', [], $headers)
+            ->assertOk();
+        $this->post('/api/admin/members/'.$withQuery->id.'/invalidate-sessions?reason=audit', [], $headers)
+            ->assertOk();
+
+        foreach (['{}', '[]'] as $body) {
+            $member = Member::factory()->create();
+            $server = $this->transformHeadersToServerVars(array_merge($headers, [
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+            ]));
+            $response = $this->call(
+                'POST',
+                '/api/admin/members/'.$member->id.'/invalidate-sessions',
+                server: $server,
+                content: $body,
+            )->assertUnprocessable()->assertJsonValidationErrors('body')->assertHeader('X-Request-Id');
+
+            $this->assertSame($response->json('request_id'), $response->headers->get('X-Request-Id'));
+            $this->assertSame(1, $member->refresh()->auth_version);
+        }
     }
 
     /**

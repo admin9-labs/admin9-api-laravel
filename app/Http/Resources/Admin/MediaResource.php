@@ -24,6 +24,7 @@ class MediaResource extends PaginationAwareJsonResource
             'size' => $this->size,
             'width' => $this->width,
             'height' => $this->height,
+            'status' => $this->status,
             'created_at' => $this->dateTimeString($this->created_at),
         ];
     }
