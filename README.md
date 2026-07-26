@@ -11,15 +11,17 @@ composer dev
 
 `composer dev` runs the HTTP server at `http://localhost:8000`, queue listener, scheduler worker, log tailing, and Vite dev server together for local feedback. When using Herd or Valet, you may override `APP_URL` in your local `.env`, for example with `http://admin9-api-laravel.test`.
 
-## Initial admin access
+## Local sample accounts
 
-`composer setup` creates the schema but does not seed application data. In a local or testing environment, create the initial RBAC data and development administrator with:
+`composer setup` creates the schema but does not seed application data. In a local or testing environment, create the initial RBAC data and local sample accounts with:
 
 ```bash
 php artisan db:seed
 ```
 
-The local-only development credentials are `admin@admin9.dev` / `password`. They are deliberately never created in staging, production, or any other non-local environment. For those environments, inject a unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` through the hosting platform's secret manager before running `php artisan db:seed --force`.
+The local-only administrator credentials are `admin@admin9.dev` / `password`. The local-only member credentials are `member@admin9.dev` / `Member-password-123`. Re-running the seeder preserves existing records for both identities. These sample identities are deliberately never created in staging, production, or any other non-local environment.
+
+For non-local environments, inject a unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` through the hosting platform's secret manager before running `php artisan db:seed --force`. Member accounts must be created through the application workflow rather than by the sample seeder.
 
 ## Test and formatting
 
@@ -47,6 +49,8 @@ This checklist is intentionally command/process oriented and does not contain se
    - Install PHP dependencies with optimized autoloading.
    - Build frontend assets if the deployment serves the bundled Vite assets.
 2. **Configure environment**
+   - Set `APP_ENV=production` and `APP_DEBUG=false`; do not deploy the local sample environment values.
+   - Inject `APP_KEY`, database credentials, and other environment-specific values through the hosting platform or encrypted environment workflow.
    - Inject `JWT_SECRET` through the hosting platform or encrypted environment workflow before running API traffic.
    - Generate a JWT secret with `php artisan jwt:secret` when preparing a new environment.
 3. **Migrate database**
