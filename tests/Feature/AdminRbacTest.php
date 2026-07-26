@@ -224,9 +224,11 @@ class AdminRbacTest extends TestCase
             ->where('is_system', true)
             ->get();
 
-        $this->assertCount(27, $permissions);
+        $this->assertCount(36, $permissions);
         $this->assertContains('system.activity-log.view', $permissions->pluck('name'));
         $this->assertContains('system.login-log.view', $permissions->pluck('name'));
+        $this->assertContains('system.member.invalidate_sessions', $permissions->pluck('name'));
+        $this->assertContains('system.media.delete', $permissions->pluck('name'));
 
         $permissions->each(function (Permission $permission): void {
             $this->assertNotEmpty($permission->getAttribute('display_name'));
@@ -245,6 +247,7 @@ class AdminRbacTest extends TestCase
         $rolePage = Menu::query()->where('code', 'system.roles')->firstOrFail();
         $roleCreate = Menu::query()->where('code', 'system.roles.create')->firstOrFail();
         $assignRole = Menu::query()->where('code', 'system.users.assign-role')->firstOrFail();
+        $memberPage = Menu::query()->where('code', 'SystemMember')->firstOrFail();
         $logs = Menu::query()->where('code', 'system.logs')->firstOrFail();
 
         $this->assertSame(Menu::TYPE_DIRECTORY, $system->type);
@@ -254,6 +257,18 @@ class AdminRbacTest extends TestCase
         $this->assertSame($rolePage->id, $roleCreate->parent_id);
         $this->assertSame(['system.role.create'], $roleCreate->permissions()->pluck('name')->all());
         $this->assertSame(['system.user.assign-role'], $assignRole->permissions()->pluck('name')->all());
+        $this->assertSame('SystemMember', $memberPage->code);
+        $this->assertSame('/system/members', $memberPage->path);
+        $this->assertSame(['system.member.view'], $memberPage->permissions()->pluck('name')->all());
+        $this->assertEqualsCanonicalizing([
+            'system.member.create',
+            'system.member.update',
+            'system.member.status',
+            'system.member.reset_password',
+            'system.member.invalidate_sessions',
+        ], $memberPage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
+        $this->assertFalse(Menu::query()->where('code', 'SystemMember.delete')->exists());
+        $this->assertFalse(Menu::query()->whereHas('permissions', fn ($query) => $query->where('name', 'like', 'system.media.%'))->exists());
         $this->assertFalse($roleCreate->is_visible);
         $this->assertFalse(Menu::query()->where('code', 'system.activity-logs')->exists());
         $this->assertFalse(Menu::query()->where('code', 'system.login-logs')->exists());
@@ -298,8 +313,15 @@ class AdminRbacTest extends TestCase
             ->values()
             ->all();
 
+        $routeOnlyPermissionNames = [
+            'system.media.create',
+            'system.media.delete',
+            'system.media.view',
+        ];
+
+        $this->assertSame($routeOnlyPermissionNames, $routePermissionNames->diff($menuPermissionNames)->values()->all());
         $this->assertSame(
-            $routePermissionNames->all(),
+            $routePermissionNames->diff($routeOnlyPermissionNames)->values()->all(),
             $menuPermissionNames,
         );
 

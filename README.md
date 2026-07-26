@@ -55,6 +55,7 @@ This checklist is intentionally command/process oriented and does not contain se
    - Generate a JWT secret with `php artisan jwt:secret` when preparing a new environment.
 3. **Migrate database**
    - Run `php artisan migrate --force` during deployment.
+   - When `MEDIA_DISK=public`, run `php artisan storage:link --force`; remote disks provide their own URL and do not use this link.
    - Treat deployed migrations as immutable; add forward migrations for schema changes.
 4. **Cache framework metadata**
    - Run `php artisan config:cache` after production environment variables are present.

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\MediaDeleteFailedException;
 use App\Support\Auth\AccountInactiveException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Route;
@@ -109,6 +110,20 @@ class ApiErrorContractTest extends TestCase
 
         $this->assertSame('Something went wrong', $payload->message);
         $this->assertStringNotContainsString('sensitive internal detail', json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_media_delete_failures_use_the_stable_service_unavailable_envelope(): void
+    {
+        Route::middleware('api')->delete('/api/_test/media-delete-failed', function (): void {
+            throw new MediaDeleteFailedException;
+        });
+
+        $payload = $this->assertErrorEnvelope(
+            $this->deleteJson('/api/_test/media-delete-failed'),
+            503,
+        );
+
+        $this->assertSame(MediaDeleteFailedException::ERROR_CODE, $payload->error_code);
     }
 
     private function assertErrorEnvelope(

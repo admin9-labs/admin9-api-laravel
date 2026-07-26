@@ -202,6 +202,15 @@ class AdminRbacSeeder extends Seeder
             ['name' => 'system.user.update', 'display_name' => '用户更新', 'group' => 'system.user', 'description' => '更新后台用户', 'sort' => 130],
             ['name' => 'system.user.delete', 'display_name' => '用户删除', 'group' => 'system.user', 'description' => '删除后台用户', 'sort' => 140],
             ['name' => 'system.user.assign-role', 'display_name' => '用户分配角色', 'group' => 'system.user', 'description' => '为后台用户分配角色', 'sort' => 150],
+            ['name' => 'system.member.view', 'display_name' => '会员查看', 'group' => 'system.member', 'description' => '查看会员', 'sort' => 810],
+            ['name' => 'system.member.create', 'display_name' => '会员创建', 'group' => 'system.member', 'description' => '创建会员', 'sort' => 820],
+            ['name' => 'system.member.update', 'display_name' => '会员更新', 'group' => 'system.member', 'description' => '更新会员资料', 'sort' => 830],
+            ['name' => 'system.member.status', 'display_name' => '会员启停', 'group' => 'system.member', 'description' => '启用或停用会员', 'sort' => 840],
+            ['name' => 'system.member.reset_password', 'display_name' => '会员重置密码', 'group' => 'system.member', 'description' => '重置会员密码', 'sort' => 850],
+            ['name' => 'system.member.invalidate_sessions', 'display_name' => '会员会话失效', 'group' => 'system.member', 'description' => '强制会员会话失效', 'sort' => 860],
+            ['name' => 'system.media.view', 'display_name' => '媒体查看', 'group' => 'system.media', 'description' => '查看媒体', 'sort' => 910],
+            ['name' => 'system.media.create', 'display_name' => '媒体上传', 'group' => 'system.media', 'description' => '上传媒体', 'sort' => 920],
+            ['name' => 'system.media.delete', 'display_name' => '媒体删除', 'group' => 'system.media', 'description' => '删除媒体', 'sort' => 930],
             ['name' => 'system.role.view', 'display_name' => '角色查看', 'group' => 'system.role', 'description' => '查看后台角色', 'sort' => 210],
             ['name' => 'system.role.create', 'display_name' => '角色创建', 'group' => 'system.role', 'description' => '创建后台角色', 'sort' => 220],
             ['name' => 'system.role.update', 'display_name' => '角色更新', 'group' => 'system.role', 'description' => '更新后台角色及权限', 'sort' => 230],
@@ -236,6 +245,7 @@ class AdminRbacSeeder extends Seeder
             ...$this->pageWithButtons('system.roles', 'system', '角色管理', '/system/roles', 'system/roles/index', 'team', 'system.role', 20),
             ...$this->pageWithButtons('system.permissions', 'system', '权限管理', '/system/permissions', 'system/permissions/index', 'lock', 'system.permission', 25),
             ...$this->pageWithButtons('system.users', 'system', '用户管理', '/system/users', 'system/users/index', 'user', 'system.user', 30, ['assign-role' => '分配角色']),
+            ...$this->memberPageWithButtons(),
             ...$this->pageWithButtons('system.menus', 'system', '菜单管理', '/system/menus', 'system/menus/index', 'menu', 'system.menu', 40),
             ...$this->pageWithButtons('system.dictionaries', 'system', '字典管理', '/system/dictionaries', 'system/dictionaries/index', 'book', 'system.dictionary', 50),
             ...$this->pageWithButtons('system.configs', 'system', '系统配置', '/system/configs', 'system/configs/index', 'settings', 'system.config', 60),
@@ -297,6 +307,47 @@ class AdminRbacSeeder extends Seeder
                 ])
                 ->values()
                 ->all(),
+        ];
+    }
+
+    /**
+     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     */
+    private function memberPageWithButtons(): array
+    {
+        $buttons = [
+            'create' => ['name' => '新增', 'sort' => 10],
+            'update' => ['name' => '编辑', 'sort' => 20],
+            'status' => ['name' => '启停', 'sort' => 30],
+            'reset_password' => ['name' => '重置密码', 'sort' => 40],
+            'invalidate_sessions' => ['name' => '会话失效', 'sort' => 50],
+        ];
+
+        return [
+            [
+                'code' => 'SystemMember',
+                'parent_code' => 'system',
+                'name' => '会员管理',
+                'path' => '/system/members',
+                'component' => 'system/members/index',
+                'icon' => 'user-group',
+                'type' => Menu::TYPE_PAGE,
+                'permission_name' => 'system.member.view',
+                'sort' => 35,
+                'is_visible' => true,
+            ],
+            ...collect($buttons)->map(fn (array $button, string $action): array => [
+                'code' => "SystemMember.{$action}",
+                'parent_code' => 'SystemMember',
+                'name' => $button['name'],
+                'path' => null,
+                'component' => null,
+                'icon' => null,
+                'type' => Menu::TYPE_BUTTON,
+                'permission_name' => "system.member.{$action}",
+                'sort' => $button['sort'],
+                'is_visible' => false,
+            ])->values()->all(),
         ];
     }
 }

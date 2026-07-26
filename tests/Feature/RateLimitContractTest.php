@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Member;
+use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\Request;
@@ -166,6 +167,37 @@ class RateLimitContractTest extends TestCase
         $this->assertContains('throttle:member-api', $memberLogin->gatherMiddleware());
         $this->assertContains('throttle:member-login', $memberLogin->gatherMiddleware());
         $this->assertContains('throttle:admin-login', $adminLogin->gatherMiddleware());
+    }
+
+    public function test_admin_media_upload_limiter_uses_admin_id_and_ip_fallback_buckets(): void
+    {
+        $limiter = RateLimiterFacade::limiter('admin-media-upload');
+        $this->assertNotNull($limiter);
+        $admin = User::factory()->create();
+        $authenticatedRequest = Request::create(
+            '/api/admin/media',
+            'POST',
+            server: ['REMOTE_ADDR' => '192.0.2.90'],
+        );
+        $authenticatedRequest->setUserResolver(
+            static fn (?string $guard = null): ?User => $guard === 'admin' ? $admin : null,
+        );
+        $authenticatedLimit = $limiter($authenticatedRequest);
+
+        $this->assertInstanceOf(Limit::class, $authenticatedLimit);
+        $this->assertSame('admin:media-upload:user:'.$admin->getAuthIdentifier(), $authenticatedLimit->key);
+        $this->assertSame(10, $authenticatedLimit->maxAttempts);
+        $this->assertSame(60, $authenticatedLimit->decaySeconds);
+
+        $guestRequest = Request::create(
+            '/api/admin/media',
+            'POST',
+            server: ['REMOTE_ADDR' => '192.0.2.91'],
+        );
+        $guestLimit = $limiter($guestRequest);
+
+        $this->assertInstanceOf(Limit::class, $guestLimit);
+        $this->assertSame('admin:media-upload:ip:192.0.2.91', $guestLimit->key);
     }
 
     private function postMemberLogin(string $ipAddress): TestResponse

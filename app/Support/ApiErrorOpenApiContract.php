@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Exceptions\MediaDeleteFailedException;
 use App\Support\Auth\AccountInactiveException;
 use App\Support\OpenApi\EmptyObjectType;
 use Dedoc\Scramble\Support\Generator\Header;
@@ -35,6 +36,7 @@ final class ApiErrorOpenApiContract
         Response::HTTP_UNPROCESSABLE_ENTITY => 'ApiValidationErrorResponse',
         Response::HTTP_TOO_MANY_REQUESTS => 'ApiRateLimitResponse',
         Response::HTTP_INTERNAL_SERVER_ERROR => 'ApiServerErrorResponse',
+        Response::HTTP_SERVICE_UNAVAILABLE => 'ApiServiceUnavailableResponse',
     ];
 
     public function transformDocument(OpenApi $document): void
@@ -79,6 +81,10 @@ final class ApiErrorOpenApiContract
 
                 if ($this->routeHasMiddlewarePrefix($route, 'throttle:')) {
                     $responseCodes[] = Response::HTTP_TOO_MANY_REQUESTS;
+                }
+
+                if ($route->getName() === 'admin.media.destroy') {
+                    $responseCodes[] = Response::HTTP_SERVICE_UNAVAILABLE;
                 }
 
                 foreach (array_unique($responseCodes) as $responseCode) {
@@ -129,6 +135,15 @@ final class ApiErrorOpenApiContract
                 'error_code',
                 (new StringType)->enum([AccountInactiveException::ERROR_CODE]),
             );
+        }
+
+        if ($status === Response::HTTP_SERVICE_UNAVAILABLE) {
+            $envelope
+                ->addProperty(
+                    'error_code',
+                    (new StringType)->enum([MediaDeleteFailedException::ERROR_CODE]),
+                )
+                ->setRequired(['success', 'code', 'message', 'data', 'errors', 'request_id', 'error_code']);
         }
 
         $response = OpenApiResponse::make($status)
