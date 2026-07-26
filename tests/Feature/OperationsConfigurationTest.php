@@ -51,6 +51,7 @@ class OperationsConfigurationTest extends TestCase
         $this->assertSame('hello@admin9.dev', $environmentDefaults['MAIL_FROM_ADDRESS']);
         $this->assertSame('${APP_NAME}', $environmentDefaults['MAIL_FROM_NAME']);
         $this->assertStringContainsString('`admin@admin9.dev` / `password`', file_get_contents(base_path('README.md')));
+        $this->assertStringContainsString('`member@admin9.dev` / `Member-password-123`', file_get_contents(base_path('README.md')));
         $this->assertStringContainsString("env('APP_NAME', 'Admin9 API')", file_get_contents(config_path('app.php')));
         $this->assertStringContainsString("env('MAIL_FROM_ADDRESS', 'hello@admin9.dev')", file_get_contents(config_path('mail.php')));
         $this->assertStringContainsString("env('MAIL_FROM_NAME', env('APP_NAME', 'Admin9 API'))", file_get_contents(config_path('mail.php')));
@@ -218,6 +219,17 @@ class OperationsConfigurationTest extends TestCase
         $this->assertLessThan($buildIndex, $npmInstallIndex);
     }
 
+    public function test_ci_uses_the_project_node_version_and_frozen_npm_lockfile(): void
+    {
+        $workflow = (string) file_get_contents(base_path('.github/workflows/ci.yml'));
+
+        $this->assertSame("22.23.1\n", file_get_contents(base_path('.node-version')));
+        $this->assertStringContainsString('node-version-file: .node-version', $workflow);
+        $this->assertStringContainsString('npm ci --ignore-scripts', $workflow);
+        $this->assertFileExists(base_path('package-lock.json'));
+        $this->assertFileDoesNotExist(base_path('pnpm-lock.yaml'));
+    }
+
     public function test_health_route_and_schedule_list_are_bootable(): void
     {
         $this->get('/')
@@ -255,6 +267,8 @@ class OperationsConfigurationTest extends TestCase
             'logging.operations',
             'ADMIN_BOOTSTRAP_PASSWORD',
             'php artisan db:seed --force',
+            'APP_ENV=production',
+            'APP_DEBUG=false',
         ] as $expected) {
             $this->assertStringContainsString($expected, $readme);
         }
