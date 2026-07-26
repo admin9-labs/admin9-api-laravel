@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\LoginLog;
 use App\Models\User;
+use Dotenv\Dotenv;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
@@ -30,6 +33,51 @@ class AdminAuthTest extends TestCase
         $this->assertIsInt($migrateIndex);
         $this->assertGreaterThan($keyGenerateIndex, $jwtSecretIndex);
         $this->assertLessThan($migrateIndex, $jwtSecretIndex);
+    }
+
+    public function test_jwt_secret_command_generates_and_preserves_the_setup_secret(): void
+    {
+        $temporaryEnvironmentPath = sys_get_temp_dir().'/admin9-jwt-setup-'.Str::random(12);
+        $temporaryEnvironmentFile = $temporaryEnvironmentPath.'/.env';
+        $originalEnvironmentPath = $this->app->environmentPath();
+        $originalEnvironmentFile = $this->app->environmentFile();
+
+        File::ensureDirectoryExists($temporaryEnvironmentPath);
+
+        try {
+            File::copy(base_path('.env.example'), $temporaryEnvironmentFile);
+
+            $templateEnvironment = Dotenv::parse(File::get($temporaryEnvironmentFile));
+            $this->assertArrayNotHasKey('JWT_SECRET', $templateEnvironment);
+
+            $this->app->useEnvironmentPath($temporaryEnvironmentPath);
+            $this->app->loadEnvironmentFrom('.env');
+
+            $this->artisan('jwt:secret', ['--always-no' => true])->assertSuccessful();
+
+            $generatedEnvironment = Dotenv::parse(File::get($temporaryEnvironmentFile));
+            $generatedSecret = $generatedEnvironment['JWT_SECRET'] ?? null;
+
+            $this->assertIsString($generatedSecret);
+            $this->assertSame(64, Str::length($generatedSecret));
+
+            $generatedSecretHash = hash('sha256', $generatedSecret);
+
+            $this->artisan('jwt:secret', ['--always-no' => true])->assertSuccessful();
+
+            $preservedEnvironment = Dotenv::parse(File::get($temporaryEnvironmentFile));
+            $preservedSecret = $preservedEnvironment['JWT_SECRET'] ?? null;
+
+            $this->assertIsString($preservedSecret);
+            $this->assertSame(64, Str::length($preservedSecret));
+            $this->assertSame($generatedSecretHash, hash('sha256', $preservedSecret));
+        } finally {
+            $this->app->useEnvironmentPath($originalEnvironmentPath);
+            $this->app->loadEnvironmentFrom($originalEnvironmentFile);
+            File::deleteDirectory($temporaryEnvironmentPath);
+        }
+
+        $this->assertDirectoryDoesNotExist($temporaryEnvironmentPath);
     }
 
     public function test_admin_can_login_view_refresh_and_logout(): void
