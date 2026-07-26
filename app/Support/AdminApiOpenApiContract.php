@@ -3,15 +3,20 @@
 namespace App\Support;
 
 use App\Http\Requests\Admin\StoreDictionaryItemRequest;
+use App\Http\Requests\Admin\StoreMediaRequest;
+use App\Http\Requests\Admin\StoreMemberRequest;
 use App\Http\Requests\Admin\StoreMenuRequest;
 use App\Http\Requests\Admin\UpdateDictionaryItemRequest;
 use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\ActivityLogResource;
 use App\Http\Resources\Admin\DictionaryItemResource;
 use App\Http\Resources\Admin\LoginLogResource;
+use App\Http\Resources\Admin\MediaResource;
+use App\Http\Resources\Admin\MemberResource;
 use App\Http\Resources\Admin\MenuResource;
 use App\Http\Resources\Admin\PermissionResource;
 use App\Http\Resources\Admin\SystemConfigResource;
+use Dedoc\Scramble\Support\Generator\Combined\AllOf;
 use Dedoc\Scramble\Support\Generator\Combined\AnyOf;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Operation;
@@ -41,6 +46,15 @@ class AdminApiOpenApiContract
         if ($routeName === 'admin.login-logs.index') {
             $this->normalizeLogFilterParameters($operation, ['subject_id']);
         }
+
+        if ($routeName === 'admin.media.store' && $operation->requestBodyObject !== null) {
+            $schema = $operation->requestBodyObject->content['application/json'] ?? null;
+
+            if ($schema !== null) {
+                unset($operation->requestBodyObject->content['application/json']);
+                $operation->requestBodyObject->setContent('multipart/form-data', $schema);
+            }
+        }
     }
 
     public function transformDocument(OpenApi $document): void
@@ -50,6 +64,8 @@ class AdminApiOpenApiContract
         $this->normalizeDictionaryMetaSchemas($document);
         $this->normalizeSystemConfigSchemas($document);
         $this->normalizeMenuSchemas($document);
+        $this->normalizeMemberSchemas($document);
+        $this->normalizeMediaSchemas($document);
     }
 
     /**
@@ -155,6 +171,86 @@ class AdminApiOpenApiContract
         }
     }
 
+    private function normalizeMemberSchemas(OpenApi $document): void
+    {
+        $memberComponent = $this->schema($document, MemberResource::class);
+
+        if (! $memberComponent->type instanceof ObjectType) {
+            throw new LogicException(sprintf('Expected Scramble object schema [%s] was not generated.', MemberResource::class));
+        }
+
+        $memberComponent->type = $memberComponent->type->clone();
+        $memberComponent->type
+            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('name', new StringType)
+            ->addProperty('email', (new StringType)->format('email')->nullable(true))
+            ->addProperty('mobile', (new StringType)->nullable(true))
+            ->addProperty('is_active', new BooleanType)
+            ->addProperty('last_login_at', (new StringType)->nullable(true))
+            ->addProperty('last_login_ip', (new StringType)->nullable(true))
+            ->addProperty('created_at', new StringType)
+            ->addProperty('updated_at', new StringType)
+            ->addRequired([
+                'id',
+                'name',
+                'email',
+                'mobile',
+                'is_active',
+                'last_login_at',
+                'last_login_ip',
+                'created_at',
+                'updated_at',
+            ]);
+
+        $storeMemberSchema = $this->schema($document, StoreMemberRequest::class);
+        $storeMemberSchema->type = (new AllOf)->setItems([
+            $storeMemberSchema->type,
+            (new AnyOf)->setItems([
+                (new ObjectType)
+                    ->addProperty('email', (new StringType)->format('email'))
+                    ->addRequired(['email']),
+                (new ObjectType)
+                    ->addProperty('mobile', new StringType)
+                    ->addRequired(['mobile']),
+            ]),
+        ]);
+    }
+
+    private function normalizeMediaSchemas(OpenApi $document): void
+    {
+        $this->objectSchema($document, MediaResource::class)
+            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('name', new StringType)
+            ->addProperty('url', (new StringType)->format('uri'))
+            ->addProperty('mime_type', new StringType)
+            ->addProperty('extension', new StringType)
+            ->addProperty('size', (new IntegerType)->format('int64'))
+            ->addProperty('width', (new IntegerType)->nullable(true))
+            ->addProperty('height', (new IntegerType)->nullable(true))
+            ->addProperty('created_at', new StringType)
+            ->addRequired([
+                'id',
+                'name',
+                'url',
+                'mime_type',
+                'extension',
+                'size',
+                'width',
+                'height',
+                'created_at',
+            ]);
+
+        $this->objectSchema($document, StoreMediaRequest::class)
+            ->addProperty(
+                'file',
+                (new StringType)
+                    ->format('binary')
+                    ->contentMediaType('application/octet-stream')
+                    ->setDescription('JPEG, PNG, WebP, or GIF image up to 5 MiB. The filename extension must match the detected MIME type.'),
+            )
+            ->addRequired(['file']);
+    }
+
     /**
      * @param  class-string  $schemaClass
      */
@@ -172,10 +268,30 @@ class AdminApiOpenApiContract
     /**
      * @param  class-string  $schemaClass
      */
+    private function schema(OpenApi $document, string $schemaClass): Schema
+    {
+        $schema = $document->components->schemas[$this->schemaComponentName($document, $schemaClass)] ?? null;
+
+        if (! $schema instanceof Schema) {
+            throw new LogicException(sprintf('Expected Scramble schema [%s] was not generated.', $schemaClass));
+        }
+
+        return $schema;
+    }
+
+    /**
+     * @param  class-string  $schemaClass
+     */
     private function schemaComponentName(OpenApi $document, string $schemaClass): string
     {
         if (array_key_exists($schemaClass, $document->components->schemas)) {
             return $schemaClass;
+        }
+
+        $dotNotationClass = str_replace('\\', '.', $schemaClass);
+
+        if (array_key_exists($dotNotationClass, $document->components->schemas)) {
+            return $dotNotationClass;
         }
 
         $matchingComponentNames = collect(array_keys($document->components->schemas))

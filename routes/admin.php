@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\Admin\AuthController;
 use App\Http\Controllers\Api\Admin\DictionaryItemController;
 use App\Http\Controllers\Api\Admin\DictionaryTypeController;
 use App\Http\Controllers\Api\Admin\LoginLogController;
+use App\Http\Controllers\Api\Admin\MediaController;
+use App\Http\Controllers\Api\Admin\MemberController;
 use App\Http\Controllers\Api\Admin\MenuController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RoleController;
@@ -59,6 +61,30 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
         Route::put('/users/{user}/password', [UserController::class, 'resetPassword'])
             ->middleware($adminPermission('system.user.update'))
             ->name('users.password.update');
+
+        Route::apiResource('members', MemberController::class)
+            ->only(['index', 'store', 'show'])
+            ->middlewareFor(['index', 'show'], $adminPermission('system.member.view'))
+            ->middlewareFor('store', $adminPermission('system.member.create'));
+        Route::put('/members/{member}', [MemberController::class, 'update'])
+            ->middleware($adminPermission('system.member.update'))
+            ->name('members.update');
+        Route::put('/members/{member}/status', [MemberController::class, 'updateStatus'])
+            ->middleware($adminPermission('system.member.status'))
+            ->name('members.update-status');
+        Route::put('/members/{member}/password', [MemberController::class, 'resetPassword'])
+            ->middleware($adminPermission('system.member.reset_password'))
+            ->name('members.reset-password');
+        Route::post('/members/{member}/invalidate-sessions', [MemberController::class, 'invalidateSessions'])
+            ->middleware($adminPermission('system.member.invalidate_sessions'))
+            ->name('members.invalidate-sessions');
+
+        Route::apiResource('media', MediaController::class)
+            ->only(['index', 'store', 'destroy'])
+            ->middlewareFor('index', $adminPermission('system.media.view'))
+            ->middlewareFor('store', $adminPermission('system.media.create'))
+            ->middlewareFor('destroy', $adminPermission('system.media.delete'))
+            ->parameters(['media' => 'media']);
 
         Route::apiResource('dictionary-types', DictionaryTypeController::class)
             ->middlewareFor(['index', 'show'], $adminPermission('system.dictionary.view'))

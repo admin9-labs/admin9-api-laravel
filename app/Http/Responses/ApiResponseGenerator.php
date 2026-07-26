@@ -10,7 +10,7 @@ use stdClass;
 
 class ApiResponseGenerator extends ResponseGenerator
 {
-    private const HTTP_ERROR_CODES = [401, 403, 404, 413, 422, 429, 500];
+    private const HTTP_ERROR_CODES = [401, 403, 404, 413, 422, 429, 500, 503];
 
     /**
      * @return array{0: mixed, 1: array<string, mixed>}

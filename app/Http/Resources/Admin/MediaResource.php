@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Http\Resources\Admin;
+
+use App\Http\Resources\PaginationAwareJsonResource;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class MediaResource extends PaginationAwareJsonResource
+{
+    /**
+     * Transform the resource into an array.
+     *
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'url' => Storage::disk($this->disk)->url($this->path),
+            'mime_type' => $this->mime_type,
+            'extension' => $this->extension,
+            'size' => $this->size,
+            'width' => $this->width,
+            'height' => $this->height,
+            'created_at' => $this->dateTimeString($this->created_at),
+        ];
+    }
+}

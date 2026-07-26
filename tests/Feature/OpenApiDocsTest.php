@@ -23,6 +23,8 @@ class OpenApiDocsTest extends TestCase
             '/api/admin/auth/password' => 'put',
             '/api/admin/menus/tree' => 'get',
             '/api/admin/users' => 'get',
+            '/api/admin/members' => 'get',
+            '/api/admin/media' => 'get',
             '/api/admin/users/{user}/password' => 'put',
             '/api/admin/roles' => 'get',
             '/api/admin/permissions' => 'get',
@@ -187,6 +189,7 @@ class OpenApiDocsTest extends TestCase
             422 => 'ApiValidationErrorResponse',
             429 => 'ApiRateLimitResponse',
             500 => 'ApiServerErrorResponse',
+            503 => 'ApiServiceUnavailableResponse',
         ];
 
         $this->assertSame(
@@ -197,8 +200,13 @@ class OpenApiDocsTest extends TestCase
         foreach ($expectedComponents as $status => $component) {
             $response = $document['components']['responses'][$component];
             $schema = $response['content']['application/json']['schema'];
+            $required = ['success', 'code', 'message', 'data', 'errors', 'request_id'];
 
-            $this->assertSame(['success', 'code', 'message', 'data', 'errors', 'request_id'], $schema['required']);
+            if ($status === 503) {
+                $required[] = 'error_code';
+            }
+
+            $this->assertSame($required, $schema['required']);
             $this->assertSame([false], $schema['properties']['success']['enum']);
             $this->assertSame($status, $schema['properties']['code']['const']);
             $this->assertStrictEmptyObjectSchema($schema['properties']['data']);
@@ -309,6 +317,8 @@ class OpenApiDocsTest extends TestCase
 
         foreach ([
             '/api/admin/users',
+            '/api/admin/members',
+            '/api/admin/media',
             '/api/admin/dictionary-types',
             '/api/admin/dictionary-items',
             '/api/admin/system-configs',
@@ -471,6 +481,9 @@ class OpenApiDocsTest extends TestCase
 
         foreach ([
             ['/api/admin/users', 'post'],
+            ['/api/admin/members', 'post'],
+            ['/api/admin/media', 'post'],
+            ['/api/admin/media/{media}', 'delete'],
             ['/api/admin/users/{user}', 'delete'],
             ['/api/admin/roles', 'post'],
             ['/api/admin/roles/{role}', 'delete'],
@@ -491,6 +504,125 @@ class OpenApiDocsTest extends TestCase
             $this->assertArrayNotHasKey('201', $responses, "{$method} {$path} must not document HTTP 201.");
             $this->assertArrayNotHasKey('204', $responses, "{$method} {$path} must not document HTTP 204.");
         }
+    }
+
+    public function test_generated_openapi_document_exposes_exact_member_management_contract(): void
+    {
+        $document = $this->openApiDocument();
+        $operations = $this->operationsById($document);
+
+        foreach ([
+            'admin.members.index',
+            'admin.members.store',
+            'admin.members.show',
+            'admin.members.update',
+            'admin.members.update-status',
+            'admin.members.reset-password',
+            'admin.members.invalidate-sessions',
+        ] as $operationId) {
+            $this->assertArrayHasKey($operationId, $operations);
+        }
+
+        $memberReference = $document['paths']['/api/admin/members']['get']['responses']['200']['content']['application/json']['schema']['properties']['data']['items']['$ref'];
+        $memberSchema = $document['components']['schemas'][str($memberReference)->afterLast('/')->toString()];
+        $this->assertSame([
+            'id',
+            'name',
+            'email',
+            'mobile',
+            'is_active',
+            'last_login_at',
+            'last_login_ip',
+            'created_at',
+            'updated_at',
+        ], $memberSchema['required']);
+        $this->assertSame($memberSchema['required'], array_keys($memberSchema['properties']));
+        $this->assertArrayNotHasKey('password', $memberSchema['properties']);
+        $this->assertArrayNotHasKey('auth_version', $memberSchema['properties']);
+
+        $publicMember = $document['components']['schemas']['MemberResource'];
+        $this->assertSame([
+            'id',
+            'name',
+            'email',
+            'mobile',
+            'is_active',
+            'last_login_at',
+        ], $publicMember['required']);
+        $this->assertSame($publicMember['required'], array_keys($publicMember['properties']));
+
+        $storeMember = $document['components']['schemas']['StoreMemberRequest'];
+        $storeMemberProperties = $storeMember['allOf'][0];
+        $identityOptions = $storeMember['allOf'][1]['anyOf'];
+        $this->assertSame(['name', 'password', 'password_confirmation'], $storeMemberProperties['required']);
+        $this->assertSame(8, $storeMemberProperties['properties']['password']['minLength']);
+        $this->assertSame(255, $storeMemberProperties['properties']['password']['maxLength']);
+        $this->assertSame(['email'], $identityOptions[0]['required']);
+        $this->assertSame('string', $identityOptions[0]['properties']['email']['type']);
+        $this->assertSame('email', $identityOptions[0]['properties']['email']['format']);
+        $this->assertSame(['mobile'], $identityOptions[1]['required']);
+        $this->assertSame('string', $identityOptions[1]['properties']['mobile']['type']);
+
+        $indexParameters = collect($document['paths']['/api/admin/members']['get']['parameters'])->pluck('name')->all();
+        foreach (['page', 'per_page', 'search', 'is_active'] as $parameter) {
+            $this->assertContains($parameter, $indexParameters);
+        }
+    }
+
+    public function test_generated_openapi_document_exposes_exact_media_management_contract(): void
+    {
+        $document = $this->openApiDocument();
+        $operations = $this->operationsById($document);
+
+        foreach (['admin.media.index', 'admin.media.store', 'admin.media.destroy'] as $operationId) {
+            $this->assertArrayHasKey($operationId, $operations);
+        }
+
+        $requestBody = $document['paths']['/api/admin/media']['post']['requestBody'];
+        $this->assertSame(['multipart/form-data'], array_keys($requestBody['content']));
+        $requestReference = $requestBody['content']['multipart/form-data']['schema']['$ref'];
+        $requestSchema = $document['components']['schemas'][str($requestReference)->afterLast('/')->toString()];
+        $this->assertSame(['file'], $requestSchema['required']);
+        $this->assertSame('string', $requestSchema['properties']['file']['type']);
+        $this->assertSame('binary', $requestSchema['properties']['file']['format']);
+        $this->assertSame('application/octet-stream', $requestSchema['properties']['file']['contentMediaType']);
+        $this->assertStringContainsString('5 MiB', $requestSchema['properties']['file']['description']);
+
+        $mediaReference = $document['paths']['/api/admin/media']['get']['responses']['200']['content']['application/json']['schema']['properties']['data']['items']['$ref'];
+        $mediaSchema = $document['components']['schemas'][str($mediaReference)->afterLast('/')->toString()];
+        $this->assertSame([
+            'id',
+            'name',
+            'url',
+            'mime_type',
+            'extension',
+            'size',
+            'width',
+            'height',
+            'created_at',
+        ], $mediaSchema['required']);
+        $this->assertSame($mediaSchema['required'], array_keys($mediaSchema['properties']));
+        foreach (['disk', 'path', 'created_by'] as $internalProperty) {
+            $this->assertArrayNotHasKey($internalProperty, $mediaSchema['properties']);
+        }
+        $this->assertSame(['type' => 'integer', 'format' => 'int64'], $mediaSchema['properties']['id']);
+        $this->assertSame(['type' => 'integer', 'format' => 'int64'], $mediaSchema['properties']['size']);
+        $this->assertSame(['integer', 'null'], $mediaSchema['properties']['width']['type']);
+        $this->assertSame(['integer', 'null'], $mediaSchema['properties']['height']['type']);
+
+        $serviceUnavailableOperations = collect($document['paths'])
+            ->flatMap(fn (array $path, string $pathName): array => collect($path)
+                ->filter(fn (array $operation): bool => isset($operation['responses']['503']))
+                ->map(fn (array $operation, string $method): string => "{$method} {$pathName}")
+                ->all())
+            ->values()
+            ->all();
+        $this->assertSame(['delete /api/admin/media/{media}'], $serviceUnavailableOperations);
+        $this->assertArrayNotHasKey('422', $document['paths']['/api/admin/media/{media}']['delete']['responses']);
+
+        $serviceUnavailable = $document['components']['responses']['ApiServiceUnavailableResponse']['content']['application/json']['schema'];
+        $this->assertSame(['media_delete_failed'], $serviceUnavailable['properties']['error_code']['enum']);
+        $this->assertContains('error_code', $serviceUnavailable['required']);
     }
 
     /**
