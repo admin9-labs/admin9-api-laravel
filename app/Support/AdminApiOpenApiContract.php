@@ -16,8 +16,6 @@ use Dedoc\Scramble\Support\Generator\Combined\AnyOf;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Operation;
 use Dedoc\Scramble\Support\Generator\Parameter;
-use Dedoc\Scramble\Support\Generator\Reference;
-use Dedoc\Scramble\Support\Generator\Response as OpenApiResponse;
 use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\Types\ArrayType;
 use Dedoc\Scramble\Support\Generator\Types\BooleanType;
@@ -28,7 +26,6 @@ use Dedoc\Scramble\Support\Generator\Types\NumberType;
 use Dedoc\Scramble\Support\Generator\Types\ObjectType;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Dedoc\Scramble\Support\RouteInfo;
-use Illuminate\Support\Facades\Route;
 use LogicException;
 
 class AdminApiOpenApiContract
@@ -48,55 +45,11 @@ class AdminApiOpenApiContract
 
     public function transformDocument(OpenApi $document): void
     {
-        $this->addForbiddenResponses($document);
         $this->normalizeActivityLogSchema($this->objectSchema($document, ActivityLogResource::class));
         $this->normalizeLoginLogSchema($this->objectSchema($document, LoginLogResource::class));
         $this->normalizeDictionaryMetaSchemas($document);
         $this->normalizeSystemConfigSchemas($document);
         $this->normalizeMenuSchemas($document);
-    }
-
-    private function addForbiddenResponses(OpenApi $document): void
-    {
-        $forbiddenOperationIds = collect(Route::getRoutes())
-            ->filter(fn ($route): bool => collect($route->gatherMiddleware())
-                ->contains(fn (string $middleware): bool => str_starts_with($middleware, 'permission:')))
-            ->map(fn ($route): ?string => $route->getName())
-            ->filter()
-            ->merge(['member.auth.refresh', 'admin.auth.refresh'])
-            ->unique()
-            ->all();
-        $responseReference = new Reference('responses', 'ForbiddenResponse', $document->components);
-
-        $document->components->add($responseReference, $this->forbiddenResponse());
-
-        foreach ($document->paths as $path) {
-            foreach ($path->operations as $operation) {
-                if (in_array($operation->operationId, $forbiddenOperationIds, true)) {
-                    $operation->addResponse($responseReference);
-                }
-            }
-        }
-    }
-
-    private function forbiddenResponse(): OpenApiResponse
-    {
-        $emptyArray = static fn (): ArrayType => (new ArrayType)
-            ->setItems(new MixedType)
-            ->setMax(0);
-
-        $envelope = (new ObjectType)
-            ->addProperty('success', (new BooleanType)->example(false))
-            ->addProperty('code', (new IntegerType)->example(403))
-            ->addProperty('message', (new StringType)->example('Forbidden'))
-            ->addProperty('data', $emptyArray())
-            ->addProperty('errors', $emptyArray())
-            ->addProperty('request_id', new StringType)
-            ->setRequired(['success', 'code', 'message', 'data', 'errors', 'request_id']);
-
-        return OpenApiResponse::make(403)
-            ->setDescription('Forbidden')
-            ->setContent('application/json', Schema::fromType($envelope));
     }
 
     /**

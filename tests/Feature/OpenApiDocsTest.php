@@ -102,7 +102,7 @@ class OpenApiDocsTest extends TestCase
 
             $this->assertSame([['http' => []]], $operation['security']);
             $this->assertSame(
-                '#/components/responses/AuthenticationException',
+                '#/components/responses/ApiUnauthorizedResponse',
                 $operation['responses']['401']['$ref'] ?? null,
                 "{$path} must document invalid refresh tokens as authentication failures.",
             );
@@ -113,61 +113,176 @@ class OpenApiDocsTest extends TestCase
     {
         $document = $this->openApiDocument();
         $operations = $this->operationsById($document);
-        $permissionOperationIds = collect(RouteFacade::getRoutes()->getRoutes())
+        $forbiddenOperationIds = collect(RouteFacade::getRoutes()->getRoutes())
             ->filter(fn (Route $route): bool => collect($route->gatherMiddleware())
-                ->contains(fn (string $middleware): bool => str_starts_with($middleware, 'permission:')))
+                ->contains(fn (string $middleware): bool => str_starts_with($middleware, 'permission:')
+                    || str_starts_with($middleware, 'account.active:')))
             ->map(fn (Route $route): ?string => $route->getName())
             ->filter()
+            ->merge(['member.auth.refresh', 'admin.auth.refresh'])
+            ->unique()
             ->values();
 
-        foreach ($permissionOperationIds->merge(['member.auth.refresh', 'admin.auth.refresh'])->unique() as $operationId) {
+        foreach ($forbiddenOperationIds as $operationId) {
             $this->assertSame(
-                '#/components/responses/ForbiddenResponse',
+                '#/components/responses/ApiForbiddenResponse',
                 $operations[$operationId]['responses']['403']['$ref'] ?? null,
                 "{$operationId} must document HTTP 403.",
             );
         }
 
-        $forbiddenSchema = $document['components']['responses']['ForbiddenResponse']['content']['application/json']['schema'];
+        $forbiddenResponse = $document['components']['responses']['ApiForbiddenResponse'];
+        $forbiddenSchema = $forbiddenResponse['content']['application/json']['schema'];
         $this->assertSame(['success', 'code', 'message', 'data', 'errors', 'request_id'], $forbiddenSchema['required']);
+        $this->assertSame([false], $forbiddenSchema['properties']['success']['enum']);
+        $this->assertSame(403, $forbiddenSchema['properties']['code']['const']);
+        $this->assertSame(['account_inactive'], $forbiddenSchema['properties']['error_code']['enum']);
+        $this->assertSame('string', $forbiddenResponse['headers']['X-Request-Id']['schema']['type']);
 
         foreach (['data', 'errors'] as $property) {
-            $this->assertSame('array', $forbiddenSchema['properties'][$property]['type']);
-            $this->assertSame([], $forbiddenSchema['properties'][$property]['items']);
-            $this->assertSame(0, $forbiddenSchema['properties'][$property]['maxItems']);
+            $this->assertStrictEmptyObjectSchema($forbiddenSchema['properties'][$property]);
         }
     }
 
-    public function test_login_operations_document_rate_limit_error_contract(): void
+    public function test_throttled_operations_document_rate_limit_error_contract(): void
     {
         $document = $this->openApiDocument();
 
-        foreach (['/api/auth/login', '/api/admin/auth/login'] as $path) {
-            $response = $document['paths'][$path]['post']['responses']['429'] ?? null;
-
-            $this->assertIsArray($response, "{$path} must document HTTP 429.");
-            $this->assertSame('Too Many Requests', $response['description'] ?? null);
-
-            $schema = $response['content']['application/json']['schema'] ?? null;
-            $this->assertIsArray($schema, "{$path} must document the rate limit error envelope.");
+        foreach ([
+            ['/api/auth/login', 'post'],
+            ['/api/auth/refresh', 'post'],
+            ['/api/auth/me', 'get'],
+            ['/api/auth/password', 'put'],
+            ['/api/auth/logout', 'post'],
+            ['/api/admin/auth/login', 'post'],
+        ] as [$path, $method]) {
             $this->assertSame(
-                ['success', 'code', 'message', 'data', 'errors', 'request_id'],
-                $schema['required'] ?? null,
+                '#/components/responses/ApiRateLimitResponse',
+                $document['paths'][$path][$method]['responses']['429']['$ref'] ?? null,
+                "{$method} {$path} must document HTTP 429.",
             );
-            $this->assertSame('boolean', $schema['properties']['success']['type'] ?? null);
-            $this->assertSame('integer', $schema['properties']['code']['type'] ?? null);
-            $this->assertSame('string', $schema['properties']['message']['type'] ?? null);
-            $this->assertSame('array', $schema['properties']['data']['type'] ?? null);
-            $this->assertSame('array', $schema['properties']['errors']['type'] ?? null);
-            $this->assertSame('string', $schema['properties']['request_id']['type'] ?? null);
+        }
 
-            foreach (['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'] as $header) {
+        $response = $document['components']['responses']['ApiRateLimitResponse'];
+        $schema = $response['content']['application/json']['schema'];
+        $this->assertSame(['success', 'code', 'message', 'data', 'errors', 'request_id'], $schema['required']);
+        $this->assertSame([false], $schema['properties']['success']['enum']);
+        $this->assertSame(429, $schema['properties']['code']['const']);
+        $this->assertStrictEmptyObjectSchema($schema['properties']['data']);
+        $this->assertStrictEmptyObjectSchema($schema['properties']['errors']);
+
+        foreach (['Retry-After', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'] as $header) {
+            $this->assertSame('integer', $response['headers'][$header]['schema']['type'] ?? null);
+        }
+    }
+
+    public function test_generated_openapi_document_centralizes_error_envelopes_and_headers(): void
+    {
+        $document = $this->openApiDocument();
+        $expectedComponents = [
+            401 => 'ApiUnauthorizedResponse',
+            403 => 'ApiForbiddenResponse',
+            404 => 'ApiNotFoundResponse',
+            413 => 'ApiContentTooLargeResponse',
+            422 => 'ApiValidationErrorResponse',
+            429 => 'ApiRateLimitResponse',
+            500 => 'ApiServerErrorResponse',
+        ];
+
+        $this->assertSame(
+            array_values($expectedComponents),
+            array_keys($document['components']['responses']),
+        );
+
+        foreach ($expectedComponents as $status => $component) {
+            $response = $document['components']['responses'][$component];
+            $schema = $response['content']['application/json']['schema'];
+
+            $this->assertSame(['success', 'code', 'message', 'data', 'errors', 'request_id'], $schema['required']);
+            $this->assertSame([false], $schema['properties']['success']['enum']);
+            $this->assertSame($status, $schema['properties']['code']['const']);
+            $this->assertStrictEmptyObjectSchema($schema['properties']['data']);
+            $this->assertSame('string', $response['headers']['X-Request-Id']['schema']['type']);
+
+            if ($status === 422) {
+                $this->assertSame('object', $schema['properties']['errors']['type']);
+                $this->assertSame('array', $schema['properties']['errors']['additionalProperties']['type']);
+                $this->assertSame('string', $schema['properties']['errors']['additionalProperties']['items']['type']);
+            } else {
+                $this->assertStrictEmptyObjectSchema($schema['properties']['errors']);
+            }
+        }
+
+        foreach ($document['paths'] as $path => $pathItem) {
+            foreach ($pathItem as $method => $operation) {
+                foreach ($operation['responses'] as $status => $response) {
+                    $resolved = isset($response['$ref'])
+                        ? $document['components']['responses'][str($response['$ref'])->afterLast('/')->toString()]
+                        : $response;
+
+                    $this->assertArrayHasKey(
+                        'X-Request-Id',
+                        $resolved['headers'] ?? [],
+                        "{$method} {$path} response {$status} must document X-Request-Id.",
+                    );
+                }
+
                 $this->assertSame(
-                    'integer',
-                    $response['headers'][$header]['schema']['type'] ?? null,
-                    "{$path} must document the {$header} response header.",
+                    '#/components/responses/ApiServerErrorResponse',
+                    $operation['responses']['500']['$ref'] ?? null,
+                    "{$method} {$path} must document HTTP 500.",
                 );
             }
+        }
+    }
+
+    public function test_member_auth_operations_document_actual_error_boundaries(): void
+    {
+        $document = $this->openApiDocument();
+        $operations = [
+            ['/api/auth/login', 'post'],
+            ['/api/auth/refresh', 'post'],
+            ['/api/auth/me', 'get'],
+            ['/api/auth/password', 'put'],
+            ['/api/auth/logout', 'post'],
+        ];
+
+        foreach ($operations as [$path, $method]) {
+            $responses = $document['paths'][$path][$method]['responses'];
+            $this->assertSame('#/components/responses/ApiUnauthorizedResponse', $responses['401']['$ref'] ?? null);
+            $this->assertSame('#/components/responses/ApiRateLimitResponse', $responses['429']['$ref'] ?? null);
+            $this->assertSame('#/components/responses/ApiServerErrorResponse', $responses['500']['$ref'] ?? null);
+        }
+
+        foreach ([
+            ['/api/auth/refresh', 'post'],
+            ['/api/auth/me', 'get'],
+            ['/api/auth/password', 'put'],
+            ['/api/auth/logout', 'post'],
+        ] as [$path, $method]) {
+            $this->assertSame(
+                '#/components/responses/ApiForbiddenResponse',
+                $document['paths'][$path][$method]['responses']['403']['$ref'] ?? null,
+            );
+        }
+
+        foreach ([['/api/auth/login', 'post'], ['/api/auth/password', 'put']] as [$path, $method]) {
+            $this->assertSame(
+                '#/components/responses/ApiValidationErrorResponse',
+                $document['paths'][$path][$method]['responses']['422']['$ref'] ?? null,
+            );
+        }
+
+        foreach ([
+            ['/api/auth/login', 'post'],
+            ['/api/auth/refresh', 'post'],
+            ['/api/auth/password', 'put'],
+            ['/api/auth/logout', 'post'],
+        ] as [$path, $method]) {
+            $this->assertSame(
+                '#/components/responses/ApiContentTooLargeResponse',
+                $document['paths'][$path][$method]['responses']['413']['$ref'] ?? null,
+            );
         }
     }
 
@@ -416,6 +531,17 @@ class OpenApiDocsTest extends TestCase
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $schema
+     */
+    private function assertStrictEmptyObjectSchema(array $schema): void
+    {
+        $this->assertSame('object', $schema['type'] ?? null);
+        $this->assertSame([], $schema['properties'] ?? null);
+        $this->assertFalse($schema['additionalProperties'] ?? null);
+        $this->assertSame(0, $schema['maxProperties'] ?? null);
     }
 
     /**

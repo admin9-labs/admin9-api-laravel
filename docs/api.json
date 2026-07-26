@@ -178,13 +178,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             }
@@ -262,88 +274,31 @@
                                     ]
                                 }
                             }
-                        }
-                    },
-                    "401": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "code": {
-                                            "type": "integer"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "data": {
-                                            "type": "array",
-                                            "items": {},
-                                            "maxItems": 0
-                                        },
-                                        "errors": {
-                                            "type": "array",
-                                            "items": {},
-                                            "maxItems": 0
-                                        },
-                                        "request_id": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "success",
-                                        "code",
-                                        "message",
-                                        "data",
-                                        "errors",
-                                        "request_id"
-                                    ]
-                                }
-                            }
                         },
                         "headers": {
-                            "Retry-After": {
-                                "description": "Seconds until the client may retry.",
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
                                 "schema": {
-                                    "type": "integer"
-                                }
-                            },
-                            "X-RateLimit-Limit": {
-                                "description": "Maximum requests allowed in the current window.",
-                                "schema": {
-                                    "type": "integer"
-                                }
-                            },
-                            "X-RateLimit-Remaining": {
-                                "description": "Requests remaining in the current window.",
-                                "schema": {
-                                    "type": "integer"
-                                }
-                            },
-                            "X-RateLimit-Reset": {
-                                "description": "Unix timestamp when the current window resets.",
-                                "schema": {
-                                    "type": "integer"
+                                    "type": "string",
+                                    "format": "uuid"
                                 }
                             }
                         }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 },
                 "security": []
@@ -412,13 +367,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 },
                 "security": [
@@ -478,10 +451,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 }
             }
@@ -538,13 +529,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 }
             }
@@ -591,10 +603,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 }
             }
@@ -679,88 +712,31 @@
                                     ]
                                 }
                             }
-                        }
-                    },
-                    "401": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object"
-                                }
-                            }
-                        }
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
-                    },
-                    "429": {
-                        "description": "Too Many Requests",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "type": "object",
-                                    "properties": {
-                                        "success": {
-                                            "type": "boolean"
-                                        },
-                                        "code": {
-                                            "type": "integer"
-                                        },
-                                        "message": {
-                                            "type": "string"
-                                        },
-                                        "data": {
-                                            "type": "array",
-                                            "items": {},
-                                            "maxItems": 0
-                                        },
-                                        "errors": {
-                                            "type": "array",
-                                            "items": {},
-                                            "maxItems": 0
-                                        },
-                                        "request_id": {
-                                            "type": "string"
-                                        }
-                                    },
-                                    "required": [
-                                        "success",
-                                        "code",
-                                        "message",
-                                        "data",
-                                        "errors",
-                                        "request_id"
-                                    ]
-                                }
-                            }
                         },
                         "headers": {
-                            "Retry-After": {
-                                "description": "Seconds until the client may retry.",
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
                                 "schema": {
-                                    "type": "integer"
-                                }
-                            },
-                            "X-RateLimit-Limit": {
-                                "description": "Maximum requests allowed in the current window.",
-                                "schema": {
-                                    "type": "integer"
-                                }
-                            },
-                            "X-RateLimit-Remaining": {
-                                "description": "Requests remaining in the current window.",
-                                "schema": {
-                                    "type": "integer"
-                                }
-                            },
-                            "X-RateLimit-Reset": {
-                                "description": "Unix timestamp when the current window resets.",
-                                "schema": {
-                                    "type": "integer"
+                                    "type": "string",
+                                    "format": "uuid"
                                 }
                             }
                         }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 },
                 "security": []
@@ -836,13 +812,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 },
                 "security": [
@@ -909,10 +900,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             }
@@ -969,13 +975,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     },
                     "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -1022,10 +1046,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -1197,13 +1239,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             },
@@ -1267,16 +1321,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -1343,16 +1412,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             },
@@ -1426,19 +1507,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             },
@@ -1495,16 +1591,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             }
@@ -1654,13 +1762,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             },
@@ -1724,16 +1844,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -1800,16 +1935,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             },
@@ -1883,19 +2030,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             },
@@ -1952,26 +2114,31 @@
                                     ]
                                 }
                             }
-                        }
-                    },
-                    "422": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
                                 "schema": {
-                                    "type": "object"
+                                    "type": "string",
+                                    "format": "uuid"
                                 }
                             }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             }
@@ -2144,13 +2311,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             }
@@ -2201,10 +2380,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             }
@@ -2255,13 +2449,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             },
@@ -2325,16 +2531,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -2401,16 +2622,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             },
@@ -2484,19 +2717,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             },
@@ -2553,26 +2801,31 @@
                                     ]
                                 }
                             }
-                        }
-                    },
-                    "422": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
                                 "schema": {
-                                    "type": "object"
+                                    "type": "string",
+                                    "format": "uuid"
                                 }
                             }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             }
@@ -2623,13 +2876,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             },
@@ -2693,16 +2958,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -2769,16 +3049,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             },
@@ -2852,19 +3144,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             },
@@ -2921,26 +3228,31 @@
                                     ]
                                 }
                             }
-                        }
-                    },
-                    "422": {
-                        "description": "",
-                        "content": {
-                            "application/json": {
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
                                 "schema": {
-                                    "type": "object"
+                                    "type": "string",
+                                    "format": "uuid"
                                 }
                             }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             }
@@ -2991,13 +3303,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             },
@@ -3061,16 +3385,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -3137,16 +3476,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             },
@@ -3220,19 +3571,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             },
@@ -3289,16 +3655,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             }
@@ -3374,19 +3752,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -3559,13 +3952,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             },
@@ -3629,16 +4034,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -3705,16 +4125,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             },
@@ -3788,19 +4220,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             },
@@ -3857,16 +4304,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             }
@@ -3950,13 +4409,25 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     }
                 }
             },
@@ -4020,16 +4491,31 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -4096,16 +4582,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             },
@@ -4179,19 +4677,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             },
@@ -4248,16 +4761,28 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
                     }
                 }
             }
@@ -4325,19 +4850,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -4413,19 +4953,34 @@
                                     ]
                                 }
                             }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
                         }
                     },
-                    "404": {
-                        "$ref": "#/components/responses/ModelNotFoundException"
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
                     },
                     "401": {
-                        "$ref": "#/components/responses/AuthenticationException"
-                    },
-                    "422": {
-                        "$ref": "#/components/responses/ValidationException"
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
                     },
                     "403": {
-                        "$ref": "#/components/responses/ForbiddenResponse"
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
                     }
                 }
             }
@@ -5837,76 +6392,8 @@
             }
         },
         "responses": {
-            "ValidationException": {
-                "description": "Validation error",
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string",
-                                    "description": "Errors overview."
-                                },
-                                "errors": {
-                                    "type": "object",
-                                    "description": "A detailed description of each field that failed validation.",
-                                    "additionalProperties": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            },
-                            "required": [
-                                "message",
-                                "errors"
-                            ]
-                        }
-                    }
-                }
-            },
-            "AuthenticationException": {
-                "description": "Unauthenticated",
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string",
-                                    "description": "Error overview."
-                                }
-                            },
-                            "required": [
-                                "message"
-                            ]
-                        }
-                    }
-                }
-            },
-            "ModelNotFoundException": {
-                "description": "Not found",
-                "content": {
-                    "application/json": {
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string",
-                                    "description": "Error overview."
-                                }
-                            },
-                            "required": [
-                                "message"
-                            ]
-                        }
-                    }
-                }
-            },
-            "ForbiddenResponse": {
-                "description": "Forbidden",
+            "ApiUnauthorizedResponse": {
+                "description": "Unauthorized",
                 "content": {
                     "application/json": {
                         "schema": {
@@ -5914,28 +6401,32 @@
                             "properties": {
                                 "success": {
                                     "type": "boolean",
-                                    "example": false
+                                    "enum": [
+                                        false
+                                    ]
                                 },
                                 "code": {
                                     "type": "integer",
-                                    "example": 403
+                                    "const": 401
                                 },
                                 "message": {
-                                    "type": "string",
-                                    "example": "Forbidden"
+                                    "type": "string"
                                 },
                                 "data": {
-                                    "type": "array",
-                                    "items": {},
-                                    "maxItems": 0
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
                                 },
                                 "errors": {
-                                    "type": "array",
-                                    "items": {},
-                                    "maxItems": 0
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
                                 },
                                 "request_id": {
-                                    "type": "string"
+                                    "type": "string",
+                                    "format": "uuid"
                                 }
                             },
                             "required": [
@@ -5946,6 +6437,396 @@
                                 "errors",
                                 "request_id"
                             ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiForbiddenResponse": {
+                "description": "Forbidden",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 403
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "error_code": {
+                                    "type": "string",
+                                    "enum": [
+                                        "account_inactive"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiNotFoundResponse": {
+                "description": "Not Found",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 404
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiContentTooLargeResponse": {
+                "description": "Content Too Large",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 413
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiValidationErrorResponse": {
+                "description": "Unprocessable Content",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 422
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiRateLimitResponse": {
+                "description": "Too Many Requests",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 429
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    "Retry-After": {
+                        "description": "Seconds until the client may retry.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "X-RateLimit-Limit": {
+                        "description": "Maximum requests allowed in the current window.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "X-RateLimit-Remaining": {
+                        "description": "Requests remaining in the current window.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "X-RateLimit-Reset": {
+                        "description": "Unix timestamp when the current window resets.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "ApiServerErrorResponse": {
+                "description": "Internal Server Error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 500
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
                         }
                     }
                 }

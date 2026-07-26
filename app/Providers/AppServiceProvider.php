@@ -7,19 +7,11 @@ use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\AdminApiOpenApiContract;
+use App\Support\ApiErrorOpenApiContract;
 use Dedoc\Scramble\Scramble;
-use Dedoc\Scramble\Support\Generator\Header;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Operation;
-use Dedoc\Scramble\Support\Generator\Response as OpenApiResponse;
-use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityRequirement;
-use Dedoc\Scramble\Support\Generator\Types\ArrayType as OpenApiArrayType;
-use Dedoc\Scramble\Support\Generator\Types\BooleanType as OpenApiBooleanType;
-use Dedoc\Scramble\Support\Generator\Types\IntegerType as OpenApiIntegerType;
-use Dedoc\Scramble\Support\Generator\Types\MixedType as OpenApiMixedType;
-use Dedoc\Scramble\Support\Generator\Types\ObjectType as OpenApiObjectType;
-use Dedoc\Scramble\Support\Generator\Types\StringType as OpenApiStringType;
 use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
@@ -71,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
 
         if (class_exists(Scramble::class)) {
             $openApiContract = app(AdminApiOpenApiContract::class);
+            $apiErrorOpenApiContract = app(ApiErrorOpenApiContract::class);
 
             Scramble::configure()->withOperationTransformers(
                 static function (Operation $operation, RouteInfo $routeInfo) use ($openApiContract): void {
@@ -82,12 +75,12 @@ class AppServiceProvider extends ServiceProvider
                         $operation->addSecurity(new SecurityRequirement(['http' => []]));
                     }
 
-                    if (in_array($routeName, ['member.auth.login', 'admin.auth.login'], true)) {
-                        $operation->addResponse(self::openApiRateLimitResponse());
-                    }
                 },
             )->withDocumentTransformers(
-                static fn (OpenApi $document): mixed => $openApiContract->transformDocument($document),
+                static function (OpenApi $document) use ($openApiContract, $apiErrorOpenApiContract): void {
+                    $openApiContract->transformDocument($document);
+                    $apiErrorOpenApiContract->transformDocument($document);
+                },
             );
         }
 
@@ -111,36 +104,5 @@ class AppServiceProvider extends ServiceProvider
 
             return $user->checkPermissionTo($ability, 'admin') ? true : null;
         });
-    }
-
-    private static function openApiRateLimitResponse(): OpenApiResponse
-    {
-        $emptyArray = static fn (): OpenApiArrayType => (new OpenApiArrayType)
-            ->setItems(new OpenApiMixedType)
-            ->setMax(0);
-
-        $envelope = (new OpenApiObjectType)
-            ->addProperty('success', new OpenApiBooleanType)
-            ->addProperty('code', new OpenApiIntegerType)
-            ->addProperty('message', new OpenApiStringType)
-            ->addProperty('data', $emptyArray())
-            ->addProperty('errors', $emptyArray())
-            ->addProperty('request_id', new OpenApiStringType)
-            ->setRequired(['success', 'code', 'message', 'data', 'errors', 'request_id']);
-
-        $integerHeader = static fn (string $description): Header => new Header(
-            description: $description,
-            schema: Schema::fromType(new OpenApiIntegerType),
-        );
-
-        return OpenApiResponse::make(Response::HTTP_TOO_MANY_REQUESTS)
-            ->setDescription('Too Many Requests')
-            ->setContent('application/json', Schema::fromType($envelope))
-            ->setHeaders([
-                'Retry-After' => $integerHeader('Seconds until the client may retry.'),
-                'X-RateLimit-Limit' => $integerHeader('Maximum requests allowed in the current window.'),
-                'X-RateLimit-Remaining' => $integerHeader('Requests remaining in the current window.'),
-                'X-RateLimit-Reset' => $integerHeader('Unix timestamp when the current window resets.'),
-            ]);
     }
 }
