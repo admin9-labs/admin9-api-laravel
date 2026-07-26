@@ -205,6 +205,8 @@ class AdminApiOpenApiContract
             ]);
 
         $storeMemberSchema = $this->schema($document, StoreMemberRequest::class);
+        $this->objectSchema($document, StoreMemberRequest::class)
+            ->addProperty('name', (new StringType)->setMin(1)->setMax(255));
         $storeMemberSchema->type = (new AllOf)->setItems([
             $storeMemberSchema->type,
             (new AnyOf)->setItems([

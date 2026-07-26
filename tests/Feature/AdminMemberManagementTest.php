@@ -75,6 +75,27 @@ class AdminMemberManagementTest extends TestCase
             ->assertJsonPath('data.member.name', '');
     }
 
+    public function test_member_list_accepts_boolean_query_strings_without_broadening_validation(): void
+    {
+        $activeMember = Member::factory()->create(['is_active' => true]);
+        $inactiveMember = Member::factory()->inactive()->create();
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.view']));
+
+        $this->getJson('/api/admin/members?is_active=true', $headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $activeMember->id);
+
+        $this->getJson('/api/admin/members?is_active=false', $headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $inactiveMember->id);
+
+        $this->getJson('/api/admin/members?is_active=yes', $headers)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('is_active');
+    }
+
     public function test_member_create_and_update_require_unique_retained_identity(): void
     {
         $existing = Member::factory()->create([

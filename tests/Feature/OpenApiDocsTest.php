@@ -556,6 +556,8 @@ class OpenApiDocsTest extends TestCase
         $storeMemberProperties = $storeMember['allOf'][0];
         $identityOptions = $storeMember['allOf'][1]['anyOf'];
         $this->assertSame(['name', 'password', 'password_confirmation'], $storeMemberProperties['required']);
+        $this->assertSame(1, $storeMemberProperties['properties']['name']['minLength']);
+        $this->assertSame(255, $storeMemberProperties['properties']['name']['maxLength']);
         $this->assertSame(8, $storeMemberProperties['properties']['password']['minLength']);
         $this->assertSame(255, $storeMemberProperties['properties']['password']['maxLength']);
         $this->assertSame(['email'], $identityOptions[0]['required']);

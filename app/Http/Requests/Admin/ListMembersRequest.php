@@ -28,4 +28,13 @@ class ListMembersRequest extends FormRequest
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $isActive = $this->query('is_active');
+
+        if ($isActive === 'true' || $isActive === 'false') {
+            $this->merge(['is_active' => $isActive === 'true']);
+        }
+    }
 }
