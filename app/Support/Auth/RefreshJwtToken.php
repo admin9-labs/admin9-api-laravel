@@ -10,8 +10,6 @@ use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use PHPOpenSourceSaver\JWTAuth\JWT;
 use PHPOpenSourceSaver\JWTAuth\JWTGuard;
 use PHPOpenSourceSaver\JWTAuth\Token;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 final class RefreshJwtToken
 {
@@ -69,7 +67,7 @@ final class RefreshJwtToken
             }
 
             if (! (bool) data_get($subject, 'is_active', true)) {
-                throw new HttpException(Response::HTTP_FORBIDDEN, 'Account disabled');
+                throw new AccountInactiveException;
             }
 
             $refreshedToken = $manager

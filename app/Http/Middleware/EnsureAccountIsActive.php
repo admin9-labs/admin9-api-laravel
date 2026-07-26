@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Auth\AccountInactiveException;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Mitoop\Http\JsonResponder;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureAccountIsActive
@@ -19,7 +19,7 @@ class EnsureAccountIsActive
                 Auth::guard($guard)->logout();
             }
 
-            return app(JsonResponder::class)->error('Account disabled', Response::HTTP_FORBIDDEN);
+            throw new AccountInactiveException;
         }
 
         return $next($request);

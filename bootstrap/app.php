@@ -4,6 +4,8 @@ use App\Http\Middleware\AddContext;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureJwtAuthenticationVersion;
 use App\Http\Middleware\RefreshJwtGuards;
+use App\Http\Responses\ApiResponseGenerator;
+use App\Support\Auth\AccountInactiveException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -49,9 +51,9 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
-            $payload = json_decode((string) $response->getContent(), true);
+            $payload = json_decode((string) $response->getContent());
 
-            if (! is_array($payload) || ($payload['success'] ?? null) !== false) {
+            if (! $payload instanceof stdClass || ($payload->success ?? null) !== false) {
                 return $response;
             }
 
@@ -62,14 +64,23 @@ return Application::configure(basePath: dirname(__DIR__))
             $status = match (true) {
                 $exception instanceof AuthenticationException => 401,
                 $exception instanceof ThrottleRequestsException => $exception->getStatusCode(),
-                default => $payload['code'] ?? null,
+                default => $payload->code ?? null,
             };
 
-            if (! is_int($status) || ! in_array($status, [401, 403, 404, 413, 422, 429], true)) {
+            if (! ApiResponseGenerator::isHttpErrorCode($status)) {
                 return $response;
             }
 
-            $payload['code'] = $status;
+            $payload->code = $status;
+            $payload->data = new stdClass;
+            $payload->errors = $status === 422 && ($payload->errors ?? null) instanceof stdClass
+                ? $payload->errors
+                : new stdClass;
+
+            if ($exception instanceof AccountInactiveException) {
+                $payload->error_code = AccountInactiveException::ERROR_CODE;
+            }
+
             $response->setStatusCode($status);
             $encodedPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 

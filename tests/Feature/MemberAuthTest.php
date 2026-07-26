@@ -123,6 +123,7 @@ class MemberAuthTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
             ->assertJsonPath('message', 'Account disabled')
+            ->assertJsonPath('error_code', 'account_inactive')
             ->assertHeader('X-Request-Id');
 
         $this->postJson('/api/auth/login', [
@@ -133,6 +134,7 @@ class MemberAuthTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Invalid credentials')
+            ->assertJsonMissingPath('error_code')
             ->assertHeader('X-Request-Id');
 
         $this->assertDatabaseHas(LoginLog::class, [

@@ -90,6 +90,7 @@ class JwtRefreshTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
             ->assertJsonPath('message', 'Account disabled')
+            ->assertJsonPath('error_code', 'account_inactive')
             ->assertHeader('X-Request-Id');
     }
 
