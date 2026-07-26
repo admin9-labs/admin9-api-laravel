@@ -218,7 +218,7 @@ class AdminApiOpenApiContract
         ]);
 
         $this->objectSchema($document, UpdateMemberRequest::class)
-            ->addProperty('name', (new StringType)->setMax(255))
+            ->addProperty('name', (new StringType)->setMin(1)->setMax(255))
             ->addProperty('email', (new StringType)->format('email')->setMax(255)->nullable(true))
             ->addProperty('mobile', (new StringType)->setMax(32)->nullable(true));
 
@@ -232,7 +232,7 @@ class AdminApiOpenApiContract
         $this->objectSchema($document, MediaResource::class)
             ->addProperty('id', (new IntegerType)->format('int64'))
             ->addProperty('name', new StringType)
-            ->addProperty('url', (new StringType)->format('uri'))
+            ->addProperty('url', (new StringType)->format('uri')->nullable(true))
             ->addProperty('mime_type', new StringType)
             ->addProperty('extension', new StringType)
             ->addProperty('size', (new IntegerType)->format('int64'))

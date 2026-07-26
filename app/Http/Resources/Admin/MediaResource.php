@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -18,7 +19,9 @@ class MediaResource extends PaginationAwareJsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
-            'url' => Storage::disk($this->disk)->url($this->path),
+            'url' => $this->status === Media::STATUS_READY
+                ? Storage::disk($this->disk)->url($this->path)
+                : null,
             'mime_type' => $this->mime_type,
             'extension' => $this->extension,
             'size' => $this->size,

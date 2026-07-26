@@ -20,6 +20,8 @@ class Media extends Model
 
     public const STATUS_READY = 'ready';
 
+    public const PENDING_UPLOAD_LEASE_MINUTES = 5;
+
     /**
      * @return array<string, string>
      */

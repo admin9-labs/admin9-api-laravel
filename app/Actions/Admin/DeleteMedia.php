@@ -84,7 +84,7 @@ class DeleteMedia
             $claimIsActive = $lockedMedia->deletion_token !== null
                 && $lockedMedia->deletion_started_at?->isAfter(now()->subMinutes(self::CLAIM_TTL_MINUTES));
 
-            if ($lockedMedia->status === Media::STATUS_PENDING) {
+            if ($this->pendingUploadLeaseIsActive($lockedMedia)) {
                 return null;
             }
 
@@ -118,7 +118,7 @@ class DeleteMedia
 
             if (
                 $lockedMedia === null
-                || $lockedMedia->status === Media::STATUS_PENDING
+                || $this->pendingUploadLeaseIsActive($lockedMedia)
                 || $lockedMedia->deletion_token !== $activeDeletionToken
             ) {
                 return null;
@@ -138,6 +138,12 @@ class DeleteMedia
         }
 
         return $lockedMedia;
+    }
+
+    private function pendingUploadLeaseIsActive(Media $media): bool
+    {
+        return $media->status === Media::STATUS_PENDING
+            && $media->created_at?->isAfter(now()->subMinutes(Media::PENDING_UPLOAD_LEASE_MINUTES));
     }
 
     private function deletePhysicalFile(Filesystem $filesystem, Media $media, string $deletionToken): bool

@@ -151,6 +151,38 @@ class AdminMediaManagementTest extends TestCase
         $this->assertSame(0, Media::query()->count());
     }
 
+    public function test_upload_does_not_write_after_pending_metadata_is_claimed_for_deletion(): void
+    {
+        Storage::fake('public');
+        $deletionToken = (string) Str::uuid();
+        Event::listen('eloquent.created: '.Media::class, static function (Media $media) use ($deletionToken): void {
+            if ($media->status === Media::STATUS_PENDING) {
+                Media::query()->whereKey($media->getKey())->update([
+                    'deletion_token' => $deletionToken,
+                    'deletion_started_at' => now(),
+                    'created_at' => now()->subMinutes(Media::PENDING_UPLOAD_LEASE_MINUTES),
+                ]);
+            }
+        });
+
+        try {
+            $this->app->make(StoreMedia::class)->handle(
+                UploadedFile::fake()->image('claimed.jpg'),
+                User::factory()->create(),
+            );
+            $this->fail('The upload must stop after its pending metadata is claimed for deletion.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Media upload lease expired before the file was stored.', $exception->getMessage());
+        } finally {
+            Event::forget('eloquent.created: '.Media::class);
+        }
+
+        $media = Media::query()->firstOrFail();
+        $this->assertSame(Media::STATUS_PENDING, $media->status);
+        $this->assertSame($deletionToken, $media->deletion_token);
+        $this->assertSame([], Storage::disk('public')->allFiles('media'));
+    }
+
     #[DataProvider('storageFailureProvider')]
     public function test_storage_failure_removes_pending_metadata_when_no_file_remains(bool $throws): void
     {
@@ -195,7 +227,8 @@ class AdminMediaManagementTest extends TestCase
         $this->getJson('/api/admin/media', $headers)
             ->assertOk()
             ->assertJsonPath('data.0.id', $media->id)
-            ->assertJsonPath('data.0.status', Media::STATUS_FAILED);
+            ->assertJsonPath('data.0.status', Media::STATUS_FAILED)
+            ->assertJsonPath('data.0.url', null);
         $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
         $this->assertModelMissing($media);
     }
@@ -321,20 +354,94 @@ class AdminMediaManagementTest extends TestCase
         $this->assertNull($media->refresh()->deletion_token);
     }
 
-    public function test_pending_upload_cannot_be_deleted_before_its_file_is_written(): void
+    #[DataProvider('filePresenceProvider')]
+    public function test_fresh_pending_upload_cannot_be_deleted(bool $fileExists): void
     {
         Storage::fake('public');
         $media = Media::factory()->create([
             'disk' => 'public',
             'status' => Media::STATUS_PENDING,
         ]);
+
+        if ($fileExists) {
+            Storage::disk('public')->put($media->path, 'image bytes');
+        }
+
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $this->getJson('/api/admin/media', $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.url', null);
 
         $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertModelExists($media);
         $this->assertNull($media->refresh()->deletion_token);
+
+        if ($fileExists) {
+            Storage::disk('public')->assertExists($media->path);
+        } else {
+            Storage::disk('public')->assertMissing($media->path);
+        }
+    }
+
+    #[DataProvider('stalePendingProvider')]
+    public function test_stale_pending_upload_can_be_recovered(bool $fileExists, bool $hasExpiredDeletionClaim): void
+    {
+        Storage::fake('public');
+        $media = Media::factory()->create([
+            'disk' => 'public',
+            'status' => Media::STATUS_PENDING,
+            'deletion_token' => $hasExpiredDeletionClaim ? (string) Str::uuid() : null,
+            'deletion_started_at' => $hasExpiredDeletionClaim ? now() : null,
+        ]);
+
+        if ($fileExists) {
+            Storage::disk('public')->put($media->path, 'image bytes');
+        }
+
+        $this->travel(Media::PENDING_UPLOAD_LEASE_MINUTES + 1)->minutes();
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+
         Storage::disk('public')->assertMissing($media->path);
+        $this->assertModelMissing($media);
+    }
+
+    public function test_pending_upload_lease_expires_at_the_fixed_boundary(): void
+    {
+        Storage::fake('public');
+        $media = Media::factory()->create([
+            'disk' => 'public',
+            'status' => Media::STATUS_PENDING,
+        ]);
+        $this->travel(Media::PENDING_UPLOAD_LEASE_MINUTES)->minutes();
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+
+        $this->assertModelMissing($media);
+    }
+
+    public function test_stale_pending_upload_with_an_active_missing_file_claim_can_be_recovered(): void
+    {
+        Storage::fake('public');
+        $media = Media::factory()->create([
+            'disk' => 'public',
+            'status' => Media::STATUS_PENDING,
+        ]);
+        $this->travel(Media::PENDING_UPLOAD_LEASE_MINUTES + 1)->minutes();
+        $media->forceFill([
+            'deletion_token' => (string) Str::uuid(),
+            'deletion_started_at' => now(),
+        ])->save();
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+
+        Storage::disk('public')->assertMissing($media->path);
+        $this->assertModelMissing($media);
     }
 
     public function test_active_delete_owner_is_not_replaced_while_the_file_still_exists(): void
@@ -503,6 +610,30 @@ class AdminMediaManagementTest extends TestCase
         return [
             'put returns false' => [false],
             'put throws' => [true],
+        ];
+    }
+
+    /**
+     * @return array<string, array{bool}>
+     */
+    public static function filePresenceProvider(): array
+    {
+        return [
+            'file is missing' => [false],
+            'file exists' => [true],
+        ];
+    }
+
+    /**
+     * @return array<string, array{bool, bool}>
+     */
+    public static function stalePendingProvider(): array
+    {
+        return [
+            'missing file without claim' => [false, false],
+            'existing file without claim' => [true, false],
+            'missing file with expired claim' => [false, true],
+            'existing file with expired claim' => [true, true],
         ];
     }
 

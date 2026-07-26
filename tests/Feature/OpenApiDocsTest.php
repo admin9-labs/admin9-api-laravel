@@ -571,6 +571,7 @@ class OpenApiDocsTest extends TestCase
         $updateMember = $document['components']['schemas']['UpdateMemberRequest'];
         $this->assertSame(['name', 'email', 'mobile'], array_keys($updateMember['properties']));
         $this->assertArrayNotHasKey('required', $updateMember);
+        $this->assertSame(1, $updateMember['properties']['name']['minLength']);
         $this->assertSame(255, $updateMember['properties']['name']['maxLength']);
         $this->assertSame(['string', 'null'], $updateMember['properties']['email']['type']);
         $this->assertSame('email', $updateMember['properties']['email']['format']);
@@ -641,6 +642,8 @@ class OpenApiDocsTest extends TestCase
         }
         $this->assertSame(['type' => 'integer', 'format' => 'int64'], $mediaSchema['properties']['id']);
         $this->assertSame(['type' => 'integer', 'format' => 'int64'], $mediaSchema['properties']['size']);
+        $this->assertSame(['string', 'null'], $mediaSchema['properties']['url']['type']);
+        $this->assertSame('uri', $mediaSchema['properties']['url']['format']);
         $this->assertSame(['integer', 'null'], $mediaSchema['properties']['width']['type']);
         $this->assertSame(['integer', 'null'], $mediaSchema['properties']['height']['type']);
         $this->assertSame(['pending', 'ready', 'failed'], $mediaSchema['properties']['status']['enum']);

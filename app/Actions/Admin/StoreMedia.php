@@ -37,8 +37,13 @@ class StoreMedia
         $fileWasStored = false;
 
         try {
-            return DB::transaction(function () use ($actor, $file, $filesystem, &$fileWasStored, $media, $path): Media {
+            $storedMedia = DB::transaction(function () use ($actor, $file, $filesystem, &$fileWasStored, $media, $path): ?Media {
                 $lockedMedia = Media::query()->lockForUpdate()->findOrFail($media->getKey());
+
+                if ($lockedMedia->status !== Media::STATUS_PENDING || $lockedMedia->deletion_token !== null) {
+                    return null;
+                }
+
                 $fileWasStored = $filesystem->put($path, $file->getContent(), ['visibility' => 'public']);
 
                 if (! $fileWasStored) {
@@ -59,6 +64,12 @@ class StoreMedia
 
             throw $exception;
         }
+
+        if ($storedMedia === null) {
+            throw new RuntimeException('Media upload lease expired before the file was stored.');
+        }
+
+        return $storedMedia;
     }
 
     private function createPendingMedia(

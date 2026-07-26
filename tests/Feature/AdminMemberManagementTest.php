@@ -112,6 +112,10 @@ class AdminMemberManagementTest extends TestCase
         $this->putJson('/api/admin/members/'.$existing->id, [
             'is_active' => false,
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('is_active');
+
+        $this->putJson('/api/admin/members/'.$existing->id, [
+            'name' => '',
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('name');
     }
 
     public function test_security_operations_invalidate_access_and_refresh_tokens_and_status_is_idempotent(): void

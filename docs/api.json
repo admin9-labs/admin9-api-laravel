@@ -6454,7 +6454,10 @@
                         "type": "string"
                     },
                     "url": {
-                        "type": "string",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
                         "format": "uri"
                     },
                     "mime_type": {
@@ -7397,6 +7400,7 @@
                 "properties": {
                     "name": {
                         "type": "string",
+                        "minLength": 1,
                         "maxLength": 255
                     },
                     "email": {
