@@ -30,10 +30,9 @@ class AuthController extends Controller
         /** @var array{account: string, password: string} $validated */
         $validated = $request->validated();
         $account = $validated['account'];
+        $identifierField = filter_var($account, FILTER_VALIDATE_EMAIL) !== false ? 'email' : 'mobile';
 
-        $member = Member::where('email', $account)
-            ->orWhere('mobile', $account)
-            ->first();
+        $member = Member::where($identifierField, $account)->first();
 
         if ($member !== null && ! $member->is_active) {
             $this->loginLogRecorder->record($request, 'member', 'login', false, $account, $member, 'Account disabled');
@@ -41,9 +40,7 @@ class AuthController extends Controller
             return $this->error('Invalid credentials', Response::HTTP_UNAUTHORIZED);
         }
 
-        $credentials = filter_var($account, FILTER_VALIDATE_EMAIL)
-            ? ['email' => $account, 'password' => $validated['password']]
-            : ['mobile' => $account, 'password' => $validated['password']];
+        $credentials = [$identifierField => $account, 'password' => $validated['password']];
 
         $token = $this->guard()->attempt($credentials);
         if ($token === false) {
