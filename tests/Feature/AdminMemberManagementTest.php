@@ -139,6 +139,63 @@ class AdminMemberManagementTest extends TestCase
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('name');
     }
 
+    public function test_member_identifiers_reject_email_shaped_mobile_and_cross_column_conflicts(): void
+    {
+        $existing = Member::factory()->create([
+            'email' => 'legacy-account',
+            'mobile' => 'legacy-mobile@example.com',
+        ]);
+        $member = Member::factory()->create([
+            'email' => 'member@example.com',
+            'mobile' => '13800000001',
+        ]);
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+        $password = [
+            'password' => 'member-password',
+            'password_confirmation' => 'member-password',
+        ];
+
+        $emailShapedMobile = $this->postJson('/api/admin/members', [
+            'name' => 'Email Shaped Mobile',
+            'mobile' => 'mobile@example.com',
+            ...$password,
+        ], $headers)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('mobile')
+            ->assertHeader('X-Request-Id');
+        $this->assertSame($emailShapedMobile->json('request_id'), $emailShapedMobile->headers->get('X-Request-Id'));
+
+        $this->postJson('/api/admin/members', [
+            'name' => 'Cross Column Email',
+            'email' => $existing->mobile,
+            ...$password,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('email');
+
+        $this->postJson('/api/admin/members', [
+            'name' => 'Cross Column Mobile',
+            'mobile' => $existing->email,
+            ...$password,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('mobile');
+
+        $this->putJson('/api/admin/members/'.$member->id, [
+            'mobile' => 'updated@example.com',
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('mobile');
+
+        $this->putJson('/api/admin/members/'.$member->id, [
+            'email' => $existing->mobile,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('email');
+
+        $this->putJson('/api/admin/members/'.$member->id, [
+            'mobile' => $existing->email,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('mobile');
+
+        $this->putJson('/api/admin/members/'.$member->id, [
+            'email' => $member->email,
+            'mobile' => $member->mobile,
+        ], $headers)->assertOk();
+        $this->assertSame(1, $member->refresh()->auth_version);
+    }
+
     public function test_security_operations_invalidate_access_and_refresh_tokens_and_status_is_idempotent(): void
     {
         $member = Member::factory()->create(['email' => 'lifecycle@example.com', 'mobile' => null]);

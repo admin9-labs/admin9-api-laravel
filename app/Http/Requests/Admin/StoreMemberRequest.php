@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Member;
+use App\Rules\NotEmailAddress;
 use App\Support\Security\PasswordPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,8 +27,23 @@ class StoreMemberRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'required_without:mobile', 'email', 'max:255', Rule::unique(Member::class, 'email')],
-            'mobile' => ['nullable', 'required_without:email', 'string', 'max:32', Rule::unique(Member::class, 'mobile')],
+            'email' => [
+                'nullable',
+                'required_without:mobile',
+                'email',
+                'max:255',
+                Rule::unique(Member::class, 'email'),
+                Rule::unique(Member::class, 'mobile'),
+            ],
+            'mobile' => [
+                'nullable',
+                'required_without:email',
+                'string',
+                'max:32',
+                new NotEmailAddress,
+                Rule::unique(Member::class, 'mobile'),
+                Rule::unique(Member::class, 'email'),
+            ],
             'password' => PasswordPolicy::rules(confirmed: true),
             'is_active' => ['sometimes', 'boolean'],
         ];

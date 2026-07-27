@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\Member;
+use App\Rules\NotEmailAddress;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -24,10 +25,27 @@ class UpdateMemberRequest extends FormRequest
      */
     public function rules(): array
     {
+        $member = $this->route('member');
+
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'email' => ['sometimes', 'nullable', 'email', 'max:255', Rule::unique(Member::class, 'email')->ignore($this->route('member'))],
-            'mobile' => ['sometimes', 'nullable', 'string', 'max:32', Rule::unique(Member::class, 'mobile')->ignore($this->route('member'))],
+            'email' => [
+                'sometimes',
+                'nullable',
+                'email',
+                'max:255',
+                Rule::unique(Member::class, 'email')->ignore($member),
+                Rule::unique(Member::class, 'mobile')->ignore($member),
+            ],
+            'mobile' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:32',
+                new NotEmailAddress,
+                Rule::unique(Member::class, 'mobile')->ignore($member),
+                Rule::unique(Member::class, 'email')->ignore($member),
+            ],
         ];
     }
 

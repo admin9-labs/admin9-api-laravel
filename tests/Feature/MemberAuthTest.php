@@ -86,6 +86,29 @@ class MemberAuthTest extends TestCase
             ->assertHeader('X-Request-Id');
     }
 
+    public function test_member_login_queries_only_the_identifier_column_selected_by_the_account_format(): void
+    {
+        Member::factory()->inactive()->create([
+            'email' => 'inactive@example.net',
+            'mobile' => 'shared@example.com',
+            'password' => 'inactive-password',
+        ]);
+        $emailMember = Member::factory()->create([
+            'email' => 'shared@example.com',
+            'mobile' => '13900000001',
+            'password' => 'email-password',
+        ]);
+
+        $this->postJson('/api/auth/login', [
+            'account' => 'shared@example.com',
+            'password' => 'email-password',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.member.id', $emailMember->id)
+            ->assertJsonPath('data.member.email', 'shared@example.com')
+            ->assertHeader('X-Request-Id');
+    }
+
     public function test_member_login_rejects_invalid_credentials(): void
     {
         Member::factory()->create([
