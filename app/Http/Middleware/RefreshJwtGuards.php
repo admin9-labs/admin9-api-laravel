@@ -16,7 +16,7 @@ class RefreshJwtGuards
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->is('api/*')) {
+        if (! $request->is('api', 'api/*')) {
             return $next($request);
         }
 
