@@ -10,8 +10,6 @@ use stdClass;
 
 class ApiResponseGenerator extends ResponseGenerator
 {
-    private const HTTP_ERROR_CODES = [401, 403, 404, 413, 422, 429, 500, 503];
-
     /**
      * @return array{0: mixed, 1: array<string, mixed>}
      */
@@ -28,7 +26,7 @@ class ApiResponseGenerator extends ResponseGenerator
     {
         $payload = parent::mergeExtra($payload);
 
-        if (request()->is('api/*') && Context::has('request_id')) {
+        if (request()->is('api', 'api/*') && Context::has('request_id')) {
             $payload['request_id'] = Context::get('request_id');
         }
 
@@ -61,7 +59,7 @@ class ApiResponseGenerator extends ResponseGenerator
 
     private function statusFromPayload(array $payload): ?int
     {
-        if (! request()->is('api/*') || ($payload['success'] ?? null) !== false) {
+        if (! request()->is('api', 'api/*') || ($payload['success'] ?? null) !== false) {
             return null;
         }
 
@@ -76,6 +74,6 @@ class ApiResponseGenerator extends ResponseGenerator
 
     public static function isHttpErrorCode(mixed $code): bool
     {
-        return is_int($code) && in_array($code, self::HTTP_ERROR_CODES, true);
+        return is_int($code) && $code >= 400 && $code <= 599;
     }
 }

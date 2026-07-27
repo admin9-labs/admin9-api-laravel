@@ -11,12 +11,12 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -30,7 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(
-            fn (Request $request): ?string => $request->is('api/*') ? null : route('login'),
+            fn (Request $request): ?string => $request->is('api', 'api/*') ? null : route('login'),
         );
         $middleware->prepend(RefreshJwtGuards::class);
         $middleware->prepend(AddContext::class);
@@ -44,11 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api', 'api/*'),
         );
 
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request): Response {
-            if (! $request->is('api/*') || ! str_contains((string) $response->headers->get('Content-Type'), 'json')) {
+            if (! str_contains((string) $response->headers->get('Content-Type'), 'json')) {
                 return $response;
             }
 
@@ -58,13 +58,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 return $response;
             }
 
-            if ($exception instanceof ThrottleRequestsException) {
+            if ($exception instanceof HttpExceptionInterface) {
                 $response->headers->add($exception->getHeaders());
             }
 
             $status = match (true) {
+                $exception instanceof HttpExceptionInterface => $exception->getStatusCode(),
                 $exception instanceof AuthenticationException => 401,
-                $exception instanceof ThrottleRequestsException => $exception->getStatusCode(),
                 default => $payload->code ?? null,
             };
 
@@ -73,15 +73,17 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             $payload->code = $status;
-            $payload->data = new stdClass;
-            $payload->errors = $status === 422 && ($payload->errors ?? null) instanceof stdClass
-                ? $payload->errors
-                : new stdClass;
+            if ($request->is('api', 'api/*')) {
+                $payload->data = new stdClass;
+                $payload->errors = $status === 422 && ($payload->errors ?? null) instanceof stdClass
+                    ? $payload->errors
+                    : new stdClass;
 
-            if ($exception instanceof AccountInactiveException) {
-                $payload->error_code = AccountInactiveException::ERROR_CODE;
-            } elseif ($exception instanceof MediaDeleteFailedException) {
-                $payload->error_code = MediaDeleteFailedException::ERROR_CODE;
+                if ($exception instanceof AccountInactiveException) {
+                    $payload->error_code = AccountInactiveException::ERROR_CODE;
+                } elseif ($exception instanceof MediaDeleteFailedException) {
+                    $payload->error_code = MediaDeleteFailedException::ERROR_CODE;
+                }
             }
 
             $response->setStatusCode($status);
