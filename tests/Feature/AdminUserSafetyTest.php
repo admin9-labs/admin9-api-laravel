@@ -222,4 +222,97 @@ class AdminUserSafetyTest extends TestCase
             ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Unauthenticated');
     }
+
+    public function test_changing_an_admin_email_invalidates_its_existing_access_and_refresh_flow_tokens(): void
+    {
+        $this->createPermission('system.user.update');
+
+        $target = User::factory()->create(['email' => 'email-token-target@example.com']);
+        $accessToken = $this->adminTokenFor($target);
+        $tokenToRefresh = $this->adminTokenFor($target);
+        $refreshFlowToken = $this->postJson('/api/admin/auth/refresh', [], [
+            'Authorization' => 'Bearer '.$tokenToRefresh,
+        ])->assertOk()->json('data.access_token');
+        $this->assertIsString($refreshFlowToken);
+
+        $manager = User::factory()->create(['email' => 'email-token-manager@example.com']);
+        $manager->givePermissionTo('system.user.update');
+        $managerToken = $this->adminTokenFor($manager);
+        $originalAuthenticationVersion = $target->auth_version;
+
+        $this->patchJson('/api/admin/users/'.$target->id, [
+            'email' => 'email-token-target-updated@example.com',
+        ], ['Authorization' => 'Bearer '.$managerToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame('email-token-target-updated@example.com', $target->refresh()->email);
+        $this->assertSame($originalAuthenticationVersion + 1, $target->auth_version);
+
+        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$accessToken])
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Unauthenticated');
+
+        $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$refreshFlowToken])
+            ->assertUnauthorized()
+            ->assertJsonPath('message', 'Unauthenticated');
+    }
+
+    public function test_unrelated_admin_updates_do_not_invalidate_existing_tokens(): void
+    {
+        $this->createPermission('system.user.update');
+
+        $target = User::factory()->create([
+            'name' => 'Original Name',
+            'email' => 'unrelated-update-target@example.com',
+        ]);
+        $accessToken = $this->adminTokenFor($target);
+        $tokenToRefresh = $this->adminTokenFor($target);
+
+        $manager = User::factory()->create(['email' => 'unrelated-update-manager@example.com']);
+        $manager->givePermissionTo('system.user.update');
+        $managerToken = $this->adminTokenFor($manager);
+        $originalAuthenticationVersion = $target->auth_version;
+
+        $this->patchJson('/api/admin/users/'.$target->id, [
+            'name' => 'Updated Name',
+            'email' => $target->email,
+        ], ['Authorization' => 'Bearer '.$managerToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertSame($originalAuthenticationVersion, $target->refresh()->auth_version);
+
+        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$accessToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$tokenToRefresh])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
+    public function test_changing_email_while_disabling_an_admin_increments_authentication_version_once(): void
+    {
+        $this->createPermission('system.user.update');
+
+        $target = User::factory()->create(['email' => 'combined-update-target@example.com']);
+        $manager = User::factory()->create(['email' => 'combined-update-manager@example.com']);
+        $manager->givePermissionTo('system.user.update');
+        $managerToken = $this->adminTokenFor($manager);
+        $originalAuthenticationVersion = $target->auth_version;
+
+        $this->patchJson('/api/admin/users/'.$target->id, [
+            'email' => 'combined-update-target-new@example.com',
+            'is_active' => false,
+        ], ['Authorization' => 'Bearer '.$managerToken])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $target->refresh();
+
+        $this->assertFalse($target->is_active);
+        $this->assertSame('combined-update-target-new@example.com', $target->email);
+        $this->assertSame($originalAuthenticationVersion + 1, $target->auth_version);
+    }
 }

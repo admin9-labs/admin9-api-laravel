@@ -71,15 +71,20 @@ class UserController extends Controller
 
             if (array_key_exists('is_active', $validated) && ! (bool) $validated['is_active']) {
                 $this->assertUserCanBeDisabled($request, $user, $activeSuperAdminIds);
-
-                if ($user->is_active) {
-                    $user->forceFill([
-                        'auth_version' => $user->auth_version + 1,
-                    ]);
-                }
             }
 
-            $user->fill($validated)->save();
+            $user->fill($validated);
+
+            $authenticationMustBeInvalidated = $user->isDirty('email')
+                || ($user->isDirty('is_active') && ! $user->is_active);
+
+            if ($authenticationMustBeInvalidated) {
+                $user->forceFill([
+                    'auth_version' => $user->auth_version + 1,
+                ]);
+            }
+
+            $user->save();
 
             return $user;
         }, attempts: 3);
