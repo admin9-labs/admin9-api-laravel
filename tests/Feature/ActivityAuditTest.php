@@ -375,6 +375,99 @@ class ActivityAuditTest extends TestCase
         ]);
     }
 
+    public function test_system_config_values_are_never_persisted_or_exposed_in_activity_logs(): void
+    {
+        $this->createPermission('system.config.create');
+        $this->createPermission('system.config.update');
+        $this->createPermission('system.config.delete');
+        $this->createPermission('system.activity-log.view');
+
+        $admin = User::factory()->create(['email' => 'audit-config-admin@example.com']);
+        $admin->givePermissionTo(['system.config.create', 'system.config.update', 'system.config.delete']);
+        $token = $this->adminTokenFor($admin);
+        $configKey = 'integration.credential';
+        $createdValue = 'sk_live_51AuditCreateValue';
+        $updatedValue = 'ghp_AuditUpdatedOpaqueValue';
+        $ordinaryValue = 'Welcome to Admin9';
+
+        $create = $this->postJson('/api/admin/system-configs', [
+            'name' => 'Integration Credential',
+            'key' => $configKey,
+            'value' => $createdValue,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $configId = $create->json('data.system_config.id');
+        $this->assertIsInt($configId);
+
+        /** @var Activity $createdActivity */
+        $createdActivity = Activity::query()
+            ->where('subject_type', (new SystemConfig)->getMorphClass())
+            ->where('subject_id', $configId)
+            ->where('event', 'created')
+            ->firstOrFail();
+        $this->assertSystemConfigValueIsNotLogged($createdActivity, $configKey, [$createdValue]);
+
+        $this->patchJson('/api/admin/system-configs/'.$configId, [
+            'value' => $updatedValue,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $credentialUpdateActivity */
+        $credentialUpdateActivity = Activity::query()
+            ->where('subject_type', (new SystemConfig)->getMorphClass())
+            ->where('subject_id', $configId)
+            ->where('event', 'updated')
+            ->latest('id')
+            ->firstOrFail();
+        $this->assertSystemConfigValueIsNotLogged($credentialUpdateActivity, $configKey, [$createdValue, $updatedValue]);
+
+        $this->patchJson('/api/admin/system-configs/'.$configId, [
+            'value' => $ordinaryValue,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $ordinaryUpdateActivity */
+        $ordinaryUpdateActivity = Activity::query()
+            ->where('subject_type', (new SystemConfig)->getMorphClass())
+            ->where('subject_id', $configId)
+            ->where('event', 'updated')
+            ->latest('id')
+            ->firstOrFail();
+        $this->assertSystemConfigValueIsNotLogged($ordinaryUpdateActivity, $configKey, [$updatedValue, $ordinaryValue]);
+
+        $viewer = User::factory()->create(['email' => 'audit-config-viewer@example.com']);
+        $viewer->givePermissionTo('system.activity-log.view');
+        $viewerToken = $this->adminTokenFor($viewer);
+        $query = http_build_query([
+            'subject_type' => (new SystemConfig)->getMorphClass(),
+            'subject_id' => $configId,
+        ]);
+
+        $activityResponse = $this->getJson('/api/admin/activity-logs?'.$query, [
+            'Authorization' => 'Bearer '.$viewerToken,
+        ])->assertOk()->assertJsonPath('success', true);
+        $activityPayload = $activityResponse->getContent();
+        $this->assertStringNotContainsString($createdValue, $activityPayload);
+        $this->assertStringNotContainsString($updatedValue, $activityPayload);
+        $this->assertStringNotContainsString($ordinaryValue, $activityPayload);
+
+        $this->deleteJson('/api/admin/system-configs/'.$configId, [], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        /** @var Activity $deletedActivity */
+        $deletedActivity = Activity::query()
+            ->where('subject_type', (new SystemConfig)->getMorphClass())
+            ->where('subject_id', $configId)
+            ->where('event', 'deleted')
+            ->firstOrFail();
+        $this->assertSystemConfigValueIsNotLogged($deletedActivity, $configKey, [$ordinaryValue]);
+    }
+
     public function test_menu_create_rolls_back_when_activity_log_write_fails(): void
     {
         $this->createPermission('system.menu.create');
@@ -469,6 +562,26 @@ class ActivityAuditTest extends TestCase
         $this->assertStringNotContainsString('authorization', strtolower($payload));
         $this->assertStringNotContainsString('token', strtolower($payload));
         $this->assertStringNotContainsString('jwt', strtolower($payload));
+    }
+
+    /**
+     * @param  array<int, string>  $values
+     */
+    private function assertSystemConfigValueIsNotLogged(Activity $activity, string $configKey, array $values): void
+    {
+        $properties = $activity->properties->toArray();
+
+        $this->assertSame($configKey, $properties['config_key']);
+        $this->assertTrue($properties['value_changed']);
+        $this->assertArrayNotHasKey('value', $properties['attributes'] ?? []);
+        $this->assertArrayNotHasKey('value', $properties['old'] ?? []);
+
+        $payload = $activity->properties->toJson();
+        $this->assertIsString($payload);
+
+        foreach ($values as $value) {
+            $this->assertStringNotContainsString($value, $payload);
+        }
     }
 
     /**

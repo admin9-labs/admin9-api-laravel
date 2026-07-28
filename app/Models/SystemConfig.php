@@ -80,6 +80,34 @@ class SystemConfig extends Model
     }
 
     /**
+     * @param  array<array-key, mixed>  $properties
+     * @return array<array-key, mixed>
+     */
+    protected function transformAuditProperties(array $properties, string $eventName): array
+    {
+        $valueChanged = false;
+
+        foreach (['attributes', 'old'] as $changeSet) {
+            if (! isset($properties[$changeSet]) || ! is_array($properties[$changeSet])) {
+                continue;
+            }
+
+            if (array_key_exists('value', $properties[$changeSet])) {
+                unset($properties[$changeSet]['value']);
+                $valueChanged = true;
+            }
+        }
+
+        $properties['config_key'] = $this->key;
+
+        if ($valueChanged) {
+            $properties['value_changed'] = true;
+        }
+
+        return $properties;
+    }
+
+    /**
      * @param  Builder<SystemConfig>  $query
      * @return Builder<SystemConfig>
      */

@@ -28,7 +28,10 @@ trait LogsAdminActivity
 
     public function tapActivity(Activity $activity, string $eventName): void
     {
-        $properties = $activity->properties?->toArray() ?? [];
+        $properties = $this->transformAuditProperties(
+            $activity->properties?->toArray() ?? [],
+            $eventName,
+        );
 
         $activity->causer_type ??= Auth::guard('admin')->user() instanceof Model
             ? Auth::guard('admin')->user()->getMorphClass()
@@ -44,6 +47,15 @@ trait LogsAdminActivity
             'method' => request()?->method(),
             'event' => $eventName,
         ])));
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $properties
+     * @return array<array-key, mixed>
+     */
+    protected function transformAuditProperties(array $properties, string $eventName): array
+    {
+        return $properties;
     }
 
     /**
