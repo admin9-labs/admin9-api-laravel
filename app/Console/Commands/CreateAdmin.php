@@ -84,7 +84,7 @@ class CreateAdmin extends Command
                     return ['error' => 'existing_email'];
                 }
 
-                $password = Str::password(32, spaces: false);
+                $password = Str::password(16, symbols: false, spaces: false);
                 Validator::make(['password' => $password], ['password' => PasswordPolicy::rules()])->validate();
 
                 $user = User::query()->create([

@@ -50,7 +50,8 @@ class CreateAdminCommandTest extends TestCase
         $password = $matches[1];
         $user = User::query()->where('email', 'root@example.com')->firstOrFail();
 
-        $this->assertSame(32, strlen($password));
+        $this->assertSame(16, strlen($password));
+        $this->assertMatchesRegularExpression('/\A[A-Za-z0-9]{16}\z/', $password);
         $this->assertNotSame($password, $user->password);
         $this->assertTrue(Hash::check($password, $user->password));
         $this->assertFalse(Validator::make(['password' => $password], ['password' => PasswordPolicy::rules()])->fails());
