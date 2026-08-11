@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
@@ -22,7 +23,7 @@ class AdminPasswordManagementTest extends TestCase
         ]);
         $token = $this->adminTokenFor($admin);
 
-        $this->putJson('/api/admin/auth/password', [
+        $this->putJson(ApiRouting::path('/admin/auth/password'), [
             'current_password' => 'password',
             'password' => 'new-password',
             'password_confirmation' => 'new-password',
@@ -36,7 +37,7 @@ class AdminPasswordManagementTest extends TestCase
 
         $this->assertOldTokenIsInvalid($token);
 
-        $this->postJson('/api/admin/auth/login', [
+        $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => $admin->email,
             'password' => 'new-password',
         ])->assertOk();
@@ -51,7 +52,7 @@ class AdminPasswordManagementTest extends TestCase
         ]);
         $token = $this->adminTokenFor($admin);
 
-        $this->putJson('/api/admin/auth/password', [
+        $this->putJson(ApiRouting::path('/admin/auth/password'), [
             'current_password' => 'incorrect-password',
             'password' => 'new-password',
             'password_confirmation' => 'new-password',
@@ -75,7 +76,7 @@ class AdminPasswordManagementTest extends TestCase
         ]);
         $token = $this->adminTokenFor($admin);
 
-        $this->putJson('/api/admin/auth/password', [
+        $this->putJson(ApiRouting::path('/admin/auth/password'), [
             'current_password' => 'password',
             'password' => 'short7',
             'password_confirmation' => 'short7',
@@ -83,7 +84,7 @@ class AdminPasswordManagementTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('password');
 
-        $this->putJson('/api/admin/auth/password', [
+        $this->putJson(ApiRouting::path('/admin/auth/password'), [
             'current_password' => 'password',
             'password' => 'valid-password',
             'password_confirmation' => 'different-password',
@@ -111,7 +112,7 @@ class AdminPasswordManagementTest extends TestCase
         $originalPasswordHash = $target->password;
         $originalAuthenticationVersion = $target->auth_version;
 
-        $this->patchJson('/api/admin/users/'.$target->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$target->id, [
             'password' => 'bypass-password',
         ], $this->authorizationHeader($token))
             ->assertUnprocessable()
@@ -139,7 +140,7 @@ class AdminPasswordManagementTest extends TestCase
         ]);
         $targetToken = $this->adminTokenFor($target);
 
-        $this->putJson('/api/admin/users/'.$target->id.'/password', [
+        $this->putJson(ApiRouting::path('/admin/users/').$target->id.'/password', [
             'password' => 'reset-password',
             'password_confirmation' => 'reset-password',
         ], $this->authorizationHeader($actorToken))
@@ -152,7 +153,7 @@ class AdminPasswordManagementTest extends TestCase
 
         $this->assertOldTokenIsInvalid($targetToken);
 
-        $this->postJson('/api/admin/auth/login', [
+        $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => $target->email,
             'password' => 'reset-password',
         ])->assertOk();
@@ -170,7 +171,7 @@ class AdminPasswordManagementTest extends TestCase
         $admin->givePermissionTo('system.user.update');
         $token = $this->adminTokenFor($admin);
 
-        $this->putJson('/api/admin/users/'.$admin->id.'/password', [
+        $this->putJson(ApiRouting::path('/admin/users/').$admin->id.'/password', [
             'password' => 'reset-password',
             'password_confirmation' => 'reset-password',
         ], $this->authorizationHeader($token))
@@ -206,7 +207,7 @@ class AdminPasswordManagementTest extends TestCase
             $originalPasswordHash = $target->password;
             $originalAuthenticationVersion = $target->auth_version;
 
-            $this->putJson('/api/admin/users/'.$target->id.'/password', [
+            $this->putJson(ApiRouting::path('/admin/users/').$target->id.'/password', [
                 'password' => 'forbidden-reset-password',
                 'password_confirmation' => 'forbidden-reset-password',
             ], $this->authorizationHeader($actorToken))
@@ -237,11 +238,11 @@ class AdminPasswordManagementTest extends TestCase
     {
         $headers = $this->authorizationHeader($token);
 
-        $this->getJson('/api/admin/auth/me', $headers)
+        $this->getJson(ApiRouting::path('/admin/auth/me'), $headers)
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated');
 
-        $this->postJson('/api/admin/auth/refresh', headers: $headers)
+        $this->postJson(ApiRouting::path('/admin/auth/refresh'), headers: $headers)
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated');
     }

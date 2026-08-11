@@ -7,6 +7,7 @@ use App\Models\Menu;
 use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
+use App\Support\ApiRouting;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -60,8 +61,8 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 scenario: "disable-round-{$round}",
                 targetIds: [$firstSuperAdmin->id, $secondSuperAdmin->id],
                 requests: [
-                    $this->request('PATCH', "/api/admin/users/{$secondSuperAdmin->id}", $firstToken, ['is_active' => false]),
-                    $this->request('PATCH', "/api/admin/users/{$firstSuperAdmin->id}", $secondToken, ['is_active' => false]),
+                    $this->request('PATCH', ApiRouting::path("/admin/users/{$secondSuperAdmin->id}"), $firstToken, ['is_active' => false]),
+                    $this->request('PATCH', ApiRouting::path("/admin/users/{$firstSuperAdmin->id}"), $secondToken, ['is_active' => false]),
                 ],
             );
 
@@ -89,8 +90,8 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 scenario: "delete-round-{$round}",
                 targetIds: [$firstSuperAdmin->id, $secondSuperAdmin->id],
                 requests: [
-                    $this->request('DELETE', "/api/admin/users/{$secondSuperAdmin->id}", $firstToken),
-                    $this->request('DELETE', "/api/admin/users/{$firstSuperAdmin->id}", $secondToken),
+                    $this->request('DELETE', ApiRouting::path("/admin/users/{$secondSuperAdmin->id}"), $firstToken),
+                    $this->request('DELETE', ApiRouting::path("/admin/users/{$firstSuperAdmin->id}"), $secondToken),
                 ],
             );
 
@@ -117,8 +118,8 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 scenario: "role-round-{$round}",
                 targetIds: [$firstSuperAdmin->id, $secondSuperAdmin->id],
                 requests: [
-                    $this->request('PUT', "/api/admin/users/{$secondSuperAdmin->id}/roles", $firstToken, ['roles' => []]),
-                    $this->request('PUT', "/api/admin/users/{$firstSuperAdmin->id}/roles", $secondToken, ['roles' => []]),
+                    $this->request('PUT', ApiRouting::path("/admin/users/{$secondSuperAdmin->id}/roles"), $firstToken, ['roles' => []]),
+                    $this->request('PUT', ApiRouting::path("/admin/users/{$firstSuperAdmin->id}/roles"), $secondToken, ['roles' => []]),
                 ],
             );
 
@@ -149,7 +150,7 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 scenario: "permission-role-create-round-{$round}",
                 permission: $permission,
                 token: $token,
-                roleRequest: $this->request('POST', '/api/admin/roles', $token, [
+                roleRequest: $this->request('POST', ApiRouting::path('/admin/roles'), $token, [
                     'name' => $roleName,
                     'permissions' => [$permission->name],
                 ]),
@@ -195,7 +196,7 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 scenario: "permission-role-update-round-{$round}",
                 permission: $permission,
                 token: $token,
-                roleRequest: $this->request('PATCH', "/api/admin/roles/{$role->id}", $token, [
+                roleRequest: $this->request('PATCH', ApiRouting::path("/admin/roles/{$role->id}"), $token, [
                     'name' => $updatedRoleName,
                     'permissions' => [$permission->name],
                 ]),
@@ -251,7 +252,7 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 token: $token,
                 roleRequest: $this->request(
                     'PUT',
-                    "/api/admin/roles/{$role->id}/permissions",
+                    ApiRouting::path("/admin/roles/{$role->id}/permissions"),
                     $token,
                     ['permissions' => [$permission->name]],
                 ),
@@ -292,10 +293,10 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 scenario: "menu-parent-round-{$round}",
                 targetIds: [$firstMenu->id, $secondMenu->id],
                 requests: [
-                    $this->request('PATCH', "/api/admin/menus/{$firstMenu->id}", $token, [
+                    $this->request('PATCH', ApiRouting::path("/admin/menus/{$firstMenu->id}"), $token, [
                         'parent_id' => $secondMenu->id,
                     ]),
-                    $this->request('PATCH', "/api/admin/menus/{$secondMenu->id}", $token, [
+                    $this->request('PATCH', ApiRouting::path("/admin/menus/{$secondMenu->id}"), $token, [
                         'parent_id' => $firstMenu->id,
                     ]),
                 ],
@@ -341,7 +342,7 @@ class AdminSuperAdminConcurrencyTest extends TestCase
         try {
             $deleteReadyFile = $temporaryDirectory.'/delete-worker.json';
             $deleteProcess = $this->startRequestProcess(
-                $this->request('DELETE', "/api/admin/permissions/{$permission->id}", $token),
+                $this->request('DELETE', ApiRouting::path("/admin/permissions/{$permission->id}"), $token),
                 $deleteReadyFile,
                 [
                     'MYSQL_CONCURRENCY_PERMISSION_DELETE_ID' => (string) $permission->id,

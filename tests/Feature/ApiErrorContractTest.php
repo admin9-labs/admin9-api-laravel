@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Exceptions\MediaDeleteFailedException;
+use App\Support\ApiRouting;
 use App\Support\Auth\AccountInactiveException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Route;
@@ -16,7 +17,7 @@ class ApiErrorContractTest extends TestCase
 {
     public function test_authentication_errors_use_the_stable_object_envelope(): void
     {
-        $response = $this->getJson('/api/admin/auth/me');
+        $response = $this->getJson(ApiRouting::path('/admin/auth/me'));
 
         $payload = $this->assertErrorEnvelope($response, 401);
 
@@ -26,19 +27,19 @@ class ApiErrorContractTest extends TestCase
 
     public function test_account_inactive_errors_have_a_machine_code_distinct_from_permission_denials(): void
     {
-        Route::middleware('api')->get('/api/_test/account-inactive', function (): void {
+        Route::middleware('api')->get(ApiRouting::path('/_test/account-inactive'), function (): void {
             throw new AccountInactiveException;
         });
-        Route::middleware('api')->get('/api/_test/permission-denied', function (): void {
+        Route::middleware('api')->get(ApiRouting::path('/_test/permission-denied'), function (): void {
             throw new HttpException(403, 'Forbidden');
         });
 
         $inactivePayload = $this->assertErrorEnvelope(
-            $this->getJson('/api/_test/account-inactive'),
+            $this->getJson(ApiRouting::path('/_test/account-inactive')),
             403,
         );
         $permissionPayload = $this->assertErrorEnvelope(
-            $this->getJson('/api/_test/permission-denied'),
+            $this->getJson(ApiRouting::path('/_test/permission-denied')),
             403,
         );
 
@@ -48,13 +49,13 @@ class ApiErrorContractTest extends TestCase
 
     public function test_not_found_errors_use_the_stable_object_envelope(): void
     {
-        $this->assertErrorEnvelope($this->getJson('/api/_test/missing'), 404);
+        $this->assertErrorEnvelope($this->getJson(ApiRouting::path('/_test/missing')), 404);
     }
 
     public function test_validation_errors_keep_a_field_to_string_array_object(): void
     {
         $payload = $this->assertErrorEnvelope(
-            $this->postJson('/api/admin/auth/login'),
+            $this->postJson(ApiRouting::path('/admin/auth/login')),
             422,
             expectEmptyErrors: false,
         );
@@ -74,14 +75,14 @@ class ApiErrorContractTest extends TestCase
     {
         $response = $this->withServerVariables([
             'CONTENT_LENGTH' => PHP_INT_MAX,
-        ])->postJson('/api/_test/content-too-large');
+        ])->postJson(ApiRouting::path('/_test/content-too-large'));
 
         $this->assertErrorEnvelope($response, 413);
     }
 
     public function test_rate_limit_errors_keep_object_envelopes_and_rate_headers(): void
     {
-        Route::middleware('api')->get('/api/_test/rate-limited', function (): void {
+        Route::middleware('api')->get(ApiRouting::path('/_test/rate-limited'), function (): void {
             throw new ThrottleRequestsException('Too Many Attempts.', headers: [
                 'Retry-After' => '60',
                 'X-RateLimit-Limit' => '5',
@@ -90,7 +91,7 @@ class ApiErrorContractTest extends TestCase
             ]);
         });
 
-        $response = $this->getJson('/api/_test/rate-limited')
+        $response = $this->getJson(ApiRouting::path('/_test/rate-limited'))
             ->assertHeader('Retry-After', '60')
             ->assertHeader('X-RateLimit-Limit', '5')
             ->assertHeader('X-RateLimit-Remaining', '0')
@@ -102,11 +103,11 @@ class ApiErrorContractTest extends TestCase
     public function test_unhandled_exceptions_return_http_500_without_debug_details(): void
     {
         config()->set('app.debug', true);
-        Route::middleware('api')->get('/api/_test/server-error', function (): void {
+        Route::middleware('api')->get(ApiRouting::path('/_test/server-error'), function (): void {
             throw new RuntimeException('sensitive internal detail');
         });
 
-        $payload = $this->assertErrorEnvelope($this->getJson('/api/_test/server-error'), 500);
+        $payload = $this->assertErrorEnvelope($this->getJson(ApiRouting::path('/_test/server-error')), 500);
 
         $this->assertSame('Something went wrong', $payload->message);
         $this->assertStringNotContainsString('sensitive internal detail', json_encode($payload, JSON_THROW_ON_ERROR));
@@ -114,12 +115,12 @@ class ApiErrorContractTest extends TestCase
 
     public function test_media_delete_failures_use_the_stable_service_unavailable_envelope(): void
     {
-        Route::middleware('api')->delete('/api/_test/media-delete-failed', function (): void {
+        Route::middleware('api')->delete(ApiRouting::path('/_test/media-delete-failed'), function (): void {
             throw new MediaDeleteFailedException;
         });
 
         $payload = $this->assertErrorEnvelope(
-            $this->deleteJson('/api/_test/media-delete-failed'),
+            $this->deleteJson(ApiRouting::path('/_test/media-delete-failed')),
             503,
         );
 

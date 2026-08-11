@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\LoginLog;
 use App\Models\Member;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -303,7 +304,7 @@ class JwtRefreshTest extends TestCase
                 'email' => 'jwt-admin@example.com',
                 'password' => 'password',
             ]);
-            $response = $this->postJson('/api/admin/auth/login', [
+            $response = $this->postJson(ApiRouting::path('/admin/auth/login'), [
                 'email' => $account->email,
                 'password' => 'password',
             ])->assertOk();
@@ -314,7 +315,7 @@ class JwtRefreshTest extends TestCase
                 'mobile' => '13900000000',
                 'password' => 'password',
             ]);
-            $response = $this->postJson('/api/auth/login', [
+            $response = $this->postJson(ApiRouting::path('/auth/login'), [
                 'account' => $account->email,
                 'password' => 'password',
             ])->assertOk();
@@ -383,17 +384,17 @@ class JwtRefreshTest extends TestCase
 
     private function refreshUri(string $guard): string
     {
-        return $guard === 'admin' ? '/api/admin/auth/refresh' : '/api/auth/refresh';
+        return $guard === 'admin' ? ApiRouting::path('/admin/auth/refresh') : ApiRouting::path('/auth/refresh');
     }
 
     private function logoutUri(string $guard): string
     {
-        return $guard === 'admin' ? '/api/admin/auth/logout' : '/api/auth/logout';
+        return $guard === 'admin' ? ApiRouting::path('/admin/auth/logout') : ApiRouting::path('/auth/logout');
     }
 
     private function meUri(string $guard): string
     {
-        return $guard === 'admin' ? '/api/admin/auth/me' : '/api/auth/me';
+        return $guard === 'admin' ? ApiRouting::path('/admin/auth/me') : ApiRouting::path('/auth/me');
     }
 
     private function identityPath(string $guard): string

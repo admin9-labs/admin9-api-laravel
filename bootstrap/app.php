@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureJwtAuthenticationVersion;
 use App\Http\Middleware\RefreshJwtGuards;
 use App\Http\Responses\ApiResponseGenerator;
+use App\Support\ApiRouting;
 use App\Support\Auth\AccountInactiveException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
@@ -25,12 +26,13 @@ return Application::configure(basePath: dirname(__DIR__))
             __DIR__.'/../routes/api.php',
             __DIR__.'/../routes/admin.php',
         ],
+        apiPrefix: ApiRouting::PREFIX,
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo(
-            fn (Request $request): ?string => $request->is('api', 'api/*') ? null : route('login'),
+            fn (Request $request): ?string => ApiRouting::matches($request) ? null : route('login'),
         );
         $middleware->prepend(RefreshJwtGuards::class);
         $middleware->prepend(AddContext::class);
@@ -44,7 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api', 'api/*'),
+            fn (Request $request) => ApiRouting::matches($request),
         );
 
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request): Response {
@@ -73,7 +75,7 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             $payload->code = $status;
-            if ($request->is('api', 'api/*')) {
+            if (ApiRouting::matches($request)) {
                 $payload->data = new stdClass;
                 $payload->errors = $status === 422 && ($payload->errors ?? null) instanceof stdClass
                     ? $payload->errors

@@ -7,6 +7,7 @@ use App\Models\DictionaryType;
 use App\Models\Menu;
 use App\Models\SystemConfig;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
@@ -103,7 +104,7 @@ class AdminPaginationMetadataTest extends TestCase
         $user = User::factory()->create(['email' => fake()->unique()->safeEmail()]);
         $token = $this->adminTokenFor($user);
 
-        $response = $this->getJson('/api/admin/menus/tree?page_size=2', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus/tree?page_size=2'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertHeader('X-Request-Id');
@@ -128,7 +129,7 @@ class AdminPaginationMetadataTest extends TestCase
         return [
             'users' => [
                 'permission' => 'system.user.view',
-                'path' => '/api/admin/users?page_size=2',
+                'path' => ApiRouting::path('/admin/users?page_size=2'),
                 'seedRecords' => static function (): void {
                     User::factory()->count(2)->create();
                 },
@@ -136,7 +137,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'dictionary types' => [
                 'permission' => 'system.dictionary.view',
-                'path' => '/api/admin/dictionary-types?page_size=2',
+                'path' => ApiRouting::path('/admin/dictionary-types?page_size=2'),
                 'seedRecords' => static function (): void {
                     DictionaryType::factory()->count(3)->create();
                 },
@@ -144,7 +145,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'dictionary items' => [
                 'permission' => 'system.dictionary.view',
-                'path' => '/api/admin/dictionary-items?page_size=2',
+                'path' => ApiRouting::path('/admin/dictionary-items?page_size=2'),
                 'seedRecords' => static function (): void {
                     $dictionaryType = DictionaryType::factory()->create();
                     DictionaryItem::factory()->count(3)->create([
@@ -155,7 +156,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'system configs' => [
                 'permission' => 'system.config.view',
-                'path' => '/api/admin/system-configs?page_size=2',
+                'path' => ApiRouting::path('/admin/system-configs?page_size=2'),
                 'seedRecords' => static function (): void {
                     SystemConfig::factory()->count(3)->create();
                 },
@@ -172,7 +173,7 @@ class AdminPaginationMetadataTest extends TestCase
         return [
             'roles' => [
                 'permission' => 'system.role.view',
-                'path' => '/api/admin/roles?page_size=2',
+                'path' => ApiRouting::path('/admin/roles?page_size=2'),
                 'seedRecords' => static function (): array {
                     foreach (range(1, 4) as $number) {
                         Role::findOrCreate("bounded-catalog-role-{$number}", 'admin');
@@ -189,7 +190,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'permissions' => [
                 'permission' => 'system.permission.view',
-                'path' => '/api/admin/permissions?page_size=2',
+                'path' => ApiRouting::path('/admin/permissions?page_size=2'),
                 'seedRecords' => static function (): array {
                     foreach (range(1, 4) as $number) {
                         Permission::findOrCreate("bounded.catalog.permission.{$number}", 'admin');
@@ -206,7 +207,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'menus' => [
                 'permission' => 'system.menu.view',
-                'path' => '/api/admin/menus?page_size=2',
+                'path' => ApiRouting::path('/admin/menus?page_size=2'),
                 'seedRecords' => static function (): array {
                     foreach (range(1, 4) as $number) {
                         Menu::factory()->create([
@@ -238,7 +239,7 @@ class AdminPaginationMetadataTest extends TestCase
 
     private function adminTokenFor(User $user): string
     {
-        $response = $this->postJson('/api/admin/auth/login', [
+        $response = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => $user->email,
             'password' => 'password',
         ])->assertOk();

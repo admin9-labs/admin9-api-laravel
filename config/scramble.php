@@ -20,10 +20,7 @@ return [
      * Override with `servers`, or use Scramble::registerApi() for separate bases.
      */
     'api_path' => [
-        'include' => [
-            'api/admin/*',
-            'api/auth/*',
-        ],
+        'include' => '*',
     ],
 
     /*

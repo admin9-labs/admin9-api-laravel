@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\LoginLog;
 use App\Models\Member;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -19,7 +20,7 @@ class LoginLogTest extends TestCase
             'password' => 'password',
         ]);
 
-        $failure = $this->postJson('/api/admin/auth/login', [
+        $failure = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'log-admin@example.com',
             'password' => 'wrong-password',
         ])
@@ -35,7 +36,7 @@ class LoginLogTest extends TestCase
             'request_id' => $failure->json('request_id'),
         ]);
 
-        $login = $this->postJson('/api/admin/auth/login', [
+        $login = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'log-admin@example.com',
             'password' => 'password',
         ])
@@ -55,12 +56,12 @@ class LoginLogTest extends TestCase
             'request_id' => $login->json('request_id'),
         ]);
 
-        $refresh = $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$token])
+        $refresh = $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], ['Authorization' => 'Bearer '.$token])
             ->assertOk();
         $refreshedToken = $refresh->json('data.access_token');
         $this->assertIsString($refreshedToken);
 
-        $logout = $this->postJson('/api/admin/auth/logout', [], ['Authorization' => 'Bearer '.$refreshedToken])
+        $logout = $this->postJson(ApiRouting::path('/admin/auth/logout'), [], ['Authorization' => 'Bearer '.$refreshedToken])
             ->assertOk();
 
         $this->assertDatabaseHas(LoginLog::class, [
@@ -87,7 +88,7 @@ class LoginLogTest extends TestCase
             'password' => 'password',
         ]);
 
-        $failure = $this->postJson('/api/auth/login', [
+        $failure = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => '13900000000',
             'password' => 'wrong-password',
         ])->assertStatus(401);
@@ -101,7 +102,7 @@ class LoginLogTest extends TestCase
             'request_id' => $failure->json('request_id'),
         ]);
 
-        $login = $this->postJson('/api/auth/login', [
+        $login = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'log-member@example.com',
             'password' => 'password',
         ])->assertOk();

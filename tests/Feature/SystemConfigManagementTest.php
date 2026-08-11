@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\SystemConfig;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
@@ -22,7 +23,7 @@ class SystemConfigManagementTest extends TestCase
         $user->givePermissionTo(['system.config.view', 'system.config.create', 'system.config.update', 'system.config.delete']);
         $token = $this->adminTokenFor($user);
 
-        $create = $this->postJson('/api/admin/system-configs', [
+        $create = $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => '站点名称',
             'key' => 'site.name',
             'value' => 'Admin9',
@@ -41,7 +42,7 @@ class SystemConfigManagementTest extends TestCase
         $configId = $create->json('data.system_config.id');
         $this->assertIsInt($configId);
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => '重复站点名称',
             'key' => 'site.name',
         ], ['Authorization' => 'Bearer '.$token])
@@ -49,7 +50,7 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => '生产密钥',
             'key' => 'site.secret',
             'value' => 'should-not-be-configured-here',
@@ -68,7 +69,7 @@ class SystemConfigManagementTest extends TestCase
             'sort' => 30,
         ]);
 
-        $this->getJson('/api/admin/system-configs?'.http_build_query([
+        $this->getJson(ApiRouting::path('/admin/system-configs?').http_build_query([
             'config_group' => 'site',
             'keyword' => '站点',
             'sorts' => '-sort',
@@ -82,12 +83,12 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonFragment(['key' => 'site.name'])
             ->assertJsonMissing(['key' => 'feature.enabled']);
 
-        $this->getJson('/api/admin/system-configs/'.$flags->id, ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/system-configs/').$flags->id, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.system_config.value', true);
 
-        $this->patchJson('/api/admin/system-configs/'.$configId, [
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$configId, [
             'value' => '{invalid-json',
             'type' => SystemConfig::TYPE_JSON,
         ], ['Authorization' => 'Bearer '.$token])
@@ -95,7 +96,7 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->patchJson('/api/admin/system-configs/'.$configId, [
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$configId, [
             'name' => '站点设置',
             'value' => '{"title":"Admin9"}',
             'type' => SystemConfig::TYPE_JSON,
@@ -115,7 +116,7 @@ class SystemConfigManagementTest extends TestCase
         $this->assertSame('admin.system-configs.update', $activity->properties->get('route'));
         $this->assertNotEmpty($activity->properties->get('request_id'));
 
-        $this->deleteJson('/api/admin/system-configs/'.$configId, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/system-configs/').$configId, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'deleted');
@@ -139,7 +140,7 @@ class SystemConfigManagementTest extends TestCase
         ]);
 
         foreach ([SystemConfig::TYPE_INTEGER, SystemConfig::TYPE_BOOLEAN, SystemConfig::TYPE_JSON] as $type) {
-            $this->patchJson('/api/admin/system-configs/'.$config->id, [
+            $this->patchJson(ApiRouting::path('/admin/system-configs/').$config->id, [
                 'type' => $type,
             ], ['Authorization' => 'Bearer '.$token])
                 ->assertStatus(422)
@@ -159,7 +160,7 @@ class SystemConfigManagementTest extends TestCase
         $token = $this->adminTokenFor($user);
 
         foreach ([SystemConfig::TYPE_INTEGER, SystemConfig::TYPE_BOOLEAN, SystemConfig::TYPE_JSON] as $type) {
-            $this->postJson('/api/admin/system-configs', [
+            $this->postJson(ApiRouting::path('/admin/system-configs'), [
                 'name' => 'Invalid '.$type,
                 'key' => 'invalid.'.$type,
                 'value' => 'not-a-valid-'.$type,
@@ -170,7 +171,7 @@ class SystemConfigManagementTest extends TestCase
                 ->assertJsonPath('code', 422);
         }
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => 'Valid integer',
             'key' => 'valid.integer',
             'value' => '123',
@@ -180,7 +181,7 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.system_config.value', 123);
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => 'Valid boolean',
             'key' => 'valid.boolean',
             'value' => 'false',
@@ -190,7 +191,7 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.system_config.value', false);
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => 'Valid json',
             'key' => 'valid.json',
             'value' => '{"enabled":true}',
@@ -210,7 +211,7 @@ class SystemConfigManagementTest extends TestCase
         $user->givePermissionTo(['system.config.create', 'system.config.update']);
         $token = $this->adminTokenFor($user);
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => 'API Key',
             'key' => 'payment.api_key',
             'value' => 'plain-public-value',
@@ -219,7 +220,7 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => 'Authorization Header',
             'key' => 'payment.header',
             'value' => 'Authorization: Bearer example',
@@ -235,14 +236,14 @@ class SystemConfigManagementTest extends TestCase
             'type' => SystemConfig::TYPE_STRING,
         ]);
 
-        $this->patchJson('/api/admin/system-configs/'.$config->id, [
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$config->id, [
             'key' => 'site.jwt',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->patchJson('/api/admin/system-configs/'.$config->id, [
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$config->id, [
             'value' => '{"token":"example"}',
             'type' => SystemConfig::TYPE_JSON,
         ], ['Authorization' => 'Bearer '.$token])
@@ -250,7 +251,7 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->patchJson('/api/admin/system-configs/'.$config->id, [
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$config->id, [
             'name' => '普通公开配置更新',
             'value' => '{"title":"Admin9"}',
             'type' => SystemConfig::TYPE_JSON,
@@ -280,7 +281,7 @@ class SystemConfigManagementTest extends TestCase
             'description' => 'ordinary marker',
         ]);
 
-        $this->getJson('/api/admin/system-configs?'.http_build_query([
+        $this->getJson(ApiRouting::path('/admin/system-configs?').http_build_query([
             'keyword' => 'feature.percent',
         ], arg_separator: '&', encoding_type: PHP_QUERY_RFC3986), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -298,11 +299,11 @@ class SystemConfigManagementTest extends TestCase
         $viewer->givePermissionTo('system.config.view');
         $viewerToken = $this->adminTokenFor($viewer);
 
-        $this->getJson('/api/admin/system-configs', ['Authorization' => 'Bearer '.$viewerToken])
+        $this->getJson(ApiRouting::path('/admin/system-configs'), ['Authorization' => 'Bearer '.$viewerToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->postJson('/api/admin/system-configs', [
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => '无权配置',
             'key' => 'site.denied',
         ], ['Authorization' => 'Bearer '.$viewerToken])

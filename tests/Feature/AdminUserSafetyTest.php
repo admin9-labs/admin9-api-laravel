@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
@@ -21,7 +22,7 @@ class AdminUserSafetyTest extends TestCase
         $user->givePermissionTo('system.user.update');
         $token = $this->adminTokenFor($user);
 
-        $this->patchJson('/api/admin/users/'.$user->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$user->id, [
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -38,7 +39,7 @@ class AdminUserSafetyTest extends TestCase
         $user->givePermissionTo('system.user.delete');
         $token = $this->adminTokenFor($user);
 
-        $this->deleteJson('/api/admin/users/'.$user->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/users/').$user->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
@@ -57,14 +58,14 @@ class AdminUserSafetyTest extends TestCase
         $actor->update(['is_active' => false]);
         $this->withoutMiddleware(EnsureAccountIsActive::class);
 
-        $this->patchJson('/api/admin/users/'.$superAdmin->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$superAdmin->id, [
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->deleteJson('/api/admin/users/'.$superAdmin->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/users/').$superAdmin->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
@@ -84,7 +85,7 @@ class AdminUserSafetyTest extends TestCase
         $manager->givePermissionTo(['system.user.update', 'system.user.delete']);
         $token = $this->adminTokenFor($manager);
 
-        $this->patchJson('/api/admin/users/'.$target->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$target->id, [
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -93,7 +94,7 @@ class AdminUserSafetyTest extends TestCase
         $this->assertFalse($target->refresh()->is_active);
         $this->assertSame($originalAuthenticationVersion + 1, $target->auth_version);
 
-        $this->deleteJson('/api/admin/users/'.$target->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/users/').$target->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -113,7 +114,7 @@ class AdminUserSafetyTest extends TestCase
         $manager->givePermissionTo(['system.user.update', 'system.user.delete']);
         $token = $this->adminTokenFor($manager);
 
-        $this->patchJson('/api/admin/users/'.$superAdmin->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$superAdmin->id, [
             'email' => 'changed-super-admin@example.com',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -121,13 +122,13 @@ class AdminUserSafetyTest extends TestCase
             ->assertJsonPath('code', 422)
             ->assertJsonPath('errors.user.0', 'Only super-admin users may manage accounts with reserved admin roles.');
 
-        $this->deleteJson('/api/admin/users/'.$superAdmin->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/users/').$superAdmin->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422)
             ->assertJsonPath('errors.user.0', 'Only super-admin users may manage accounts with reserved admin roles.');
 
-        $this->patchJson('/api/admin/users/'.$systemAdmin->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$systemAdmin->id, [
             'name' => 'Changed System Admin',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -135,7 +136,7 @@ class AdminUserSafetyTest extends TestCase
             ->assertJsonPath('code', 422)
             ->assertJsonPath('errors.user.0', 'Only super-admin users may manage accounts with reserved admin roles.');
 
-        $this->deleteJson('/api/admin/users/'.$systemAdmin->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/users/').$systemAdmin->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422)
@@ -158,23 +159,23 @@ class AdminUserSafetyTest extends TestCase
         $targetSystemAdmin->assignRole(Role::findOrCreate('system-admin', 'admin'));
         $token = $this->adminTokenFor($actor);
 
-        $this->patchJson('/api/admin/users/'.$targetSuperAdmin->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$targetSuperAdmin->id, [
             'email' => 'updated-super-admin@example.com',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->deleteJson('/api/admin/users/'.$targetSuperAdmin->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/users/').$targetSuperAdmin->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->patchJson('/api/admin/users/'.$targetSystemAdmin->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$targetSystemAdmin->id, [
             'name' => 'Updated System Admin',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->deleteJson('/api/admin/users/'.$targetSystemAdmin->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/users/').$targetSystemAdmin->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -191,7 +192,7 @@ class AdminUserSafetyTest extends TestCase
         $accessToken = $this->adminTokenFor($target);
         $tokenToRefresh = $this->adminTokenFor($target);
         $this->assertNotSame($accessToken, $tokenToRefresh);
-        $refreshFlowToken = $this->postJson('/api/admin/auth/refresh', [], [
+        $refreshFlowToken = $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], [
             'Authorization' => 'Bearer '.$tokenToRefresh,
         ])->assertOk()->json('data.access_token');
         $this->assertIsString($refreshFlowToken);
@@ -201,7 +202,7 @@ class AdminUserSafetyTest extends TestCase
         $managerToken = $this->adminTokenFor($manager);
         $originalAuthenticationVersion = $target->auth_version;
 
-        $this->patchJson('/api/admin/users/'.$target->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$target->id, [
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$managerToken])
             ->assertOk()
@@ -210,13 +211,13 @@ class AdminUserSafetyTest extends TestCase
         $this->assertFalse($target->refresh()->is_active);
         $this->assertSame($originalAuthenticationVersion + 1, $target->auth_version);
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$accessToken])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$accessToken])
             ->assertUnauthorized()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
             ->assertJsonPath('message', 'Unauthenticated');
 
-        $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$refreshFlowToken])
+        $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], ['Authorization' => 'Bearer '.$refreshFlowToken])
             ->assertUnauthorized()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -230,7 +231,7 @@ class AdminUserSafetyTest extends TestCase
         $target = User::factory()->create(['email' => 'email-token-target@example.com']);
         $accessToken = $this->adminTokenFor($target);
         $tokenToRefresh = $this->adminTokenFor($target);
-        $refreshFlowToken = $this->postJson('/api/admin/auth/refresh', [], [
+        $refreshFlowToken = $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], [
             'Authorization' => 'Bearer '.$tokenToRefresh,
         ])->assertOk()->json('data.access_token');
         $this->assertIsString($refreshFlowToken);
@@ -240,7 +241,7 @@ class AdminUserSafetyTest extends TestCase
         $managerToken = $this->adminTokenFor($manager);
         $originalAuthenticationVersion = $target->auth_version;
 
-        $this->patchJson('/api/admin/users/'.$target->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$target->id, [
             'email' => 'email-token-target-updated@example.com',
         ], ['Authorization' => 'Bearer '.$managerToken])
             ->assertOk()
@@ -249,11 +250,11 @@ class AdminUserSafetyTest extends TestCase
         $this->assertSame('email-token-target-updated@example.com', $target->refresh()->email);
         $this->assertSame($originalAuthenticationVersion + 1, $target->auth_version);
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$accessToken])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$accessToken])
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated');
 
-        $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$refreshFlowToken])
+        $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], ['Authorization' => 'Bearer '.$refreshFlowToken])
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated');
     }
@@ -274,7 +275,7 @@ class AdminUserSafetyTest extends TestCase
         $managerToken = $this->adminTokenFor($manager);
         $originalAuthenticationVersion = $target->auth_version;
 
-        $this->patchJson('/api/admin/users/'.$target->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$target->id, [
             'name' => 'Updated Name',
             'email' => $target->email,
         ], ['Authorization' => 'Bearer '.$managerToken])
@@ -283,11 +284,11 @@ class AdminUserSafetyTest extends TestCase
 
         $this->assertSame($originalAuthenticationVersion, $target->refresh()->auth_version);
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$accessToken])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$accessToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$tokenToRefresh])
+        $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], ['Authorization' => 'Bearer '.$tokenToRefresh])
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -302,7 +303,7 @@ class AdminUserSafetyTest extends TestCase
         $managerToken = $this->adminTokenFor($manager);
         $originalAuthenticationVersion = $target->auth_version;
 
-        $this->patchJson('/api/admin/users/'.$target->id, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$target->id, [
             'email' => 'combined-update-target-new@example.com',
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$managerToken])

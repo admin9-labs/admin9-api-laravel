@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Member;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Activitylog\Models\Activity;
@@ -19,7 +20,7 @@ class MemberPasswordManagementTest extends TestCase
         ]);
         $token = $this->memberTokenFor($member);
 
-        $this->putJson('/api/auth/password', [
+        $this->putJson(ApiRouting::path('/auth/password'), [
             'current_password' => 'password',
             'password' => 'new-password',
             'password_confirmation' => 'new-password',
@@ -33,7 +34,7 @@ class MemberPasswordManagementTest extends TestCase
 
         $this->assertOldTokenIsInvalid($token);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => $member->email,
             'password' => 'new-password',
         ])->assertOk();
@@ -65,7 +66,7 @@ class MemberPasswordManagementTest extends TestCase
         ]);
         $token = $this->memberTokenFor($member);
 
-        $this->putJson('/api/auth/password', [
+        $this->putJson(ApiRouting::path('/auth/password'), [
             'current_password' => 'incorrect-password',
             'password' => 'new-password',
             'password_confirmation' => 'new-password',
@@ -89,7 +90,7 @@ class MemberPasswordManagementTest extends TestCase
         ]);
         $token = $this->memberTokenFor($member);
 
-        $this->putJson('/api/auth/password', [
+        $this->putJson(ApiRouting::path('/auth/password'), [
             'current_password' => 'password',
             'password' => 'short7',
             'password_confirmation' => 'short7',
@@ -97,7 +98,7 @@ class MemberPasswordManagementTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('password');
 
-        $this->putJson('/api/auth/password', [
+        $this->putJson(ApiRouting::path('/auth/password'), [
             'current_password' => 'password',
             'password' => 'valid-password',
             'password_confirmation' => 'different-password',
@@ -111,7 +112,7 @@ class MemberPasswordManagementTest extends TestCase
 
     private function memberTokenFor(Member $member): string
     {
-        $response = $this->postJson('/api/auth/login', [
+        $response = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => $member->email,
             'password' => 'password',
         ])->assertOk();
@@ -134,11 +135,11 @@ class MemberPasswordManagementTest extends TestCase
     {
         $headers = $this->authorizationHeader($token);
 
-        $this->getJson('/api/auth/me', $headers)
+        $this->getJson(ApiRouting::path('/auth/me'), $headers)
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated');
 
-        $this->postJson('/api/auth/refresh', headers: $headers)
+        $this->postJson(ApiRouting::path('/auth/refresh'), headers: $headers)
             ->assertUnauthorized()
             ->assertJsonPath('message', 'Unauthenticated');
     }

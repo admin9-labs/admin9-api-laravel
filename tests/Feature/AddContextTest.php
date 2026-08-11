@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Support\ApiRouting;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
@@ -22,11 +23,11 @@ class AddContextTest extends TestCase
 {
     public function test_it_exposes_request_id_to_success_responses(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context', function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
             return $responder->success();
         });
 
-        $response = $this->getJson('/api/_test/add-context')
+        $response = $this->getJson(ApiRouting::path('/_test/add-context'))
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertHeader('X-Request-Id');
@@ -36,11 +37,11 @@ class AddContextTest extends TestCase
 
     public function test_it_exposes_request_id_to_error_responses(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context-error', function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-error'), function (JsonResponder $responder) {
             return $responder->error('failed');
         });
 
-        $response = $this->getJson('/api/_test/add-context-error')
+        $response = $this->getJson(ApiRouting::path('/_test/add-context-error'))
             ->assertOk()
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'failed')
@@ -51,11 +52,11 @@ class AddContextTest extends TestCase
 
     public function test_it_exposes_request_id_to_deny_responses(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context-deny', function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-deny'), function (JsonResponder $responder) {
             return $responder->deny();
         });
 
-        $response = $this->getJson('/api/_test/add-context-deny')
+        $response = $this->getJson(ApiRouting::path('/_test/add-context-deny'))
             ->assertForbidden()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
@@ -66,7 +67,7 @@ class AddContextTest extends TestCase
 
     public function test_it_uses_401_status_code_for_api_authentication_errors(): void
     {
-        $response = $this->getJson('/api/admin/auth/me')
+        $response = $this->getJson(ApiRouting::path('/admin/auth/me'))
             ->assertUnauthorized()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -78,7 +79,7 @@ class AddContextTest extends TestCase
 
     public function test_api_authentication_errors_render_json_without_an_accept_header(): void
     {
-        $response = $this->get('/api/admin/auth/me')
+        $response = $this->get(ApiRouting::path('/admin/auth/me'))
             ->assertUnauthorized()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -91,11 +92,11 @@ class AddContextTest extends TestCase
 
     public function test_it_uses_403_status_code_for_api_forbidden_errors(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context-forbidden', function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-forbidden'), function (JsonResponder $responder) {
             return $responder->error('Forbidden', 403);
         });
 
-        $response = $this->getJson('/api/_test/add-context-forbidden')
+        $response = $this->getJson(ApiRouting::path('/_test/add-context-forbidden'))
             ->assertForbidden()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
@@ -107,11 +108,11 @@ class AddContextTest extends TestCase
 
     public function test_it_exposes_request_id_to_api_route_not_found_payloads(): void
     {
-        $response = $this->getJson('/api/_test/missing-route')
+        $response = $this->getJson(ApiRouting::path('/_test/missing-route'))
             ->assertNotFound()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 404)
-            ->assertJsonPath('message', 'The route api/_test/missing-route could not be found.')
+            ->assertJsonPath('message', 'The route _test/missing-route could not be found.')
             ->assertHeader('X-Request-Id');
 
         $this->assertResponseRequestIdMatchesHeader($response);
@@ -121,7 +122,7 @@ class AddContextTest extends TestCase
     {
         $response = $this->withServerVariables([
             'CONTENT_LENGTH' => PHP_INT_MAX,
-        ])->postJson('/api/_test/add-context-rejected')
+        ])->postJson(ApiRouting::path('/_test/add-context-rejected'))
             ->assertStatus(413)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 413)
@@ -133,11 +134,11 @@ class AddContextTest extends TestCase
 
     public function test_it_uses_422_status_code_for_api_validation_errors(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context-validation', function (): void {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-validation'), function (): void {
             throw new HttpException(422, 'Validation failed');
         });
 
-        $response = $this->getJson('/api/_test/add-context-validation')
+        $response = $this->getJson(ApiRouting::path('/_test/add-context-validation'))
             ->assertUnprocessable()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422)
@@ -149,15 +150,15 @@ class AddContextTest extends TestCase
 
     public function test_it_generates_a_fresh_request_id_for_each_request(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context', function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
             return $responder->success();
         });
 
-        $first = $this->getJson('/api/_test/add-context')
+        $first = $this->getJson(ApiRouting::path('/_test/add-context'))
             ->assertOk()
             ->json('request_id');
 
-        $second = $this->getJson('/api/_test/add-context')
+        $second = $this->getJson(ApiRouting::path('/_test/add-context'))
             ->assertOk()
             ->json('request_id');
 
@@ -170,7 +171,7 @@ class AddContextTest extends TestCase
 
     public function test_it_adds_safe_request_data_to_laravel_context(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context', function () {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function () {
             return response()->json([
                 'context_request_id' => Context::get('request_id'),
                 'context_method' => Context::get('method'),
@@ -179,11 +180,11 @@ class AddContextTest extends TestCase
             ]);
         });
 
-        $response = $this->getJson('/api/_test/add-context?token=secret')
+        $response = $this->getJson(ApiRouting::path('/_test/add-context?token=secret'))
             ->assertOk()
             ->assertHeader('X-Request-Id')
             ->assertJsonPath('context_method', 'GET')
-            ->assertJsonPath('context_path', 'api/_test/add-context')
+            ->assertJsonPath('context_path', '_test/add-context')
             ->assertJsonPath('context_url', null);
 
         $requestId = $response->json('context_request_id');
@@ -195,11 +196,11 @@ class AddContextTest extends TestCase
 
     public function test_it_does_not_store_request_id_in_the_responder_singleton(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context', function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
             return $responder->success();
         });
 
-        $this->getJson('/api/_test/add-context')
+        $this->getJson(ApiRouting::path('/_test/add-context'))
             ->assertOk();
 
         $rawExtra = (new ReflectionProperty(JsonResponderDefault::class, 'extra'))
@@ -208,9 +209,9 @@ class AddContextTest extends TestCase
         $this->assertArrayNotHasKey('request_id', $rawExtra);
     }
 
-    public function test_it_does_not_leak_request_id_to_later_web_responder_payloads(): void
+    public function test_responder_payloads_on_web_routes_receive_request_ids_in_empty_prefix_mode(): void
     {
-        Route::middleware('api')->get('/api/_test/add-context', function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
             return $responder->success();
         });
 
@@ -218,7 +219,7 @@ class AddContextTest extends TestCase
             return $responder->success();
         });
 
-        $this->getJson('/api/_test/add-context')
+        $this->getJson(ApiRouting::path('/_test/add-context'))
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('request_id', fn ($requestId) => is_string($requestId));
@@ -226,11 +227,11 @@ class AddContextTest extends TestCase
         $this->getJson('/_test/add-context-web-responder')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonMissingPath('request_id')
-            ->assertHeaderMissing('X-Request-Id');
+            ->assertJsonPath('request_id', fn ($requestId) => is_string($requestId))
+            ->assertHeader('X-Request-Id');
     }
 
-    public function test_it_does_not_force_request_id_onto_web_responses(): void
+    public function test_raw_web_responses_receive_headers_without_changing_their_payload(): void
     {
         Route::get('/_test/add-context-web', function () {
             return response()->json(['ok' => true]);
@@ -239,7 +240,31 @@ class AddContextTest extends TestCase
         $this->getJson('/_test/add-context-web')
             ->assertOk()
             ->assertJsonMissingPath('request_id')
-            ->assertHeaderMissing('X-Request-Id');
+            ->assertHeader('X-Request-Id');
+    }
+
+    public function test_web_health_and_documentation_routes_enter_the_request_context_boundary(): void
+    {
+        foreach (['/', '/up', '/docs/api'] as $path) {
+            $this->get($path)
+                ->assertHeader('X-Request-Id');
+        }
+    }
+
+    public function test_real_cors_preflight_requests_are_allowed_for_root_level_api_routes(): void
+    {
+        $response = $this->call('OPTIONS', ApiRouting::path('/auth/login'), server: [
+            'HTTP_ORIGIN' => 'https://console.example.com',
+            'HTTP_ACCESS_CONTROL_REQUEST_METHOD' => 'POST',
+            'HTTP_ACCESS_CONTROL_REQUEST_HEADERS' => 'Authorization, Content-Type',
+        ]);
+
+        $response
+            ->assertNoContent()
+            ->assertHeader('Access-Control-Allow-Origin', '*')
+            ->assertHeader('X-Request-Id');
+
+        $this->assertStringContainsString('POST', (string) $response->headers->get('Access-Control-Allow-Methods'));
     }
 
     private function assertResponseRequestIdMatchesHeader(TestResponse $response): void

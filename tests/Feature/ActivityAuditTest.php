@@ -7,6 +7,7 @@ use App\Models\Menu;
 use App\Models\Permission;
 use App\Models\SystemConfig;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
@@ -28,7 +29,7 @@ class ActivityAuditTest extends TestCase
         $admin->givePermissionTo(['system.menu.create', 'system.menu.update']);
         $token = $this->adminTokenFor($admin);
 
-        $create = $this->postJson('/api/admin/menus', [
+        $create = $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => '审计菜单',
             'code' => 'audit.menu',
             'path' => '/audit/menu',
@@ -40,7 +41,7 @@ class ActivityAuditTest extends TestCase
         $menuId = $create->json('data.menu.id');
         $this->assertIsInt($menuId);
 
-        $this->patchJson('/api/admin/menus/'.$menuId, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menuId, [
             'name' => '审计菜单更新',
             'permission_ids' => [$updatePermission->id],
         ], ['Authorization' => 'Bearer '.$token])
@@ -89,7 +90,7 @@ class ActivityAuditTest extends TestCase
         $admin->givePermissionTo(['system.user.create', 'system.user.update']);
         $token = $this->adminTokenFor($admin);
 
-        $create = $this->postJson('/api/admin/users', [
+        $create = $this->postJson(ApiRouting::path('/admin/users'), [
             'name' => 'Audit User',
             'email' => 'audit-user@example.com',
             'password' => 'secret-password',
@@ -108,7 +109,7 @@ class ActivityAuditTest extends TestCase
             ->firstOrFail();
         $this->assertActivityPropertiesAreSanitized($createdActivity);
 
-        $this->patchJson('/api/admin/users/'.$userId, [
+        $this->patchJson(ApiRouting::path('/admin/users/').$userId, [
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk();
@@ -136,7 +137,7 @@ class ActivityAuditTest extends TestCase
         $admin->givePermissionTo(['system.role.create', 'system.role.update', 'system.user.assign-role']);
         $token = $this->adminTokenFor($admin);
 
-        $roleResponse = $this->postJson('/api/admin/roles', [
+        $roleResponse = $this->postJson(ApiRouting::path('/admin/roles'), [
             'name' => 'auditor',
             'permissions' => ['system.menu.view'],
         ], ['Authorization' => 'Bearer '.$token])
@@ -146,7 +147,7 @@ class ActivityAuditTest extends TestCase
         $roleId = $roleResponse->json('data.role.id');
         $this->assertIsInt($roleId);
 
-        $this->putJson('/api/admin/roles/'.$roleId.'/permissions', [
+        $this->putJson(ApiRouting::path('/admin/roles/').$roleId.'/permissions', [
             'permissions' => ['system.menu.view'],
             'authorization' => 'Bearer should-not-log',
         ], ['Authorization' => 'Bearer '.$token])
@@ -160,7 +161,7 @@ class ActivityAuditTest extends TestCase
         $this->assertActivityPropertiesAreSanitized($roleActivity);
 
         $target = User::factory()->create(['email' => 'role-target@example.com']);
-        $this->putJson('/api/admin/users/'.$target->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$target->id.'/roles', [
             'roles' => ['auditor'],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk();
@@ -180,7 +181,7 @@ class ActivityAuditTest extends TestCase
         $admin->givePermissionTo(['system.role.create', 'system.role.update']);
         $token = $this->adminTokenFor($admin);
 
-        $roleResponse = $this->postJson('/api/admin/roles', [
+        $roleResponse = $this->postJson(ApiRouting::path('/admin/roles'), [
             'name' => 'editable-role',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -189,7 +190,7 @@ class ActivityAuditTest extends TestCase
         $roleId = $roleResponse->json('data.role.id');
         $this->assertIsInt($roleId);
 
-        $this->patchJson('/api/admin/roles/'.$roleId, [
+        $this->patchJson(ApiRouting::path('/admin/roles/').$roleId, [
             'name' => 'edited-role',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -218,7 +219,7 @@ class ActivityAuditTest extends TestCase
         ]);
         $token = $this->adminTokenFor($admin);
 
-        $create = $this->postJson('/api/admin/permissions', [
+        $create = $this->postJson(ApiRouting::path('/admin/permissions'), [
             'name' => 'dynamic.audit.lifecycle',
             'display_name' => 'Audit lifecycle',
             'group' => 'dynamic.audit',
@@ -243,7 +244,7 @@ class ActivityAuditTest extends TestCase
         $this->assertSame('admin.permissions.store', $created->properties->get('route'));
         $this->assertActivityPropertiesAreSanitized($created);
 
-        $this->patchJson('/api/admin/permissions/'.$permissionId, [
+        $this->patchJson(ApiRouting::path('/admin/permissions/').$permissionId, [
             'display_name' => 'Audit lifecycle updated',
             'sort' => 90,
         ], ['Authorization' => 'Bearer '.$token])
@@ -261,7 +262,7 @@ class ActivityAuditTest extends TestCase
         $this->assertSame('admin.permissions.update', $updated->properties->get('route'));
         $this->assertActivityPropertiesAreSanitized($updated);
 
-        $this->deleteJson('/api/admin/permissions/'.$permissionId, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/permissions/').$permissionId, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -286,7 +287,7 @@ class ActivityAuditTest extends TestCase
         $resetTarget = User::factory()->create(['email' => 'audit-password-reset-target@example.com']);
         $resetOldHash = $resetTarget->password;
 
-        $this->putJson('/api/admin/users/'.$resetTarget->id.'/password', [
+        $this->putJson(ApiRouting::path('/admin/users/').$resetTarget->id.'/password', [
             'password' => 'Reset-password-123',
             'password_confirmation' => 'Reset-password-123',
         ], ['Authorization' => 'Bearer '.$resetToken])
@@ -315,7 +316,7 @@ class ActivityAuditTest extends TestCase
         $adminToken = $this->adminTokenFor($admin, $adminCurrentPassword);
         $adminOldHash = $admin->password;
 
-        $this->putJson('/api/admin/auth/password', [
+        $this->putJson(ApiRouting::path('/admin/auth/password'), [
             'current_password' => $adminCurrentPassword,
             'password' => 'Changed-admin-password-123',
             'password_confirmation' => 'Changed-admin-password-123',
@@ -343,7 +344,7 @@ class ActivityAuditTest extends TestCase
             'email' => 'audit-password-change-member@example.com',
             'password' => $memberCurrentPassword,
         ]);
-        $memberLogin = $this->postJson('/api/auth/login', [
+        $memberLogin = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => $member->email,
             'password' => $memberCurrentPassword,
         ])->assertOk();
@@ -351,7 +352,7 @@ class ActivityAuditTest extends TestCase
         $this->assertIsString($memberToken);
         $memberOldHash = $member->password;
 
-        $this->putJson('/api/auth/password', [
+        $this->putJson(ApiRouting::path('/auth/password'), [
             'current_password' => $memberCurrentPassword,
             'password' => 'Changed-member-password-123',
             'password_confirmation' => 'Changed-member-password-123',
@@ -390,7 +391,7 @@ class ActivityAuditTest extends TestCase
         $updatedValue = 'ghp_AuditUpdatedOpaqueValue';
         $ordinaryValue = 'Welcome to Admin9';
 
-        $create = $this->postJson('/api/admin/system-configs', [
+        $create = $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => 'Integration Credential',
             'key' => $configKey,
             'value' => $createdValue,
@@ -409,7 +410,7 @@ class ActivityAuditTest extends TestCase
             ->firstOrFail();
         $this->assertSystemConfigValueIsNotLogged($createdActivity, $configKey, [$createdValue]);
 
-        $this->patchJson('/api/admin/system-configs/'.$configId, [
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$configId, [
             'value' => $updatedValue,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -424,7 +425,7 @@ class ActivityAuditTest extends TestCase
             ->firstOrFail();
         $this->assertSystemConfigValueIsNotLogged($credentialUpdateActivity, $configKey, [$createdValue, $updatedValue]);
 
-        $this->patchJson('/api/admin/system-configs/'.$configId, [
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$configId, [
             'value' => $ordinaryValue,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -447,7 +448,7 @@ class ActivityAuditTest extends TestCase
             'subject_id' => $configId,
         ]);
 
-        $activityResponse = $this->getJson('/api/admin/activity-logs?'.$query, [
+        $activityResponse = $this->getJson(ApiRouting::path('/admin/activity-logs?').$query, [
             'Authorization' => 'Bearer '.$viewerToken,
         ])->assertOk()->assertJsonPath('success', true);
         $activityPayload = $activityResponse->getContent();
@@ -455,7 +456,7 @@ class ActivityAuditTest extends TestCase
         $this->assertStringNotContainsString($updatedValue, $activityPayload);
         $this->assertStringNotContainsString($ordinaryValue, $activityPayload);
 
-        $this->deleteJson('/api/admin/system-configs/'.$configId, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/system-configs/').$configId, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -478,7 +479,7 @@ class ActivityAuditTest extends TestCase
         $this->useFailingActivityModel();
 
         $this->assertActivityLogFailure(function () use ($token): void {
-            $this->postJson('/api/admin/menus', [
+            $this->postJson(ApiRouting::path('/admin/menus'), [
                 'name' => 'Rollback Menu',
                 'code' => 'rollback.menu',
                 'path' => '/rollback/menu',
@@ -505,7 +506,7 @@ class ActivityAuditTest extends TestCase
         $this->useFailingActivityModel();
 
         $this->assertActivityLogFailure(function () use ($config, $token): void {
-            $this->patchJson('/api/admin/system-configs/'.$config->id, [
+            $this->patchJson(ApiRouting::path('/admin/system-configs/').$config->id, [
                 'value' => 'after',
             ], ['Authorization' => 'Bearer '.$token]);
         });
@@ -524,7 +525,7 @@ class ActivityAuditTest extends TestCase
         $this->useFailingActivityModel();
 
         $this->assertActivityLogFailure(function () use ($target, $token): void {
-            $this->deleteJson('/api/admin/users/'.$target->id, [], ['Authorization' => 'Bearer '.$token]);
+            $this->deleteJson(ApiRouting::path('/admin/users/').$target->id, [], ['Authorization' => 'Bearer '.$token]);
         });
 
         $this->assertModelExists($target);
@@ -541,7 +542,7 @@ class ActivityAuditTest extends TestCase
 
     private function adminTokenFor(User $user, string $password = 'password'): string
     {
-        $response = $this->postJson('/api/admin/auth/login', [
+        $response = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => $user->email,
             'password' => $password,
         ])->assertOk();

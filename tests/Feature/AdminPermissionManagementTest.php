@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Menu;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -24,7 +25,7 @@ class AdminPermissionManagementTest extends TestCase
         ]);
         $token = $this->managerTokenFor(['system.permission.view']);
 
-        $response = $this->getJson('/api/admin/permissions', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/permissions'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonFragment(['name' => 'dynamic.report.view'])
@@ -42,7 +43,7 @@ class AdminPermissionManagementTest extends TestCase
         $this->createPermission('dynamic.catalog.beta', ['group' => 'dynamic.catalog', 'sort' => 20]);
         $token = $this->managerTokenFor(['system.permission.view']);
 
-        $response = $this->getJson('/api/admin/permissions?page_size=1', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/permissions?page_size=1'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -67,7 +68,7 @@ class AdminPermissionManagementTest extends TestCase
         }
         $token = $this->managerTokenFor(['system.role.view']);
 
-        $response = $this->getJson('/api/admin/roles?page_size=2', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/roles?page_size=2'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -86,7 +87,7 @@ class AdminPermissionManagementTest extends TestCase
     {
         $token = $this->managerTokenFor(['system.permission.create']);
 
-        $this->postJson('/api/admin/permissions', [
+        $this->postJson(ApiRouting::path('/admin/permissions'), [
             'name' => 'dynamic.audit.view',
             'display_name' => '审计查看',
             'group' => 'dynamic.audit',
@@ -116,7 +117,7 @@ class AdminPermissionManagementTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -129,7 +130,7 @@ class AdminPermissionManagementTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403);
@@ -144,13 +145,13 @@ class AdminPermissionManagementTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->patchJson('/api/admin/permissions/'.$permission->id, [
+        $this->patchJson(ApiRouting::path('/admin/permissions/').$permission->id, [
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$managerToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403);
@@ -161,7 +162,7 @@ class AdminPermissionManagementTest extends TestCase
         $this->createPermission('dynamic.duplicate');
         $token = $this->managerTokenFor(['system.permission.create']);
 
-        $this->postJson('/api/admin/permissions', [
+        $this->postJson(ApiRouting::path('/admin/permissions'), [
             'name' => 'dynamic.duplicate',
             'display_name' => 'Duplicate',
         ], ['Authorization' => 'Bearer '.$token])
@@ -177,12 +178,12 @@ class AdminPermissionManagementTest extends TestCase
         $memberPermission = Permission::findOrCreate('member.hidden.permission', 'member');
         $memberRole = Role::findOrCreate('member-hidden-role', 'member');
 
-        $this->getJson('/api/admin/permissions/'.$memberPermission->id, ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/permissions/').$memberPermission->id, ['Authorization' => 'Bearer '.$token])
             ->assertStatus(404)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 404);
 
-        $this->getJson('/api/admin/roles/'.$memberRole->id, ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles/').$memberRole->id, ['Authorization' => 'Bearer '.$token])
             ->assertStatus(404)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 404);
@@ -193,7 +194,7 @@ class AdminPermissionManagementTest extends TestCase
         $permission = $this->createPermission('dynamic.system.protected', ['is_system' => true]);
         $token = $this->managerTokenFor(['system.permission.delete']);
 
-        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/permissions/').$permission->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
@@ -207,7 +208,7 @@ class AdminPermissionManagementTest extends TestCase
         Role::findOrCreate('operator', 'admin')->givePermissionTo($permission);
         $token = $this->managerTokenFor(['system.permission.delete']);
 
-        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/permissions/').$permission->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422)
@@ -223,7 +224,7 @@ class AdminPermissionManagementTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->managerTokenFor(['system.permission.delete']);
 
-        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/permissions/').$permission->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422)
@@ -240,7 +241,7 @@ class AdminPermissionManagementTest extends TestCase
         $menu->permissions()->sync([$permission->id]);
         $token = $this->managerTokenFor(['system.permission.delete']);
 
-        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/permissions/').$permission->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422)
@@ -263,22 +264,22 @@ class AdminPermissionManagementTest extends TestCase
             'system.permission.delete',
         ]);
 
-        $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$viewerToken])
+        $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$viewerToken])
             ->assertOk()
             ->assertJsonMissing(['code' => 'dynamic.menu.detachable']);
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'permission_ids' => [],
         ], ['Authorization' => 'Bearer '.$managerToken])
             ->assertOk()
             ->assertJsonPath('data.menu.permission_ids', [])
             ->assertJsonPath('data.menu.permission_names', []);
 
-        $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$viewerToken])
+        $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$viewerToken])
             ->assertOk()
             ->assertJsonFragment(['code' => 'dynamic.menu.detachable']);
 
-        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$managerToken])
+        $this->deleteJson(ApiRouting::path('/admin/permissions/').$permission->id, [], ['Authorization' => 'Bearer '.$managerToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -291,7 +292,7 @@ class AdminPermissionManagementTest extends TestCase
         $permission = $this->createPermission('dynamic.unassigned.deletable');
         $token = $this->managerTokenFor(['system.permission.delete']);
 
-        $this->deleteJson('/api/admin/permissions/'.$permission->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/permissions/').$permission->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 

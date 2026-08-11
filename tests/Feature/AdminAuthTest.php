@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\LoginLog;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Dotenv\Dotenv;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\File;
@@ -87,7 +88,7 @@ class AdminAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $login = $this->postJson('/api/admin/auth/login', [
+        $login = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'admin@example.com',
             'password' => 'password',
         ])
@@ -104,7 +105,7 @@ class AdminAuthTest extends TestCase
         $this->assertIsString($token);
         $this->assertNotEmpty($token);
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user.id', $user->id)
@@ -112,7 +113,7 @@ class AdminAuthTest extends TestCase
             ->assertJsonPath('data.permission_names', [])
             ->assertHeader('X-Request-Id');
 
-        $refresh = $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$token])
+        $refresh = $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.token_type', 'bearer')
@@ -124,13 +125,13 @@ class AdminAuthTest extends TestCase
         $this->assertIsString($refreshedToken);
         $this->assertNotSame($token, $refreshedToken);
 
-        $this->postJson('/api/admin/auth/logout', [], ['Authorization' => 'Bearer '.$refreshedToken])
+        $this->postJson(ApiRouting::path('/admin/auth/logout'), [], ['Authorization' => 'Bearer '.$refreshedToken])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'logged out')
             ->assertHeader('X-Request-Id');
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$refreshedToken])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$refreshedToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -145,7 +146,7 @@ class AdminAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->postJson('/api/admin/auth/login', [
+        $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'admin@example.com',
             'password' => 'wrong-password',
         ])
@@ -163,14 +164,14 @@ class AdminAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $token = $this->postJson('/api/admin/auth/login', [
+        $token = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'admin@example.com',
             'password' => 'password',
         ])->json('data.access_token');
 
         $user->forceFill(['is_active' => false])->save();
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
@@ -178,7 +179,7 @@ class AdminAuthTest extends TestCase
             ->assertJsonPath('error_code', 'account_inactive')
             ->assertHeader('X-Request-Id');
 
-        $this->postJson('/api/admin/auth/login', [
+        $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'admin@example.com',
             'password' => 'password',
         ])
@@ -200,7 +201,7 @@ class AdminAuthTest extends TestCase
 
     public function test_admin_protected_routes_require_a_token(): void
     {
-        $this->getJson('/api/admin/auth/me')
+        $this->getJson(ApiRouting::path('/admin/auth/me'))
             ->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -225,7 +226,7 @@ class AdminAuthTest extends TestCase
         $user->assignRole($role);
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $login = $this->postJson('/api/admin/auth/login', [
+        $login = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'frontend-controls@example.com',
             'password' => 'password',
         ])
@@ -240,7 +241,7 @@ class AdminAuthTest extends TestCase
         $token = $login->json('data.access_token');
         $this->assertIsString($token);
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.permission_names', [
@@ -262,7 +263,7 @@ class AdminAuthTest extends TestCase
         $user->assignRole(Role::findOrCreate('super-admin', 'admin'));
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $login = $this->postJson('/api/admin/auth/login', [
+        $login = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'frontend-super@example.com',
             'password' => 'password',
         ])

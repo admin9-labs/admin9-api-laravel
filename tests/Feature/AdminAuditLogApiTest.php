@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\LoginLog;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
@@ -27,22 +28,22 @@ class AdminAuditLogApiTest extends TestCase
         $loginViewer->givePermissionTo('system.login-log.view');
         $loginToken = $this->adminTokenFor($loginViewer);
 
-        $this->getJson('/api/admin/activity-logs', ['Authorization' => 'Bearer '.$activityToken])
+        $this->getJson(ApiRouting::path('/admin/activity-logs'), ['Authorization' => 'Bearer '.$activityToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->getJson('/api/admin/login-logs', ['Authorization' => 'Bearer '.$activityToken])
+        $this->getJson(ApiRouting::path('/admin/login-logs'), ['Authorization' => 'Bearer '.$activityToken])
             ->assertForbidden()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
             ->assertJsonPath('data', [])
             ->assertJsonPath('errors', []);
 
-        $this->getJson('/api/admin/login-logs', ['Authorization' => 'Bearer '.$loginToken])
+        $this->getJson(ApiRouting::path('/admin/login-logs'), ['Authorization' => 'Bearer '.$loginToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->getJson('/api/admin/activity-logs', ['Authorization' => 'Bearer '.$loginToken])
+        $this->getJson(ApiRouting::path('/admin/activity-logs'), ['Authorization' => 'Bearer '.$loginToken])
             ->assertForbidden()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403);
@@ -80,7 +81,7 @@ class AdminAuditLogApiTest extends TestCase
             'created_at' => ['2026-07-23', '2026-07-24'],
         ]);
 
-        $response = $this->getJson('/api/admin/activity-logs?'.$query, ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/activity-logs?').$query, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('meta.pagination', 'page')
@@ -138,7 +139,7 @@ class AdminAuditLogApiTest extends TestCase
             'created_at' => ['2026-07-23', '2026-07-24'],
         ]);
 
-        $response = $this->getJson('/api/admin/login-logs?'.$query, ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/login-logs?').$query, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('meta.pagination', 'page')
@@ -217,7 +218,7 @@ class AdminAuditLogApiTest extends TestCase
 
     private function adminTokenFor(User $user): string
     {
-        $response = $this->postJson('/api/admin/auth/login', [
+        $response = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => $user->email,
             'password' => 'password',
         ])->assertOk();

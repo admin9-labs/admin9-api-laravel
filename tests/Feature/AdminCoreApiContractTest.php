@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Menu;
 use App\Models\SystemConfig;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -52,7 +53,7 @@ class AdminCoreApiContractTest extends TestCase
         $token = $this->managerTokenFor(['system.user.view']);
         User::factory()->count(3)->create();
 
-        $response = $this->getJson('/api/admin/users?page_size=2', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/users?page_size=2'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('meta.pagination', 'page')
@@ -81,7 +82,7 @@ class AdminCoreApiContractTest extends TestCase
             'system.menu.update',
         ]);
 
-        $create = $this->postJson('/api/admin/menus', [
+        $create = $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Contract Menu',
             'code' => 'contract.menu',
             'path' => '/contract/menu',
@@ -101,12 +102,12 @@ class AdminCoreApiContractTest extends TestCase
         $menuId = $create->json('data.menu.id');
         $this->assertIsInt($menuId);
 
-        $show = $this->getJson('/api/admin/menus/'.$menuId, ['Authorization' => 'Bearer '.$token])
+        $show = $this->getJson(ApiRouting::path('/admin/menus/').$menuId, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertWrappedResourceShape($show, 'menu', $this->menuResourceKeys());
 
-        $update = $this->patchJson('/api/admin/menus/'.$menuId, [
+        $update = $this->patchJson(ApiRouting::path('/admin/menus/').$menuId, [
             'type' => Menu::TYPE_BUTTON,
             'path' => null,
             'component' => null,
@@ -127,7 +128,7 @@ class AdminCoreApiContractTest extends TestCase
             'system.permission.update',
         ]);
 
-        $create = $this->postJson('/api/admin/permissions', [
+        $create = $this->postJson(ApiRouting::path('/admin/permissions'), [
             'name' => 'dynamic.contract.view',
             'display_name' => 'Contract View',
             'group' => 'dynamic.contract',
@@ -145,12 +146,12 @@ class AdminCoreApiContractTest extends TestCase
         $permissionId = $create->json('data.permission.id');
         $this->assertIsInt($permissionId);
 
-        $show = $this->getJson('/api/admin/permissions/'.$permissionId, ['Authorization' => 'Bearer '.$token])
+        $show = $this->getJson(ApiRouting::path('/admin/permissions/').$permissionId, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertWrappedResourceShape($show, 'permission', $this->permissionResourceKeys());
 
-        $update = $this->patchJson('/api/admin/permissions/'.$permissionId, [
+        $update = $this->patchJson(ApiRouting::path('/admin/permissions/').$permissionId, [
             'display_name' => 'Contract Read',
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$token])
@@ -170,7 +171,7 @@ class AdminCoreApiContractTest extends TestCase
             'system.role.update',
         ]);
 
-        $create = $this->postJson('/api/admin/roles', [
+        $create = $this->postJson(ApiRouting::path('/admin/roles'), [
             'name' => 'contract-role',
             'permissions' => [$permission->name],
         ], ['Authorization' => 'Bearer '.$token])
@@ -185,12 +186,12 @@ class AdminCoreApiContractTest extends TestCase
         $roleId = $create->json('data.role.id');
         $this->assertIsInt($roleId);
 
-        $show = $this->getJson('/api/admin/roles/'.$roleId, ['Authorization' => 'Bearer '.$token])
+        $show = $this->getJson(ApiRouting::path('/admin/roles/').$roleId, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertWrappedResourceShape($show, 'role', $this->roleResourceKeys());
 
-        $sync = $this->putJson('/api/admin/roles/'.$roleId.'/permissions', [
+        $sync = $this->putJson(ApiRouting::path('/admin/roles/').$roleId.'/permissions', [
             'permissions' => [],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -209,7 +210,7 @@ class AdminCoreApiContractTest extends TestCase
             'system.user.assign-role',
         ]);
 
-        $create = $this->postJson('/api/admin/users', [
+        $create = $this->postJson(ApiRouting::path('/admin/users'), [
             'name' => 'Contract User',
             'email' => 'contract-user@example.com',
             'password' => 'password',
@@ -225,12 +226,12 @@ class AdminCoreApiContractTest extends TestCase
         $userId = $create->json('data.user.id');
         $this->assertIsInt($userId);
 
-        $show = $this->getJson('/api/admin/users/'.$userId, ['Authorization' => 'Bearer '.$token])
+        $show = $this->getJson(ApiRouting::path('/admin/users/').$userId, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertWrappedResourceShape($show, 'user', $this->userResourceKeys());
 
-        $update = $this->patchJson('/api/admin/users/'.$userId, [
+        $update = $this->patchJson(ApiRouting::path('/admin/users/').$userId, [
             'name' => 'Contract User Updated',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -238,7 +239,7 @@ class AdminCoreApiContractTest extends TestCase
             ->assertJsonPath('data.user.name', 'Contract User Updated');
         $this->assertWrappedResourceShape($update, 'user', $this->userResourceKeys());
 
-        $sync = $this->putJson('/api/admin/users/'.$userId.'/roles', [
+        $sync = $this->putJson(ApiRouting::path('/admin/users/').$userId.'/roles', [
             'roles' => ['contract-user-role'],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -255,7 +256,7 @@ class AdminCoreApiContractTest extends TestCase
             'system.dictionary.update',
         ]);
 
-        $create = $this->postJson('/api/admin/dictionary-types', [
+        $create = $this->postJson(ApiRouting::path('/admin/dictionary-types'), [
             'name' => 'Contract Status',
             'code' => 'contract_status',
             'description' => 'Contract status values',
@@ -271,12 +272,12 @@ class AdminCoreApiContractTest extends TestCase
         $typeId = $create->json('data.dictionary_type.id');
         $this->assertIsInt($typeId);
 
-        $show = $this->getJson('/api/admin/dictionary-types/'.$typeId, ['Authorization' => 'Bearer '.$token])
+        $show = $this->getJson(ApiRouting::path('/admin/dictionary-types/').$typeId, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertWrappedResourceShape($show, 'dictionary_type', $this->dictionaryTypeResourceKeys());
 
-        $update = $this->patchJson('/api/admin/dictionary-types/'.$typeId, [
+        $update = $this->patchJson(ApiRouting::path('/admin/dictionary-types/').$typeId, [
             'name' => 'Contract Status Updated',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -292,7 +293,7 @@ class AdminCoreApiContractTest extends TestCase
             'system.dictionary.view',
             'system.dictionary.update',
         ]);
-        $typeId = $this->postJson('/api/admin/dictionary-types', [
+        $typeId = $this->postJson(ApiRouting::path('/admin/dictionary-types'), [
             'name' => 'Item Contract Type',
             'code' => 'item_contract_type',
         ], ['Authorization' => 'Bearer '.$token])
@@ -300,7 +301,7 @@ class AdminCoreApiContractTest extends TestCase
             ->json('data.dictionary_type.id');
         $this->assertIsInt($typeId);
 
-        $create = $this->postJson('/api/admin/dictionary-items', [
+        $create = $this->postJson(ApiRouting::path('/admin/dictionary-items'), [
             'dictionary_type_id' => $typeId,
             'name' => 'Enabled',
             'code' => 'enabled',
@@ -319,12 +320,12 @@ class AdminCoreApiContractTest extends TestCase
         $itemId = $create->json('data.dictionary_item.id');
         $this->assertIsInt($itemId);
 
-        $show = $this->getJson('/api/admin/dictionary-items/'.$itemId, ['Authorization' => 'Bearer '.$token])
+        $show = $this->getJson(ApiRouting::path('/admin/dictionary-items/').$itemId, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertWrappedResourceShape($show, 'dictionary_item', $this->dictionaryItemResourceKeys());
 
-        $update = $this->patchJson('/api/admin/dictionary-items/'.$itemId, [
+        $update = $this->patchJson(ApiRouting::path('/admin/dictionary-items/').$itemId, [
             'name' => 'Enabled Updated',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -341,7 +342,7 @@ class AdminCoreApiContractTest extends TestCase
             'system.config.update',
         ]);
 
-        $create = $this->postJson('/api/admin/system-configs', [
+        $create = $this->postJson(ApiRouting::path('/admin/system-configs'), [
             'name' => 'Contract Config',
             'key' => 'contract.config',
             'value' => '{"enabled":true}',
@@ -361,12 +362,12 @@ class AdminCoreApiContractTest extends TestCase
         $configId = $create->json('data.system_config.id');
         $this->assertIsInt($configId);
 
-        $show = $this->getJson('/api/admin/system-configs/'.$configId, ['Authorization' => 'Bearer '.$token])
+        $show = $this->getJson(ApiRouting::path('/admin/system-configs/').$configId, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertWrappedResourceShape($show, 'system_config', $this->systemConfigResourceKeys());
 
-        $update = $this->patchJson('/api/admin/system-configs/'.$configId, [
+        $update = $this->patchJson(ApiRouting::path('/admin/system-configs/').$configId, [
             'name' => 'Contract Config Updated',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -383,7 +384,7 @@ class AdminCoreApiContractTest extends TestCase
         return [
             'menus catalog' => [
                 'permissionName' => 'system.menu.view',
-                'path' => '/api/admin/menus?page_size=1',
+                'path' => ApiRouting::path('/admin/menus?page_size=1'),
                 'seedResource' => static function (self $test): void {
                     $permission = $test->createAdminPermission('system.contract.menu.view');
 
@@ -396,7 +397,7 @@ class AdminCoreApiContractTest extends TestCase
             ],
             'permissions catalog' => [
                 'permissionName' => 'system.permission.view',
-                'path' => '/api/admin/permissions?page_size=1',
+                'path' => ApiRouting::path('/admin/permissions?page_size=1'),
                 'seedResource' => static function (self $test): void {
                     $test->createAdminPermission('dynamic.contract.catalog', [
                         'display_name' => 'Contract Catalog',
@@ -407,7 +408,7 @@ class AdminCoreApiContractTest extends TestCase
             ],
             'roles catalog' => [
                 'permissionName' => 'system.role.view',
-                'path' => '/api/admin/roles?page_size=1',
+                'path' => ApiRouting::path('/admin/roles?page_size=1'),
                 'seedResource' => static function (): void {
                     Role::findOrCreate('contract-catalog-role', 'admin');
                 },

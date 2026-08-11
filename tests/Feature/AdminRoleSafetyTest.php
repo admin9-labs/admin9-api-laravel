@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Support\ApiRouting;
 use App\Support\Audit\AdminActivityRecorder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -27,21 +28,21 @@ class AdminRoleSafetyTest extends TestCase
             'system.role.delete',
         ]);
 
-        $this->patchJson('/api/admin/roles/'.$role->id, [
+        $this->patchJson(ApiRouting::path('/admin/roles/').$role->id, [
             'name' => 'renamed-super-admin',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->putJson('/api/admin/roles/'.$role->id.'/permissions', [
+        $this->putJson(ApiRouting::path('/admin/roles/').$role->id.'/permissions', [
             'permissions' => [],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->deleteJson('/api/admin/roles/'.$role->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/roles/').$role->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
@@ -64,7 +65,7 @@ class AdminRoleSafetyTest extends TestCase
             'system.role.delete',
         ]);
 
-        $this->patchJson('/api/admin/roles/'.$role->id, [
+        $this->patchJson(ApiRouting::path('/admin/roles/').$role->id, [
             'name' => 'operator-renamed',
             'permissions' => [$permission->name],
         ], ['Authorization' => 'Bearer '.$token])
@@ -72,7 +73,7 @@ class AdminRoleSafetyTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.role.name', 'operator-renamed');
 
-        $this->putJson('/api/admin/roles/'.$role->id.'/permissions', [
+        $this->putJson(ApiRouting::path('/admin/roles/').$role->id.'/permissions', [
             'permissions' => [$replacementPermission->name],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -81,7 +82,7 @@ class AdminRoleSafetyTest extends TestCase
 
         $this->assertSame([$replacementPermission->name], $this->rolePermissionNames($role));
 
-        $this->deleteJson('/api/admin/roles/'.$role->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/roles/').$role->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -95,7 +96,7 @@ class AdminRoleSafetyTest extends TestCase
         Role::query()->where('name', 'system-admin')->where('guard_name', 'admin')->delete();
         $token = $this->managerTokenFor(['system.role.update']);
 
-        $this->patchJson('/api/admin/roles/'.$role->id, [
+        $this->patchJson(ApiRouting::path('/admin/roles/').$role->id, [
             'name' => 'system-admin',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -110,7 +111,7 @@ class AdminRoleSafetyTest extends TestCase
         $this->createPermission('system.role.create', ['is_system' => true]);
         $token = $this->managerTokenFor(['system.role.create']);
 
-        $this->postJson('/api/admin/roles', [
+        $this->postJson(ApiRouting::path('/admin/roles'), [
             'name' => 'system-admin',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -132,14 +133,14 @@ class AdminRoleSafetyTest extends TestCase
             'system.user.assign-role',
         ]);
 
-        $this->putJson('/api/admin/roles/'.$role->id.'/permissions', [
+        $this->putJson(ApiRouting::path('/admin/roles/').$role->id.'/permissions', [
             'permissions' => ['member.only.permission'],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->putJson('/api/admin/users/'.$target->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$target->id.'/roles', [
             'roles' => ['member-only-role'],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -154,14 +155,14 @@ class AdminRoleSafetyTest extends TestCase
         $currentSuperAdmin = $this->createSuperAdmin('existing-super-role-safety@example.com');
         $token = $this->managerTokenFor(['system.user.assign-role']);
 
-        $this->putJson('/api/admin/users/'.$target->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$target->id.'/roles', [
             'roles' => ['super-admin'],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
 
-        $this->putJson('/api/admin/users/'.$currentSuperAdmin->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$currentSuperAdmin->id.'/roles', [
             'roles' => [],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -179,7 +180,7 @@ class AdminRoleSafetyTest extends TestCase
         $actor = $this->createSuperAdmin('actor-super-grant@example.com');
         $token = $this->adminTokenFor($actor);
 
-        $this->putJson('/api/admin/users/'.$target->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$target->id.'/roles', [
             'roles' => ['super-admin'],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -194,7 +195,7 @@ class AdminRoleSafetyTest extends TestCase
         $superAdmin = $this->createSuperAdmin('last-super-role@example.com');
         $token = $this->adminTokenFor($superAdmin);
 
-        $this->putJson('/api/admin/users/'.$superAdmin->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$superAdmin->id.'/roles', [
             'roles' => [],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -212,7 +213,7 @@ class AdminRoleSafetyTest extends TestCase
         $inactiveSuperAdmin->update(['is_active' => false]);
         $token = $this->adminTokenFor($activeSuperAdmin);
 
-        $this->putJson('/api/admin/users/'.$inactiveSuperAdmin->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$inactiveSuperAdmin->id.'/roles', [
             'roles' => [],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -229,7 +230,7 @@ class AdminRoleSafetyTest extends TestCase
         $targetSuperAdmin = $this->createSuperAdmin('target-active-super-role@example.com');
         $token = $this->adminTokenFor($actingSuperAdmin);
 
-        $this->putJson('/api/admin/users/'.$targetSuperAdmin->id.'/roles', [
+        $this->putJson(ApiRouting::path('/admin/users/').$targetSuperAdmin->id.'/roles', [
             'roles' => [],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -247,7 +248,7 @@ class AdminRoleSafetyTest extends TestCase
         $this->bindFailingActivityRecorder();
 
         $this->assertAuditFailure(function () use ($permission, $token): void {
-            $this->postJson('/api/admin/roles', [
+            $this->postJson(ApiRouting::path('/admin/roles'), [
                 'name' => 'rollback-created-role',
                 'permissions' => [$permission->name],
             ], ['Authorization' => 'Bearer '.$token]);
@@ -270,7 +271,7 @@ class AdminRoleSafetyTest extends TestCase
         $this->bindFailingActivityRecorder();
 
         $this->assertAuditFailure(function () use ($newPermission, $role, $token): void {
-            $this->patchJson('/api/admin/roles/'.$role->id, [
+            $this->patchJson(ApiRouting::path('/admin/roles/').$role->id, [
                 'name' => 'rollback-updated-role-renamed',
                 'permissions' => [$newPermission->name],
             ], ['Authorization' => 'Bearer '.$token]);
@@ -291,7 +292,7 @@ class AdminRoleSafetyTest extends TestCase
         $this->bindFailingActivityRecorder();
 
         $this->assertAuditFailure(function () use ($newPermission, $role, $token): void {
-            $this->putJson('/api/admin/roles/'.$role->id.'/permissions', [
+            $this->putJson(ApiRouting::path('/admin/roles/').$role->id.'/permissions', [
                 'permissions' => [$newPermission->name],
             ], ['Authorization' => 'Bearer '.$token]);
         });
@@ -307,7 +308,7 @@ class AdminRoleSafetyTest extends TestCase
         $this->bindFailingActivityRecorder();
 
         $this->assertAuditFailure(function () use ($role, $token): void {
-            $this->deleteJson('/api/admin/roles/'.$role->id, [], ['Authorization' => 'Bearer '.$token]);
+            $this->deleteJson(ApiRouting::path('/admin/roles/').$role->id, [], ['Authorization' => 'Bearer '.$token]);
         });
 
         $this->assertDatabaseHas('roles', [
@@ -328,7 +329,7 @@ class AdminRoleSafetyTest extends TestCase
         $this->bindFailingActivityRecorder();
 
         $this->assertAuditFailure(function () use ($newRole, $target, $token): void {
-            $this->putJson('/api/admin/users/'.$target->id.'/roles', [
+            $this->putJson(ApiRouting::path('/admin/users/').$target->id.'/roles', [
                 'roles' => [$newRole->name],
             ], ['Authorization' => 'Bearer '.$token]);
         });

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Member;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\Request;
@@ -77,7 +78,7 @@ class RateLimitContractTest extends TestCase
         $this->assertNotNull($limiter);
 
         $request = Request::create(
-            '/api/admin/auth/login',
+            ApiRouting::path('/admin/auth/login'),
             'POST',
             server: ['REMOTE_ADDR' => '192.0.2.33'],
         );
@@ -175,7 +176,7 @@ class RateLimitContractTest extends TestCase
         $this->assertNotNull($limiter);
         $admin = User::factory()->create();
         $authenticatedRequest = Request::create(
-            '/api/admin/media',
+            ApiRouting::path('/admin/media'),
             'POST',
             server: ['REMOTE_ADDR' => '192.0.2.90'],
         );
@@ -190,7 +191,7 @@ class RateLimitContractTest extends TestCase
         $this->assertSame(60, $authenticatedLimit->decaySeconds);
 
         $guestRequest = Request::create(
-            '/api/admin/media',
+            ApiRouting::path('/admin/media'),
             'POST',
             server: ['REMOTE_ADDR' => '192.0.2.91'],
         );
@@ -202,7 +203,7 @@ class RateLimitContractTest extends TestCase
 
     private function postMemberLogin(string $ipAddress): TestResponse
     {
-        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->postJson('/api/auth/login', [
+        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'missing-member@example.com',
             'password' => 'wrong-password',
         ]);
@@ -210,7 +211,7 @@ class RateLimitContractTest extends TestCase
 
     private function postAdminLogin(string $ipAddress): TestResponse
     {
-        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->postJson('/api/admin/auth/login', [
+        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'missing-admin@example.com',
             'password' => 'wrong-password',
         ]);
@@ -218,14 +219,14 @@ class RateLimitContractTest extends TestCase
 
     private function getMemberProfile(string $token, string $ipAddress): TestResponse
     {
-        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->getJson('/api/auth/me', [
+        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->getJson(ApiRouting::path('/auth/me'), [
             'Authorization' => 'Bearer '.$token,
         ]);
     }
 
     private function postMemberRefresh(string $ipAddress): TestResponse
     {
-        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->postJson('/api/auth/refresh');
+        return $this->withServerVariables(['REMOTE_ADDR' => $ipAddress])->postJson(ApiRouting::path('/auth/refresh'));
     }
 
     private function memberToken(Member $member): string

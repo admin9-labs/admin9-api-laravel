@@ -4,6 +4,7 @@ namespace Tests\Feature\Concerns;
 
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -12,7 +13,7 @@ trait InteractsWithAdminRbac
 {
     protected function adminTokenFor(User $user): string
     {
-        $response = $this->postJson('/api/admin/auth/login', [
+        $response = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => $user->email,
             'password' => 'password',
         ])->assertOk();

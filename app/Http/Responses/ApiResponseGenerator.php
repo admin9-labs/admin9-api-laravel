@@ -3,6 +3,7 @@
 namespace App\Http\Responses;
 
 use App\Http\Resources\PaginationAwareResourceCollection;
+use App\Support\ApiRouting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Context;
 use Mitoop\Http\ResponseGenerator;
@@ -26,7 +27,7 @@ class ApiResponseGenerator extends ResponseGenerator
     {
         $payload = parent::mergeExtra($payload);
 
-        if (request()->is('api', 'api/*') && Context::has('request_id')) {
+        if (ApiRouting::matches(request()) && Context::has('request_id')) {
             $payload['request_id'] = Context::get('request_id');
         }
 
@@ -59,7 +60,7 @@ class ApiResponseGenerator extends ResponseGenerator
 
     private function statusFromPayload(array $payload): ?int
     {
-        if (! request()->is('api', 'api/*') || ($payload['success'] ?? null) !== false) {
+        if (! ApiRouting::matches(request()) || ($payload['success'] ?? null) !== false) {
             return null;
         }
 

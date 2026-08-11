@@ -16,6 +16,7 @@ use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -72,6 +73,10 @@ class AppServiceProvider extends ServiceProvider
         if (class_exists(Scramble::class)) {
             $openApiContract = app(AdminApiOpenApiContract::class);
             $apiErrorOpenApiContract = app(ApiErrorOpenApiContract::class);
+
+            Scramble::routes(
+                static fn (LaravelRoute $route): bool => in_array('api', $route->gatherMiddleware(), true),
+            );
 
             Scramble::configure()->withOperationTransformers(
                 static function (Operation $operation, RouteInfo $routeInfo) use ($openApiContract): void {

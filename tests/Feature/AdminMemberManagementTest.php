@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Actions\Admin\ManageMember;
 use App\Models\Member;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
@@ -31,7 +32,7 @@ class AdminMemberManagementTest extends TestCase
     {
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $created = $this->postJson('/api/admin/members', [
+        $created = $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Managed Member',
             'email' => ' managed@example.com ',
             'mobile' => '',
@@ -54,14 +55,14 @@ class AdminMemberManagementTest extends TestCase
         $this->assertStringNotContainsString('member-password', $createdActivity->properties->toJson());
         Member::factory()->inactive()->create(['name' => 'Other Member']);
 
-        $this->getJson('/api/admin/members?search=Managed&is_active=1&per_page=1', $headers)
+        $this->getJson(ApiRouting::path('/admin/members?search=Managed&is_active=1&per_page=1'), $headers)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $memberId)
             ->assertJsonPath('meta.page_size', 1)
             ->assertJsonPath('meta.total', 1);
 
-        $this->getJson('/api/admin/members/'.$memberId, $headers)
+        $this->getJson(ApiRouting::path('/admin/members/').$memberId, $headers)
             ->assertOk()
             ->assertJsonStructure(['data' => ['member' => [
                 'id', 'name', 'email', 'mobile', 'is_active', 'last_login_at', 'last_login_ip', 'created_at', 'updated_at',
@@ -70,7 +71,7 @@ class AdminMemberManagementTest extends TestCase
             ->assertJsonMissingPath('data.member.auth_version');
 
         $legacyMember = Member::factory()->create(['name' => null]);
-        $this->getJson('/api/admin/members/'.$legacyMember->id, $headers)
+        $this->getJson(ApiRouting::path('/admin/members/').$legacyMember->id, $headers)
             ->assertOk()
             ->assertJsonPath('data.member.name', '');
     }
@@ -81,17 +82,17 @@ class AdminMemberManagementTest extends TestCase
         $inactiveMember = Member::factory()->inactive()->create();
         $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.view']));
 
-        $this->getJson('/api/admin/members?is_active=true', $headers)
+        $this->getJson(ApiRouting::path('/admin/members?is_active=true'), $headers)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $activeMember->id);
 
-        $this->getJson('/api/admin/members?is_active=false', $headers)
+        $this->getJson(ApiRouting::path('/admin/members?is_active=false'), $headers)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $inactiveMember->id);
 
-        $this->getJson('/api/admin/members?is_active=yes', $headers)
+        $this->getJson(ApiRouting::path('/admin/members?is_active=yes'), $headers)
             ->assertUnprocessable()
             ->assertJsonValidationErrors('is_active');
     }
@@ -104,13 +105,13 @@ class AdminMemberManagementTest extends TestCase
         ]);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->postJson('/api/admin/members', [
+        $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Missing Identity',
             'password' => 'member-password',
             'password_confirmation' => 'member-password',
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors(['email', 'mobile']);
 
-        $this->postJson('/api/admin/members', [
+        $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Blank Identity',
             'email' => '   ',
             'mobile' => "\t",
@@ -118,23 +119,23 @@ class AdminMemberManagementTest extends TestCase
             'password_confirmation' => 'member-password',
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors(['email', 'mobile']);
 
-        $this->postJson('/api/admin/members', [
+        $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Duplicate Identity',
             'email' => $existing->email,
             'password' => 'member-password',
             'password_confirmation' => 'member-password',
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('email');
 
-        $this->putJson('/api/admin/members/'.$existing->id, [
+        $this->putJson(ApiRouting::path('/admin/members/').$existing->id, [
             'email' => '',
             'mobile' => '',
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors(['email', 'mobile']);
 
-        $this->putJson('/api/admin/members/'.$existing->id, [
+        $this->putJson(ApiRouting::path('/admin/members/').$existing->id, [
             'is_active' => false,
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('is_active');
 
-        $this->putJson('/api/admin/members/'.$existing->id, [
+        $this->putJson(ApiRouting::path('/admin/members/').$existing->id, [
             'name' => '',
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('name');
     }
@@ -155,7 +156,7 @@ class AdminMemberManagementTest extends TestCase
             'password_confirmation' => 'member-password',
         ];
 
-        $emailShapedMobile = $this->postJson('/api/admin/members', [
+        $emailShapedMobile = $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Email Shaped Mobile',
             'mobile' => 'mobile@example.com',
             ...$password,
@@ -165,31 +166,31 @@ class AdminMemberManagementTest extends TestCase
             ->assertHeader('X-Request-Id');
         $this->assertSame($emailShapedMobile->json('request_id'), $emailShapedMobile->headers->get('X-Request-Id'));
 
-        $this->postJson('/api/admin/members', [
+        $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Cross Column Email',
             'email' => $existing->mobile,
             ...$password,
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('email');
 
-        $this->postJson('/api/admin/members', [
+        $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Cross Column Mobile',
             'mobile' => $existing->email,
             ...$password,
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('mobile');
 
-        $this->putJson('/api/admin/members/'.$member->id, [
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id, [
             'mobile' => 'updated@example.com',
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('mobile');
 
-        $this->putJson('/api/admin/members/'.$member->id, [
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id, [
             'email' => $existing->mobile,
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('email');
 
-        $this->putJson('/api/admin/members/'.$member->id, [
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id, [
             'mobile' => $existing->email,
         ], $headers)->assertUnprocessable()->assertJsonValidationErrors('mobile');
 
-        $this->putJson('/api/admin/members/'.$member->id, [
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id, [
             'email' => $member->email,
             'mobile' => $member->mobile,
         ], $headers)->assertOk();
@@ -202,38 +203,38 @@ class AdminMemberManagementTest extends TestCase
         $adminHeaders = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
         $memberToken = $this->memberTokenFor($member, 'password');
-        $this->putJson('/api/admin/members/'.$member->id, ['name' => 'Name Only'], $adminHeaders)->assertOk();
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id, ['name' => 'Name Only'], $adminHeaders)->assertOk();
         $this->assertSame(1, $member->refresh()->auth_version);
-        $this->getJson('/api/auth/me', $this->authorizationHeader($memberToken))->assertOk();
+        $this->getJson(ApiRouting::path('/auth/me'), $this->authorizationHeader($memberToken))->assertOk();
 
-        $this->putJson('/api/admin/members/'.$member->id, ['email' => 'changed@example.com'], $adminHeaders)->assertOk();
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id, ['email' => 'changed@example.com'], $adminHeaders)->assertOk();
         $this->assertSame(2, $member->refresh()->auth_version);
         $this->assertOldMemberTokenIsInvalid($memberToken);
 
         $memberToken = $this->memberTokenFor($member, 'password');
-        $this->putJson('/api/admin/members/'.$member->id.'/status', ['is_active' => false], $adminHeaders)->assertOk();
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id.'/status', ['is_active' => false], $adminHeaders)->assertOk();
         $this->assertSame(3, $member->refresh()->auth_version);
         $this->assertOldMemberTokenIsInvalid($memberToken);
-        $this->postJson('/api/auth/login', ['account' => $member->email, 'password' => 'password'])->assertUnauthorized();
+        $this->postJson(ApiRouting::path('/auth/login'), ['account' => $member->email, 'password' => 'password'])->assertUnauthorized();
 
-        $this->putJson('/api/admin/members/'.$member->id.'/status', ['is_active' => true], $adminHeaders)->assertOk();
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id.'/status', ['is_active' => true], $adminHeaders)->assertOk();
         $this->assertSame(4, $member->refresh()->auth_version);
-        $this->putJson('/api/admin/members/'.$member->id.'/status', ['is_active' => true], $adminHeaders)->assertOk();
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id.'/status', ['is_active' => true], $adminHeaders)->assertOk();
         $this->assertSame(4, $member->refresh()->auth_version);
         $this->assertOldMemberTokenIsInvalid($memberToken);
 
         $memberToken = $this->memberTokenFor($member, 'password');
-        $this->putJson('/api/admin/members/'.$member->id.'/password', [
+        $this->putJson(ApiRouting::path('/admin/members/').$member->id.'/password', [
             'password' => 'replacement-password',
             'password_confirmation' => 'replacement-password',
         ], $adminHeaders)->assertOk();
         $this->assertSame(5, $member->refresh()->auth_version);
         $this->assertTrue(Hash::check('replacement-password', $member->password));
         $this->assertOldMemberTokenIsInvalid($memberToken);
-        $this->postJson('/api/auth/login', ['account' => $member->email, 'password' => 'password'])->assertUnauthorized();
+        $this->postJson(ApiRouting::path('/auth/login'), ['account' => $member->email, 'password' => 'password'])->assertUnauthorized();
 
         $memberToken = $this->memberTokenFor($member, 'replacement-password');
-        $this->post('/api/admin/members/'.$member->id.'/invalidate-sessions', [], $adminHeaders)->assertOk();
+        $this->post(ApiRouting::path('/admin/members/').$member->id.'/invalidate-sessions', [], $adminHeaders)->assertOk();
         $this->assertSame(6, $member->refresh()->auth_version);
         $this->assertOldMemberTokenIsInvalid($memberToken);
 
@@ -316,13 +317,13 @@ class AdminMemberManagementTest extends TestCase
         $user = User::factory()->create();
         $headers = $this->authorizationHeader($this->adminTokenFor($user));
         $cases = [
-            ['GET', '/api/admin/members', [], 'system.member.create'],
-            ['POST', '/api/admin/members', [], 'system.member.view'],
-            ['GET', '/api/admin/members/'.$member->id, [], 'system.member.create'],
-            ['PUT', '/api/admin/members/'.$member->id, [], 'system.member.status'],
-            ['PUT', '/api/admin/members/'.$member->id.'/status', [], 'system.member.update'],
-            ['PUT', '/api/admin/members/'.$member->id.'/password', [], 'system.member.status'],
-            ['POST', '/api/admin/members/'.$member->id.'/invalidate-sessions', [], 'system.member.reset_password'],
+            ['GET', ApiRouting::path('/admin/members'), [], 'system.member.create'],
+            ['POST', ApiRouting::path('/admin/members'), [], 'system.member.view'],
+            ['GET', ApiRouting::path('/admin/members/').$member->id, [], 'system.member.create'],
+            ['PUT', ApiRouting::path('/admin/members/').$member->id, [], 'system.member.status'],
+            ['PUT', ApiRouting::path('/admin/members/').$member->id.'/status', [], 'system.member.update'],
+            ['PUT', ApiRouting::path('/admin/members/').$member->id.'/password', [], 'system.member.status'],
+            ['POST', ApiRouting::path('/admin/members/').$member->id.'/invalidate-sessions', [], 'system.member.reset_password'],
         ];
 
         foreach ($cases as [$method, $uri, $payload, $wrongPermission]) {
@@ -339,9 +340,9 @@ class AdminMemberManagementTest extends TestCase
         $withoutBody = Member::factory()->create();
         $withQuery = Member::factory()->create();
 
-        $this->post('/api/admin/members/'.$withoutBody->id.'/invalidate-sessions', [], $headers)
+        $this->post(ApiRouting::path('/admin/members/').$withoutBody->id.'/invalidate-sessions', [], $headers)
             ->assertOk();
-        $this->post('/api/admin/members/'.$withQuery->id.'/invalidate-sessions?reason=audit', [], $headers)
+        $this->post(ApiRouting::path('/admin/members/').$withQuery->id.'/invalidate-sessions?reason=audit', [], $headers)
             ->assertOk();
 
         foreach (['{}', '[]'] as $body) {
@@ -352,7 +353,7 @@ class AdminMemberManagementTest extends TestCase
             ]));
             $response = $this->call(
                 'POST',
-                '/api/admin/members/'.$member->id.'/invalidate-sessions',
+                ApiRouting::path('/admin/members/').$member->id.'/invalidate-sessions',
                 server: $server,
                 content: $body,
             )->assertUnprocessable()->assertJsonValidationErrors('body')->assertHeader('X-Request-Id');
@@ -375,7 +376,7 @@ class AdminMemberManagementTest extends TestCase
         static $loginSequence = 1;
         $response = $this->withServerVariables([
             'REMOTE_ADDR' => '10.10.0.'.$loginSequence++,
-        ])->postJson('/api/auth/login', [
+        ])->postJson(ApiRouting::path('/auth/login'), [
             'account' => $member->email ?? $member->mobile,
             'password' => $password,
         ])->assertOk();
@@ -388,7 +389,7 @@ class AdminMemberManagementTest extends TestCase
     private function assertOldMemberTokenIsInvalid(string $token): void
     {
         $headers = $this->authorizationHeader($token);
-        $this->getJson('/api/auth/me', $headers)->assertUnauthorized();
-        $this->postJson('/api/auth/refresh', headers: $headers)->assertUnauthorized();
+        $this->getJson(ApiRouting::path('/auth/me'), $headers)->assertUnauthorized();
+        $this->postJson(ApiRouting::path('/auth/refresh'), headers: $headers)->assertUnauthorized();
     }
 }

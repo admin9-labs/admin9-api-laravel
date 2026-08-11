@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Menu;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
@@ -84,21 +85,21 @@ class AdminPermissionMiddlewareTest extends TestCase
     {
         $token = $this->adminTokenFor(User::factory()->create(['email' => 'auth-only@example.com']));
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $refreshToken = $this->postJson('/api/admin/auth/refresh', [], ['Authorization' => 'Bearer '.$token])
+        $refreshToken = $this->postJson(ApiRouting::path('/admin/auth/refresh'), [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->json('data.access_token');
         $this->assertIsString($refreshToken);
 
-        $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$refreshToken])
+        $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$refreshToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->postJson('/api/admin/auth/logout', [], ['Authorization' => 'Bearer '.$refreshToken])
+        $this->postJson(ApiRouting::path('/admin/auth/logout'), [], ['Authorization' => 'Bearer '.$refreshToken])
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -110,13 +111,13 @@ class AdminPermissionMiddlewareTest extends TestCase
         $allowed->givePermissionTo('system.role.view');
         $allowedToken = $this->adminTokenFor($allowed);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$allowedToken])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$allowedToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
         $deniedToken = $this->adminTokenFor(User::factory()->create(['email' => 'direct-denied@example.com']));
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$deniedToken])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$deniedToken])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403);
@@ -132,7 +133,7 @@ class AdminPermissionMiddlewareTest extends TestCase
         $user->assignRole($role);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -144,7 +145,7 @@ class AdminPermissionMiddlewareTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403);
@@ -155,7 +156,7 @@ class AdminPermissionMiddlewareTest extends TestCase
         $this->createAdminPermission('system.role.view');
         $token = $this->adminTokenFor($this->createSuperAdmin('super-permission-bypass@example.com'));
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -165,7 +166,7 @@ class AdminPermissionMiddlewareTest extends TestCase
         $child = Menu::factory()->create(['parent_id' => $root->id, 'code' => 'business.child']);
         $grandchild = Menu::factory()->create(['parent_id' => $child->id, 'code' => 'business.grandchild']);
 
-        $this->patchJson('/api/admin/menus/'.$root->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$root->id, [
             'parent_id' => $grandchild->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
@@ -182,7 +183,7 @@ class AdminPermissionMiddlewareTest extends TestCase
         $grandchild = Menu::factory()->create(['parent_id' => $child->id, 'code' => 'business.active.grandchild']);
         $token = $this->adminTokenFor($this->createSuperAdmin('business-super@example.com'));
 
-        $this->patchJson('/api/admin/menus/'.$root->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$root->id, [
             'parent_id' => $grandchild->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -210,7 +211,7 @@ class AdminPermissionMiddlewareTest extends TestCase
         ]);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403);

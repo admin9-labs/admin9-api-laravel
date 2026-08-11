@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Member;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -19,12 +20,12 @@ class GuardIsolationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $adminToken = $this->postJson('/api/admin/auth/login', [
+        $adminToken = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'admin@example.com',
             'password' => 'password',
         ])->json('data.access_token');
 
-        $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$adminToken])
+        $this->getJson(ApiRouting::path('/auth/me'), ['Authorization' => 'Bearer '.$adminToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -39,12 +40,12 @@ class GuardIsolationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $memberToken = $this->postJson('/api/auth/login', [
+        $memberToken = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'member@example.com',
             'password' => 'password',
         ])->json('data.access_token');
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$memberToken])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$memberToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -65,32 +66,32 @@ class GuardIsolationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $adminToken = $this->postJson('/api/admin/auth/login', [
+        $adminToken = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'same-id-admin@example.com',
             'password' => 'password',
         ])->json('data.access_token');
 
-        $memberToken = $this->postJson('/api/auth/login', [
+        $memberToken = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'same-id-member@example.com',
             'password' => 'password',
         ])->json('data.access_token');
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$adminToken])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$adminToken])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user.id', $user->id);
 
-        $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$memberToken])
+        $this->getJson(ApiRouting::path('/auth/me'), ['Authorization' => 'Bearer '.$memberToken])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.member.id', $member->id);
 
-        $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$adminToken])
+        $this->getJson(ApiRouting::path('/auth/me'), ['Authorization' => 'Bearer '.$adminToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'Unauthenticated');
 
-        $this->getJson('/api/admin/auth/me', ['Authorization' => 'Bearer '.$memberToken])
+        $this->getJson(ApiRouting::path('/admin/auth/me'), ['Authorization' => 'Bearer '.$memberToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('message', 'Unauthenticated');
@@ -100,12 +101,12 @@ class GuardIsolationTest extends TestCase
     {
         Permission::findOrCreate('system.role.view', 'member');
 
-        $adminToken = $this->postJson('/api/admin/auth/login', [
+        $adminToken = $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => User::factory()->create(['email' => 'guard-denied@example.com'])->email,
             'password' => 'password',
         ])->json('data.access_token');
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$adminToken])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$adminToken])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)

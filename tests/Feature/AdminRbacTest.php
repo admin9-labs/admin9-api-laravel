@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Member;
 use App\Models\Menu;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Database\Seeders\AdminRbacSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Routing\Route;
@@ -38,7 +39,7 @@ class AdminRbacTest extends TestCase
         $this->assertSame(1, User::query()->where('email', 'admin@admin9.dev')->count());
         $this->assertSame(1, Role::query()->where('name', 'super-admin')->where('guard_name', 'admin')->count());
 
-        $this->postJson('/api/admin/auth/login', [
+        $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'admin@admin9.dev',
             'password' => 'password',
         ])
@@ -91,7 +92,7 @@ class AdminRbacTest extends TestCase
         $this->assertTrue($admin->hasRole('super-admin'));
         $this->assertFalse(User::query()->where('email', 'admin@admin9.dev')->exists());
 
-        $this->postJson('/api/admin/auth/login', [
+        $this->postJson(ApiRouting::path('/admin/auth/login'), [
             'email' => 'root@example.com',
             'password' => 'explicit-secure-password',
         ])
@@ -133,7 +134,7 @@ class AdminRbacTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -148,7 +149,7 @@ class AdminRbacTest extends TestCase
         $user->assignRole($role);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -158,7 +159,7 @@ class AdminRbacTest extends TestCase
         $this->createAdminPermission('system.role.view');
         $token = $this->adminTokenFor(User::factory()->create(['email' => 'forbidden-rbac@example.com']));
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
@@ -172,7 +173,7 @@ class AdminRbacTest extends TestCase
         $user->assignRole(Role::findOrCreate('super-admin', 'admin'));
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
     }
@@ -183,7 +184,7 @@ class AdminRbacTest extends TestCase
         $this->createAdminPermission('system.role.view', [], 'member');
         $token = $this->adminTokenFor(User::factory()->create(['email' => 'wrong-guard@example.com']));
 
-        $this->getJson('/api/admin/roles', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)

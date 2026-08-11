@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\LoginLog;
 use App\Models\Member;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
@@ -19,7 +20,7 @@ class MemberAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $login = $this->postJson('/api/auth/login', [
+        $login = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'member@example.com',
             'password' => 'password',
         ])
@@ -36,14 +37,14 @@ class MemberAuthTest extends TestCase
         $this->assertIsString($token);
         $this->assertNotEmpty($token);
 
-        $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/auth/me'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.member.id', $member->id)
             ->assertJsonPath('data.member.email', 'member@example.com')
             ->assertHeader('X-Request-Id');
 
-        $refresh = $this->postJson('/api/auth/refresh', [], ['Authorization' => 'Bearer '.$token])
+        $refresh = $this->postJson(ApiRouting::path('/auth/refresh'), [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.member.id', $member->id)
@@ -53,13 +54,13 @@ class MemberAuthTest extends TestCase
         $this->assertIsString($refreshedToken);
         $this->assertNotSame($token, $refreshedToken);
 
-        $this->postJson('/api/auth/logout', [], ['Authorization' => 'Bearer '.$refreshedToken])
+        $this->postJson(ApiRouting::path('/auth/logout'), [], ['Authorization' => 'Bearer '.$refreshedToken])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'logged out')
             ->assertHeader('X-Request-Id');
 
-        $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$refreshedToken])
+        $this->getJson(ApiRouting::path('/auth/me'), ['Authorization' => 'Bearer '.$refreshedToken])
             ->assertStatus(401)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 401)
@@ -75,7 +76,7 @@ class MemberAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => '13900000000',
             'password' => 'password',
         ])
@@ -99,7 +100,7 @@ class MemberAuthTest extends TestCase
             'password' => 'email-password',
         ]);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'shared@example.com',
             'password' => 'email-password',
         ])
@@ -116,7 +117,7 @@ class MemberAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'member@example.com',
             'password' => 'wrong-password',
         ])
@@ -134,14 +135,14 @@ class MemberAuthTest extends TestCase
             'password' => 'password',
         ]);
 
-        $token = $this->postJson('/api/auth/login', [
+        $token = $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'member@example.com',
             'password' => 'password',
         ])->json('data.access_token');
 
         $member->forceFill(['is_active' => false])->save();
 
-        $this->getJson('/api/auth/me', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/auth/me'), ['Authorization' => 'Bearer '.$token])
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
@@ -149,7 +150,7 @@ class MemberAuthTest extends TestCase
             ->assertJsonPath('error_code', 'account_inactive')
             ->assertHeader('X-Request-Id');
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => 'member@example.com',
             'password' => 'password',
         ])

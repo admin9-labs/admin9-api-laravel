@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Menu;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
@@ -33,7 +34,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($rolePermission);
         $token = $this->adminTokenFor($user);
 
-        $response = $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertHeader('X-Request-Id');
@@ -66,7 +67,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($canonicalPermission);
         $token = $this->adminTokenFor($user);
 
-        $response = $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -102,7 +103,7 @@ class AdminMenuPermissionTest extends TestCase
                 $user->givePermissionTo($permissions);
             }
 
-            $response = $this->getJson('/api/admin/menus/tree', [
+            $response = $this->getJson(ApiRouting::path('/admin/menus/tree'), [
                 'Authorization' => 'Bearer '.$this->adminTokenFor($user),
             ])->assertOk();
             $codes = $this->menuCodes(collect($response->json('data')));
@@ -128,7 +129,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonFragment([
@@ -144,7 +145,7 @@ class AdminMenuPermissionTest extends TestCase
         $permission = $this->createAdminPermission('system.menu.synced');
         $token = $this->managerTokenFor(['system.menu.create']);
 
-        $response = $this->postJson('/api/admin/menus', [
+        $response = $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Synced Menu',
             'code' => 'synced.menu',
             'path' => '/synced/menu',
@@ -163,7 +164,7 @@ class AdminMenuPermissionTest extends TestCase
         $this->assertNotNull($menu);
         $this->assertSame([$permission->id], $menu->permissions()->pluck('permissions.id')->all());
 
-        $unrestricted = $this->postJson('/api/admin/menus', [
+        $unrestricted = $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Unrestricted Menu',
             'code' => 'unrestricted.menu',
             'type' => Menu::TYPE_PAGE,
@@ -185,7 +186,7 @@ class AdminMenuPermissionTest extends TestCase
         ], [$oldPermission]);
         $token = $this->managerTokenFor(['system.menu.update']);
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'name' => 'Permissions Preserved',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -193,7 +194,7 @@ class AdminMenuPermissionTest extends TestCase
 
         $this->assertSame([$oldPermission->id], $menu->refresh()->permissions()->pluck('permissions.id')->all());
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'permission_ids' => [$newPermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -203,7 +204,7 @@ class AdminMenuPermissionTest extends TestCase
 
         $this->assertSame([$newPermission->id], $menu->refresh()->permissions()->pluck('permissions.id')->all());
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'permission_ids' => [],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -222,7 +223,7 @@ class AdminMenuPermissionTest extends TestCase
         ], [$permission]);
         $token = $this->managerTokenFor(['system.menu.create', 'system.menu.update']);
 
-        $this->postJson('/api/admin/menus', [
+        $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Legacy Name Input',
             'code' => 'legacy-input.created',
             'type' => Menu::TYPE_PAGE,
@@ -233,7 +234,7 @@ class AdminMenuPermissionTest extends TestCase
 
         $this->assertDatabaseMissing('menus', ['code' => 'legacy-input.created']);
 
-        $this->postJson('/api/admin/menus', [
+        $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Legacy ID Input',
             'code' => 'legacy-id.created',
             'permission_id' => $permission->id,
@@ -241,7 +242,7 @@ class AdminMenuPermissionTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('success', false);
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'permission_name' => null,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -258,13 +259,13 @@ class AdminMenuPermissionTest extends TestCase
         ], [$permission]);
         $token = $this->managerTokenFor(['system.menu.view', 'system.permission.update']);
 
-        $this->patchJson('/api/admin/permissions/'.$permission->id, [
+        $this->patchJson(ApiRouting::path('/admin/permissions/').$permission->id, [
             'name' => 'system.menu.after-rename',
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->getJson('/api/admin/menus/'.$menu->id, ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/menus/').$menu->id, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('data.menu.permission_ids', [$permission->id])
             ->assertJsonPath('data.menu.permission_names', ['system.menu.after-rename'])
@@ -277,7 +278,7 @@ class AdminMenuPermissionTest extends TestCase
         $menu = Menu::factory()->create(['code' => 'admin-guard-only.menu']);
         $token = $this->managerTokenFor(['system.menu.create', 'system.menu.update']);
 
-        $this->postJson('/api/admin/menus', [
+        $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Member Guard Menu',
             'code' => 'member-guard.menu',
             'type' => Menu::TYPE_PAGE,
@@ -288,7 +289,7 @@ class AdminMenuPermissionTest extends TestCase
 
         $this->assertDatabaseMissing('menus', ['code' => 'member-guard.menu']);
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'permission_ids' => [$memberPermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -321,7 +322,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $response = $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -348,7 +349,7 @@ class AdminMenuPermissionTest extends TestCase
             ]);
         }
 
-        $response = $this->getJson('/api/admin/menus?page_size=2', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus?page_size=2'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -386,7 +387,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $response = $this->getJson('/api/admin/menus/tree?page_size=2', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus/tree?page_size=2'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -413,7 +414,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->assignRole(Role::findOrCreate('super-admin', 'admin'));
         $token = $this->adminTokenFor($user);
 
-        $response = $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -442,7 +443,7 @@ class AdminMenuPermissionTest extends TestCase
 
         DB::enableQueryLog();
 
-        $response = $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -466,12 +467,12 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $tree = $this->getJson('/api/admin/menus/tree', ['Authorization' => 'Bearer '.$token])
+        $tree = $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
         $this->assertNotContains($menu->code, $this->menuCodes(collect($tree->json('data'))));
 
-        $this->getJson('/api/admin/menus/'.$menu->id, ['Authorization' => 'Bearer '.$token])
+        $this->getJson(ApiRouting::path('/admin/menus/').$menu->id, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.menu.code', 'system.hidden-visible-by-api');
@@ -485,7 +486,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'parent_id' => $menu->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -508,7 +509,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->patchJson('/api/admin/menus/'.$root->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$root->id, [
             'parent_id' => $grandchild->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -532,7 +533,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->patchJson('/api/admin/menus/'.$menu->id, [
+        $this->patchJson(ApiRouting::path('/admin/menus/').$menu->id, [
             'parent_id' => $newParent->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -554,7 +555,7 @@ class AdminMenuPermissionTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $this->deleteJson('/api/admin/menus/'.$parent->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/menus/').$parent->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
@@ -563,7 +564,7 @@ class AdminMenuPermissionTest extends TestCase
         $this->assertModelExists($child);
         $this->assertSame($parent->id, $child->refresh()->parent_id);
 
-        $this->deleteJson('/api/admin/menus/'.$leaf->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/menus/').$leaf->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 

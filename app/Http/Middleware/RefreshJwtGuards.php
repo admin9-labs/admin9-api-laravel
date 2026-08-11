@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\ApiRouting;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +17,7 @@ class RefreshJwtGuards
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->is('api', 'api/*')) {
+        if (! ApiRouting::matches($request)) {
             return $next($request);
         }
 

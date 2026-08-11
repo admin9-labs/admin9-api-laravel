@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Member;
+use App\Support\ApiRouting;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\MemberSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -31,7 +32,7 @@ class MemberSeederTest extends TestCase
         $this->assertTrue($member->is_active);
         $this->assertTrue(Hash::check(self::DEFAULT_MEMBER_PASSWORD, $member->password));
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson(ApiRouting::path('/auth/login'), [
             'account' => self::DEFAULT_MEMBER_EMAIL,
             'password' => self::DEFAULT_MEMBER_PASSWORD,
         ])

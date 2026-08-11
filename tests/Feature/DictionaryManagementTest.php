@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DictionaryItem;
 use App\Models\DictionaryType;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
@@ -23,7 +24,7 @@ class DictionaryManagementTest extends TestCase
         $user->givePermissionTo(['system.dictionary.view', 'system.dictionary.create', 'system.dictionary.update', 'system.dictionary.delete']);
         $token = $this->adminTokenFor($user);
 
-        $createType = $this->postJson('/api/admin/dictionary-types', [
+        $createType = $this->postJson(ApiRouting::path('/admin/dictionary-types'), [
             'name' => '状态字典',
             'code' => 'status',
             'description' => '通用状态',
@@ -38,7 +39,7 @@ class DictionaryManagementTest extends TestCase
         $typeId = $createType->json('data.dictionary_type.id');
         $this->assertIsInt($typeId);
 
-        $this->postJson('/api/admin/dictionary-types', [
+        $this->postJson(ApiRouting::path('/admin/dictionary-types'), [
             'name' => '重复字典',
             'code' => 'status',
         ], ['Authorization' => 'Bearer '.$token])
@@ -47,7 +48,7 @@ class DictionaryManagementTest extends TestCase
             ->assertJsonPath('code', 422)
             ->assertHeader('X-Request-Id');
 
-        $enabled = $this->postJson('/api/admin/dictionary-items', [
+        $enabled = $this->postJson(ApiRouting::path('/admin/dictionary-items'), [
             'dictionary_type_id' => $typeId,
             'name' => '启用',
             'code' => 'enabled',
@@ -63,7 +64,7 @@ class DictionaryManagementTest extends TestCase
         $itemId = $enabled->json('data.dictionary_item.id');
         $this->assertIsInt($itemId);
 
-        $this->postJson('/api/admin/dictionary-items', [
+        $this->postJson(ApiRouting::path('/admin/dictionary-items'), [
             'dictionary_type_id' => $typeId,
             'name' => '重复启用',
             'code' => 'enabled',
@@ -80,7 +81,7 @@ class DictionaryManagementTest extends TestCase
             'value' => '1',
         ]);
 
-        $this->getJson('/api/admin/dictionary-items?'.http_build_query([
+        $this->getJson(ApiRouting::path('/admin/dictionary-items?').http_build_query([
             'type_code' => 'status',
             'keyword' => '启用',
             'sorts' => '-sort',
@@ -94,7 +95,7 @@ class DictionaryManagementTest extends TestCase
             ->assertJsonFragment(['code' => 'enabled'])
             ->assertJsonMissing(['code' => 'audit_status']);
 
-        $this->patchJson('/api/admin/dictionary-items/'.$itemId, [
+        $this->patchJson(ApiRouting::path('/admin/dictionary-items/').$itemId, [
             'name' => '已启用',
             'is_active' => false,
         ], ['Authorization' => 'Bearer '.$token])
@@ -113,12 +114,12 @@ class DictionaryManagementTest extends TestCase
         $this->assertSame('admin.dictionary-items.update', $activity->properties->get('route'));
         $this->assertNotEmpty($activity->properties->get('request_id'));
 
-        $this->deleteJson('/api/admin/dictionary-items/'.$itemId, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/dictionary-items/').$itemId, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'deleted');
 
-        $this->deleteJson('/api/admin/dictionary-types/'.$typeId, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/dictionary-types/').$typeId, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -144,7 +145,7 @@ class DictionaryManagementTest extends TestCase
             'code' => 'enabled',
         ]);
 
-        $this->patchJson('/api/admin/dictionary-items/'.$movingItem->id, [
+        $this->patchJson(ApiRouting::path('/admin/dictionary-items/').$movingItem->id, [
             'dictionary_type_id' => $targetType->id,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
@@ -165,7 +166,7 @@ class DictionaryManagementTest extends TestCase
         $type = DictionaryType::factory()->create(['code' => 'guarded_type']);
         $item = DictionaryItem::factory()->create(['dictionary_type_id' => $type->id]);
 
-        $this->deleteJson('/api/admin/dictionary-types/'.$type->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/dictionary-types/').$type->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 422);
@@ -175,7 +176,7 @@ class DictionaryManagementTest extends TestCase
 
         $emptyType = DictionaryType::factory()->create(['code' => 'empty_guarded_type']);
 
-        $this->deleteJson('/api/admin/dictionary-types/'.$emptyType->id, [], ['Authorization' => 'Bearer '.$token])
+        $this->deleteJson(ApiRouting::path('/admin/dictionary-types/').$emptyType->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
 
@@ -216,7 +217,7 @@ class DictionaryManagementTest extends TestCase
             'description' => 'ordinary value marker',
         ]);
 
-        $this->getJson('/api/admin/dictionary-types?'.http_build_query([
+        $this->getJson(ApiRouting::path('/admin/dictionary-types?').http_build_query([
             'keyword' => 'description marker',
         ], arg_separator: '&', encoding_type: PHP_QUERY_RFC3986), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -224,7 +225,7 @@ class DictionaryManagementTest extends TestCase
             ->assertJsonFragment(['code' => 'status_filter'])
             ->assertJsonMissing(['code' => 'ordinary_status']);
 
-        $this->getJson('/api/admin/dictionary-items?'.http_build_query([
+        $this->getJson(ApiRouting::path('/admin/dictionary-items?').http_build_query([
             'keyword' => 'item-value-marker',
         ], arg_separator: '&', encoding_type: PHP_QUERY_RFC3986), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -242,11 +243,11 @@ class DictionaryManagementTest extends TestCase
         $viewer->givePermissionTo('system.dictionary.view');
         $viewerToken = $this->adminTokenFor($viewer);
 
-        $this->getJson('/api/admin/dictionary-types', ['Authorization' => 'Bearer '.$viewerToken])
+        $this->getJson(ApiRouting::path('/admin/dictionary-types'), ['Authorization' => 'Bearer '.$viewerToken])
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $this->postJson('/api/admin/dictionary-types', [
+        $this->postJson(ApiRouting::path('/admin/dictionary-types'), [
             'name' => '无权字典',
             'code' => 'denied',
         ], ['Authorization' => 'Bearer '.$viewerToken])

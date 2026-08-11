@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\ApiRouting;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Context;
@@ -12,7 +13,7 @@ class AddContext
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->is('api', 'api/*')) {
+        if (! ApiRouting::matches($request)) {
             return $next($request);
         }
 

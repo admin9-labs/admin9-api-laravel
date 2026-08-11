@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Actions\Admin\StoreMedia;
 use App\Models\Media;
 use App\Models\User;
+use App\Support\ApiRouting;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
@@ -45,7 +46,7 @@ class AdminMediaManagementTest extends TestCase
         Storage::fake('public');
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $response = $this->post('/api/admin/media', [
+        $response = $this->post(ApiRouting::path('/admin/media'), [
             'file' => UploadedFile::fake()->image($filename, 32, 24),
         ], array_merge($headers, ['Accept' => 'application/json']))
             ->assertOk()
@@ -74,14 +75,14 @@ class AdminMediaManagementTest extends TestCase
         Media::factory()->create(['name' => 'last.jpg']);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->getJson('/api/admin/media?search=needle&per_page=1', $headers)
+        $this->getJson(ApiRouting::path('/admin/media?search=needle&per_page=1'), $headers)
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $matching->id)
             ->assertJsonPath('meta.page_size', 1)
             ->assertJsonPath('meta.total', 1);
 
-        $this->getJson('/api/admin/media?per_page=2', $headers)
+        $this->getJson(ApiRouting::path('/admin/media?per_page=2'), $headers)
             ->assertOk()
             ->assertJsonPath('data.0.name', 'last.jpg')
             ->assertJsonPath('data.1.name', 'needle.png');
@@ -110,7 +111,7 @@ class AdminMediaManagementTest extends TestCase
                 new UploadedFile($svgPath, 'vector.svg', 'image/svg+xml', null, true),
                 UploadedFile::fake()->image('large.png')->size(5121),
             ] as $file) {
-                $response = $this->post('/api/admin/media', ['file' => $file], $headers);
+                $response = $this->post(ApiRouting::path('/admin/media'), ['file' => $file], $headers);
                 $this->assertSame(422, $response->status(), $file->getClientOriginalName());
                 $response->assertJsonValidationErrors('file');
             }
@@ -140,7 +141,7 @@ class AdminMediaManagementTest extends TestCase
         });
 
         try {
-            $this->post('/api/admin/media', [
+            $this->post(ApiRouting::path('/admin/media'), [
                 'file' => UploadedFile::fake()->image('compensate.jpg'),
             ], $headers)->assertInternalServerError();
         } finally {
@@ -224,12 +225,12 @@ class AdminMediaManagementTest extends TestCase
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
         $this->bindMissingFileFilesystem($media);
 
-        $this->getJson('/api/admin/media', $headers)
+        $this->getJson(ApiRouting::path('/admin/media'), $headers)
             ->assertOk()
             ->assertJsonPath('data.0.id', $media->id)
             ->assertJsonPath('data.0.status', Media::STATUS_FAILED)
             ->assertJsonPath('data.0.url', null);
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
         $this->assertModelMissing($media);
     }
 
@@ -259,7 +260,7 @@ class AdminMediaManagementTest extends TestCase
         Storage::disk('public')->assertExists($media->path);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
         Storage::disk('public')->assertMissing($media->path);
         $this->assertModelMissing($media);
     }
@@ -297,17 +298,17 @@ class AdminMediaManagementTest extends TestCase
     {
         Storage::fake('public');
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
-        $stored = $this->post('/api/admin/media', [
+        $stored = $this->post(ApiRouting::path('/admin/media'), [
             'file' => UploadedFile::fake()->image('delete.jpg'),
         ], array_merge($headers, ['Accept' => 'application/json']))->assertOk();
         $media = Media::query()->findOrFail($stored->json('data.media.id'));
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
         Storage::disk('public')->assertMissing($media->path);
         $this->assertModelMissing($media);
 
         $missing = Media::factory()->create(['disk' => 'public']);
-        $this->deleteJson('/api/admin/media/'.$missing->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$missing->id, [], $headers)->assertOk();
         $this->assertModelMissing($missing);
 
         $events = Activity::query()->whereIn('event', ['media_uploaded', 'media_deleted'])->pluck('event');
@@ -326,7 +327,7 @@ class AdminMediaManagementTest extends TestCase
         $this->bindFailingFilesystem($media, returnsFalse: true);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $response = $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertModelExists($media);
         $this->assertNull($media->refresh()->deletion_token);
@@ -338,7 +339,7 @@ class AdminMediaManagementTest extends TestCase
         $this->bindFailingFilesystem($media, returnsFalse: false);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $response = $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertModelExists($media);
         $this->assertNull($media->refresh()->deletion_token);
@@ -349,7 +350,7 @@ class AdminMediaManagementTest extends TestCase
         $media = Media::factory()->create(['disk' => 'missing-media-disk']);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $response = $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertNull($media->refresh()->deletion_token);
     }
@@ -369,11 +370,11 @@ class AdminMediaManagementTest extends TestCase
 
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->getJson('/api/admin/media', $headers)
+        $this->getJson(ApiRouting::path('/admin/media'), $headers)
             ->assertOk()
             ->assertJsonPath('data.0.url', null);
 
-        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $response = $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertModelExists($media);
         $this->assertNull($media->refresh()->deletion_token);
@@ -403,7 +404,7 @@ class AdminMediaManagementTest extends TestCase
         $this->travel(Media::PENDING_UPLOAD_LEASE_MINUTES + 1)->minutes();
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
 
         Storage::disk('public')->assertMissing($media->path);
         $this->assertModelMissing($media);
@@ -419,7 +420,7 @@ class AdminMediaManagementTest extends TestCase
         $this->travel(Media::PENDING_UPLOAD_LEASE_MINUTES)->minutes();
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
 
         $this->assertModelMissing($media);
     }
@@ -438,7 +439,7 @@ class AdminMediaManagementTest extends TestCase
         ])->save();
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
 
         Storage::disk('public')->assertMissing($media->path);
         $this->assertModelMissing($media);
@@ -456,7 +457,7 @@ class AdminMediaManagementTest extends TestCase
         Storage::disk('public')->put($media->path, 'image bytes');
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $response = $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertSame($activeOwnerToken, $media->refresh()->deletion_token);
         Storage::disk('public')->assertExists($media->path);
@@ -473,7 +474,7 @@ class AdminMediaManagementTest extends TestCase
         Storage::disk('public')->put($media->path, 'image bytes');
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
         Storage::disk('public')->assertMissing($media->path);
         $this->assertModelMissing($media);
     }
@@ -489,7 +490,7 @@ class AdminMediaManagementTest extends TestCase
         $this->app->instance(FilesystemFactory::class, $factory);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
         $this->assertModelMissing($media);
     }
 
@@ -500,7 +501,7 @@ class AdminMediaManagementTest extends TestCase
         $this->bindInterleavedFilesystem($media, $newOwnerToken, throws: true);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $response = $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertSame($newOwnerToken, $media->refresh()->deletion_token);
     }
@@ -512,7 +513,7 @@ class AdminMediaManagementTest extends TestCase
         $this->bindInterleavedFilesystem($media, $newOwnerToken, throws: false);
         $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
 
-        $response = $this->deleteJson('/api/admin/media/'.$media->id, [], $headers);
+        $response = $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers);
         $this->assertMediaDeleteFailure($response->getContent(), $response->status(), $response->headers->get('X-Request-Id'));
         $this->assertModelExists($media);
         $this->assertSame($newOwnerToken, $media->refresh()->deletion_token);
@@ -529,18 +530,18 @@ class AdminMediaManagementTest extends TestCase
         });
 
         try {
-            $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertInternalServerError();
+            $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertInternalServerError();
         } finally {
             Event::forget('eloquent.deleting: '.Media::class);
         }
 
         Storage::disk('public')->assertMissing($media->path);
         $this->assertNotNull($media->refresh()->deletion_token);
-        $this->getJson('/api/admin/media', $headers)
+        $this->getJson(ApiRouting::path('/admin/media'), $headers)
             ->assertOk()
             ->assertJsonMissing(['id' => $media->id]);
 
-        $this->deleteJson('/api/admin/media/'.$media->id, [], $headers)->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/media/').$media->id, [], $headers)->assertOk();
         $this->assertModelMissing($media);
     }
 
@@ -550,9 +551,9 @@ class AdminMediaManagementTest extends TestCase
         $user = User::factory()->create();
         $headers = $this->authorizationHeader($this->adminTokenFor($user));
         $cases = [
-            ['GET', '/api/admin/media', [], 'system.media.create'],
-            ['POST', '/api/admin/media', [], 'system.media.view'],
-            ['DELETE', '/api/admin/media/'.$media->id, [], 'system.media.create'],
+            ['GET', ApiRouting::path('/admin/media'), [], 'system.media.create'],
+            ['POST', ApiRouting::path('/admin/media'), [], 'system.media.view'],
+            ['DELETE', ApiRouting::path('/admin/media/').$media->id, [], 'system.media.create'],
         ];
 
         foreach ($cases as [$method, $uri, $payload, $wrongPermission]) {
@@ -566,13 +567,13 @@ class AdminMediaManagementTest extends TestCase
         $headers = $this->authorizationHeader($this->managerTokenFor(['system.media.create']));
 
         for ($attempt = 1; $attempt <= 10; $attempt++) {
-            $this->postJson('/api/admin/media', [], $headers)
+            $this->postJson(ApiRouting::path('/admin/media'), [], $headers)
                 ->assertUnprocessable()
                 ->assertHeader('X-RateLimit-Limit', '10')
                 ->assertHeader('X-RateLimit-Remaining', (string) (10 - $attempt));
         }
 
-        $response = $this->postJson('/api/admin/media', [], $headers)
+        $response = $this->postJson(ApiRouting::path('/admin/media'), [], $headers)
             ->assertTooManyRequests()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 429)
