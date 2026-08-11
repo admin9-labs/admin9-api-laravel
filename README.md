@@ -19,9 +19,7 @@ composer dev
 php artisan db:seed
 ```
 
-The local-only administrator credentials are `admin@admin9.dev` / `password`. The local-only member credentials are `member@admin9.dev` / `Member-password-123`. Re-running the seeder preserves existing records for both identities. These sample identities are deliberately never created in staging, production, or any other non-local environment.
-
-For non-local environments, inject a unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD` through the hosting platform's secret manager before running `php artisan db:seed --force`. Member accounts must be created through the application workflow rather than by the sample seeder.
+The local-only administrator credentials are `admin@admin9.dev` / `password`. The local-only member credentials are `member@admin9.dev` / `Member-password-123`. Re-running the seeder preserves existing records for both identities. These sample identities are deliberately never created in staging, production, or any other non-local environment. Member accounts in non-local environments must be created through the application workflow.
 
 ## Test and formatting
 
@@ -53,8 +51,10 @@ This checklist is intentionally command/process oriented and does not contain se
    - Inject `APP_KEY`, database credentials, and other environment-specific values through the hosting platform or encrypted environment workflow.
    - Inject `JWT_SECRET` through the hosting platform or encrypted environment workflow before running API traffic.
    - Generate a JWT secret with `php artisan jwt:secret` when preparing a new environment.
-3. **Migrate database**
+3. **Initialize the database and administrator**
    - Run `php artisan migrate --force` during deployment.
+   - Run `php artisan db:seed --force` after migrations to create the required roles, permissions, and menus. This does not create an administrator outside local or testing environments.
+   - On the first production deployment, run `php artisan admin:create` from a trusted interactive terminal after seeding. It creates the first super administrator and displays the generated temporary password once.
    - When `MEDIA_DISK=public`, run `php artisan storage:link --force`; remote disks provide their own URL and do not use this link.
    - Treat deployed migrations as immutable; add forward migrations for schema changes.
 4. **Cache framework metadata**

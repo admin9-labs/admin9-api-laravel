@@ -5,11 +5,8 @@ namespace Database\Seeders;
 use App\Models\Menu;
 use App\Models\Permission;
 use App\Models\User;
-use App\Support\Security\PasswordPolicy;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use LogicException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -43,7 +40,9 @@ class AdminRbacSeeder extends Seeder
         $systemAdmin = Role::findOrCreate('system-admin', self::ADMIN_GUARD);
         $systemAdmin->syncPermissions($permissions->values());
 
-        $this->seedSuperAdmin($superAdmin);
+        if (app()->environment(['local', 'testing'])) {
+            $this->seedSuperAdmin($superAdmin);
+        }
         $this->seedMenus($permissions);
         $this->call(AdminAuditLogMenuSeeder::class);
 
@@ -73,66 +72,14 @@ class AdminRbacSeeder extends Seeder
 
     private function seedSuperAdmin(Role $superAdmin): void
     {
-        $bootstrapAdmin = $this->bootstrapAdmin();
-
-        if ($bootstrapAdmin === null) {
-            return;
-        }
-
         $admin = User::query()->firstOrCreate(
-            ['email' => $bootstrapAdmin['email']],
-            ['name' => $bootstrapAdmin['name'], 'password' => $bootstrapAdmin['password'], 'is_active' => true]
+            ['email' => self::DEFAULT_BOOTSTRAP_EMAIL],
+            ['name' => self::DEFAULT_BOOTSTRAP_NAME, 'password' => self::DEFAULT_BOOTSTRAP_PASSWORD, 'is_active' => true]
         );
 
         if ($admin->wasRecentlyCreated) {
             $admin->assignRole($superAdmin);
         }
-    }
-
-    /**
-     * @return array{name: string, email: string, password: string}|null
-     */
-    private function bootstrapAdmin(): ?array
-    {
-        $name = $this->filledBootstrapConfig('name') ?? self::DEFAULT_BOOTSTRAP_NAME;
-        $email = $this->filledBootstrapConfig('email');
-        $password = $this->filledBootstrapConfig('password');
-
-        if (! app()->environment(['local', 'testing'])) {
-            if ($email === null
-                || $password === null
-                || $password === self::DEFAULT_BOOTSTRAP_PASSWORD
-                || Validator::make(['password' => $password], ['password' => PasswordPolicy::rules()])->fails()) {
-                Log::warning('Skipping non-local bootstrap admin creation because explicit credentials meeting the admin password policy are required.');
-
-                return null;
-            }
-
-            return [
-                'name' => $name,
-                'email' => $email,
-                'password' => $password,
-            ];
-        }
-
-        return [
-            'name' => $name,
-            'email' => $email ?? self::DEFAULT_BOOTSTRAP_EMAIL,
-            'password' => $password ?? self::DEFAULT_BOOTSTRAP_PASSWORD,
-        ];
-    }
-
-    private function filledBootstrapConfig(string $key): ?string
-    {
-        $value = config(sprintf('admin.bootstrap.%s', $key));
-
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
     }
 
     /**

@@ -24,11 +24,6 @@ class AdminRbacTest extends TestCase
 
     public function test_admin_rbac_seeder_bootstraps_super_admin_idempotently(): void
     {
-        config([
-            'admin.bootstrap.email' => null,
-            'admin.bootstrap.password' => null,
-        ]);
-
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
@@ -62,10 +57,6 @@ class AdminRbacTest extends TestCase
     public function test_admin_rbac_seeder_does_not_create_default_bootstrap_admin_outside_local_or_testing(): void
     {
         $this->app->detectEnvironment(fn (): string => 'staging');
-        config([
-            'admin.bootstrap.email' => null,
-            'admin.bootstrap.password' => null,
-        ]);
 
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class, '--force' => true]);
 
@@ -74,57 +65,15 @@ class AdminRbacTest extends TestCase
         $this->assertGreaterThan(0, Permission::query()->where('guard_name', 'admin')->where('is_system', true)->count());
     }
 
-    public function test_admin_rbac_seeder_creates_explicit_bootstrap_admin_in_production(): void
+    public function test_admin_rbac_seeder_does_not_create_an_admin_in_production(): void
     {
         $this->app->detectEnvironment(fn (): string => 'production');
-        config([
-            'admin.bootstrap.name' => 'Production Root',
-            'admin.bootstrap.email' => 'root@example.com',
-            'admin.bootstrap.password' => 'explicit-secure-password',
-        ]);
 
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class, '--force' => true]);
 
-        $admin = User::query()->where('email', 'root@example.com')->firstOrFail();
-
-        $this->assertSame('Production Root', $admin->name);
-        $this->assertTrue($admin->is_active);
-        $this->assertTrue($admin->hasRole('super-admin'));
-        $this->assertFalse(User::query()->where('email', 'admin@admin9.dev')->exists());
-
-        $this->postJson(ApiRouting::path('/admin/auth/login'), [
-            'email' => 'root@example.com',
-            'password' => 'explicit-secure-password',
-        ])
-            ->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.user.email', 'root@example.com');
-    }
-
-    public function test_admin_rbac_seeder_rejects_the_default_password_outside_local_or_testing(): void
-    {
-        $this->app->detectEnvironment(fn (): string => 'staging');
-        config([
-            'admin.bootstrap.email' => 'root@example.com',
-            'admin.bootstrap.password' => 'password',
-        ]);
-
-        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class, '--force' => true]);
-
-        $this->assertFalse(User::query()->where('email', 'root@example.com')->exists());
-    }
-
-    public function test_admin_rbac_seeder_rejects_a_non_default_too_short_password_in_production(): void
-    {
-        $this->app->detectEnvironment(fn (): string => 'production');
-        config([
-            'admin.bootstrap.email' => 'root@example.com',
-            'admin.bootstrap.password' => 'short7',
-        ]);
-
-        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class, '--force' => true]);
-
-        $this->assertFalse(User::query()->where('email', 'root@example.com')->exists());
+        $this->assertSame(0, User::query()->count());
+        $this->assertSame(1, Role::query()->where('name', 'super-admin')->where('guard_name', 'admin')->count());
+        $this->assertGreaterThan(0, Permission::query()->where('guard_name', 'admin')->where('is_system', true)->count());
     }
 
     public function test_direct_user_permission_grants_access_to_declared_permission_route(): void
@@ -374,22 +323,6 @@ class AdminRbacTest extends TestCase
             'name' => 'dynamic.preserved',
             'guard_name' => 'admin',
         ]);
-    }
-
-    public function test_seeder_creates_missing_bootstrap_admin_once_and_assigns_super_admin(): void
-    {
-        config([
-            'admin.bootstrap.email' => null,
-            'admin.bootstrap.password' => null,
-        ]);
-
-        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
-        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
-
-        $admin = User::query()->where('email', 'admin@admin9.dev')->firstOrFail();
-
-        $this->assertSame(1, User::query()->where('email', 'admin@admin9.dev')->count());
-        $this->assertTrue($admin->hasRole('super-admin'));
     }
 
     /**

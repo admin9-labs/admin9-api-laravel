@@ -47,7 +47,10 @@ class OperationsConfigurationTest extends TestCase
 
         $this->assertSame('Admin9 API', $environmentDefaults['APP_NAME']);
         $this->assertSame('http://localhost:8000', $environmentDefaults['APP_URL']);
-        $this->assertSame('admin@admin9.dev', $environmentDefaults['ADMIN_BOOTSTRAP_EMAIL']);
+        $this->assertArrayNotHasKey('ADMIN_BOOTSTRAP_NAME', $environmentDefaults);
+        $this->assertArrayNotHasKey('ADMIN_BOOTSTRAP_EMAIL', $environmentDefaults);
+        $this->assertArrayNotHasKey('ADMIN_BOOTSTRAP_PASSWORD', $environmentDefaults);
+        $this->assertFileDoesNotExist(config_path('admin.php'));
         $this->assertSame('hello@admin9.dev', $environmentDefaults['MAIL_FROM_ADDRESS']);
         $this->assertSame('${APP_NAME}', $environmentDefaults['MAIL_FROM_NAME']);
         $this->assertStringContainsString('`admin@admin9.dev` / `password`', file_get_contents(base_path('README.md')));
@@ -265,8 +268,9 @@ class OperationsConfigurationTest extends TestCase
             'php artisan schedule:run',
             'GET /up',
             'logging.operations',
-            'ADMIN_BOOTSTRAP_PASSWORD',
             'php artisan db:seed --force',
+            'php artisan admin:create',
+            'trusted interactive terminal',
             'APP_ENV=production',
             'APP_DEBUG=false',
         ] as $expected) {
@@ -276,6 +280,15 @@ class OperationsConfigurationTest extends TestCase
         foreach (['APP_KEY=', 'JWT_SECRET=', 'DB_PASSWORD='] as $secretShape) {
             $this->assertStringNotContainsString($secretShape, $readme);
         }
+
+        $this->assertLessThan(
+            strpos($readme, 'php artisan db:seed --force'),
+            strpos($readme, 'php artisan migrate --force'),
+        );
+        $this->assertLessThan(
+            strpos($readme, 'php artisan admin:create'),
+            strpos($readme, 'php artisan db:seed --force'),
+        );
     }
 
     private function runFailureCallbacks(object $event): void
