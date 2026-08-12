@@ -4,8 +4,6 @@ namespace App\Support;
 
 use App\Exceptions\FileDeleteFailedException;
 use App\Exceptions\ManagedSystemSettingException;
-use App\Exceptions\MediaDeleteFailedException;
-use App\Exceptions\MediaInUseBySystemSettingsException;
 use App\Support\Auth\AccountInactiveException;
 use App\Support\OpenApi\EmptyObjectType;
 use Dedoc\Scramble\Support\Generator\Header;
@@ -46,11 +44,6 @@ final class ApiErrorOpenApiContract
     {
         $responseReferences = $this->registerResponses($document);
         $fileDeleteFailedReference = $this->registerFileDeleteFailedResponse($document);
-        $mediaInUseReference = $this->registerConflictResponse(
-            $document,
-            'ApiMediaInUseBySystemSettingsResponse',
-            MediaInUseBySystemSettingsException::ERROR_CODE,
-        );
         $managedSystemSettingReference = $this->registerConflictResponse(
             $document,
             'ApiManagedSystemSettingConflictResponse',
@@ -97,20 +90,12 @@ final class ApiErrorOpenApiContract
                     $responseCodes[] = Response::HTTP_TOO_MANY_REQUESTS;
                 }
 
-                if ($route->getName() === 'admin.media.destroy') {
-                    $responseCodes[] = Response::HTTP_SERVICE_UNAVAILABLE;
-                }
-
                 foreach (array_unique($responseCodes) as $responseCode) {
                     $this->replaceResponse($operation, $responseCode, $responseReferences[$responseCode]);
                 }
 
                 if ($route->getName() === 'admin.files.destroy') {
                     $this->replaceResponse($operation, Response::HTTP_SERVICE_UNAVAILABLE, $fileDeleteFailedReference);
-                }
-
-                if ($route->getName() === 'admin.media.destroy') {
-                    $this->replaceResponse($operation, Response::HTTP_CONFLICT, $mediaInUseReference);
                 }
 
                 if (in_array($route->getName(), [
@@ -193,7 +178,7 @@ final class ApiErrorOpenApiContract
             $envelope
                 ->addProperty(
                     'error_code',
-                    (new StringType)->enum([$errorCode ?? MediaDeleteFailedException::ERROR_CODE]),
+                    (new StringType)->enum([$errorCode ?? FileDeleteFailedException::ERROR_CODE]),
                 )
                 ->setRequired(['success', 'code', 'message', 'data', 'errors', 'request_id', 'error_code']);
         }

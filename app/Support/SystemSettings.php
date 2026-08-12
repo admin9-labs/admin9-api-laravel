@@ -2,11 +2,9 @@
 
 namespace App\Support;
 
-use App\Models\Media;
 use App\Models\SystemConfig;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 final class SystemSettings
 {
@@ -20,13 +18,13 @@ final class SystemSettings
 
     public const ICP_FILING_NUMBER_KEY = 'system.identity.icp_filing_number';
 
-    public const NAVIGATION_LOGO_MEDIA_ID_KEY = 'system.branding.navigation_logo_media_id';
+    public const NAVIGATION_LOGO_URL_KEY = 'system.branding.navigation_logo_url';
 
-    public const LOGIN_LOGO_MEDIA_ID_KEY = 'system.branding.login_logo_media_id';
+    public const LOGIN_LOGO_URL_KEY = 'system.branding.login_logo_url';
 
-    public const LOGIN_BACKGROUND_MEDIA_ID_KEY = 'system.branding.login_background_media_id';
+    public const LOGIN_BACKGROUND_URL_KEY = 'system.branding.login_background_url';
 
-    public const FAVICON_MEDIA_ID_KEY = 'system.branding.favicon_media_id';
+    public const FAVICON_URL_KEY = 'system.branding.favicon_url';
 
     /**
      * @var array<string, string>
@@ -41,10 +39,10 @@ final class SystemSettings
      * @var array<string, string>
      */
     private const BRANDING_FIELDS = [
-        'navigation_logo_media_id' => self::NAVIGATION_LOGO_MEDIA_ID_KEY,
-        'login_logo_media_id' => self::LOGIN_LOGO_MEDIA_ID_KEY,
-        'login_background_media_id' => self::LOGIN_BACKGROUND_MEDIA_ID_KEY,
-        'favicon_media_id' => self::FAVICON_MEDIA_ID_KEY,
+        'navigation_logo_url' => self::NAVIGATION_LOGO_URL_KEY,
+        'login_logo_url' => self::LOGIN_LOGO_URL_KEY,
+        'login_background_url' => self::LOGIN_BACKGROUND_URL_KEY,
+        'favicon_url' => self::FAVICON_URL_KEY,
     ];
 
     /**
@@ -80,38 +78,38 @@ final class SystemSettings
                 'is_active' => true,
                 'sort' => 30,
             ],
-            self::NAVIGATION_LOGO_MEDIA_ID_KEY => [
-                'name' => '后台导航 Logo',
-                'type' => SystemConfig::TYPE_INTEGER,
+            self::NAVIGATION_LOGO_URL_KEY => [
+                'name' => '后台导航 Logo URL',
+                'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '后台导航使用的图片素材 ID',
+                'description' => '后台导航使用的 Logo URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 40,
             ],
-            self::LOGIN_LOGO_MEDIA_ID_KEY => [
-                'name' => '登录页 Logo',
-                'type' => SystemConfig::TYPE_INTEGER,
+            self::LOGIN_LOGO_URL_KEY => [
+                'name' => '登录页 Logo URL',
+                'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '登录页使用的 Logo 素材 ID',
+                'description' => '登录页使用的 Logo URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 50,
             ],
-            self::LOGIN_BACKGROUND_MEDIA_ID_KEY => [
-                'name' => '登录页背景图',
-                'type' => SystemConfig::TYPE_INTEGER,
+            self::LOGIN_BACKGROUND_URL_KEY => [
+                'name' => '登录页背景图 URL',
+                'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '登录页使用的背景图片素材 ID',
+                'description' => '登录页使用的背景图片 URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 60,
             ],
-            self::FAVICON_MEDIA_ID_KEY => [
-                'name' => '浏览器图标',
-                'type' => SystemConfig::TYPE_INTEGER,
+            self::FAVICON_URL_KEY => [
+                'name' => '浏览器图标 URL',
+                'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '浏览器 Favicon 使用的图片素材 ID',
+                'description' => '浏览器 Favicon URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 70,
@@ -130,7 +128,7 @@ final class SystemSettings
     /**
      * @return array<int, string>
      */
-    public static function brandingMediaKeys(): array
+    public static function brandingKeys(): array
     {
         return array_values(self::BRANDING_FIELDS);
     }
@@ -141,7 +139,7 @@ final class SystemSettings
     }
 
     /**
-     * @return array{basic: array{system_name: ?string, copyright: ?string, icp_filing_number: ?string}, branding: array<string, array{media_id: ?int, state: string, media: ?Media}>}
+     * @return array{basic: array{system_name: ?string, copyright: ?string, icp_filing_number: ?string}, branding: array<string, ?string>}
      */
     public function read(): array
     {
@@ -151,14 +149,6 @@ final class SystemSettings
             ->get()
             ->keyBy('key');
 
-        $mediaIds = collect(self::BRANDING_FIELDS)
-            ->map(fn (string $key): ?int => $this->mediaId($configs->get($key)?->value))
-            ->filter()
-            ->unique()
-            ->values();
-        /** @var Collection<int, Media> $media */
-        $media = Media::query()->whereKey($mediaIds)->get()->keyBy('id');
-
         return [
             'basic' => [
                 'system_name' => $configs->get(self::SYSTEM_NAME_KEY)?->value,
@@ -166,10 +156,10 @@ final class SystemSettings
                 'icp_filing_number' => $configs->get(self::ICP_FILING_NUMBER_KEY)?->value,
             ],
             'branding' => collect(self::BRANDING_FIELDS)
-                ->mapWithKeys(function (string $key, string $requestField) use ($configs, $media): array {
-                    $responseField = str($requestField)->beforeLast('_media_id')->toString();
+                ->mapWithKeys(function (string $key, string $requestField) use ($configs): array {
+                    $responseField = str($requestField)->beforeLast('_url')->toString().'_url';
 
-                    return [$responseField => $this->mediaSetting($configs->get($key)?->value, $media)];
+                    return [$responseField => $configs->get($key)?->value];
                 })
                 ->all(),
         ];
@@ -190,17 +180,16 @@ final class SystemSettings
     }
 
     /**
-     * @param  array{navigation_logo_media_id: ?int, login_logo_media_id: ?int, login_background_media_id: ?int, favicon_media_id: ?int}  $values
+     * @param  array{navigation_logo_url: ?string, login_logo_url: ?string, login_background_url: ?string, favicon_url: ?string}  $values
      */
     public function updateBranding(array $values): void
     {
         DB::transaction(function () use ($values): void {
-            $this->lockAndValidateMedia($values);
             $configs = $this->lockedConfigs(array_values(self::BRANDING_FIELDS));
 
             foreach (self::BRANDING_FIELDS as $field => $key) {
                 $configs->get($key)?->update([
-                    'value' => $values[$field] === null ? null : (string) $values[$field],
+                    'value' => $values[$field],
                 ]);
             }
         }, attempts: 3);
@@ -230,63 +219,4 @@ final class SystemSettings
     /**
      * @param  array<string, ?int>  $values
      */
-    private function lockAndValidateMedia(array $values): void
-    {
-        $ids = collect($values)->filter()->unique()->sort()->values();
-        /** @var Collection<int, Media> $media */
-        $media = Media::query()
-            ->whereKey($ids)
-            ->orderBy('id')
-            ->lockForUpdate()
-            ->get()
-            ->keyBy('id');
-        $errors = [];
-
-        foreach ($values as $field => $mediaId) {
-            if ($mediaId !== null && ! $this->isReadyImage($media->get($mediaId))) {
-                $errors[$field][] = 'The selected media must be a ready image that is not being deleted.';
-            }
-        }
-
-        if ($errors !== []) {
-            throw ValidationException::withMessages($errors);
-        }
-    }
-
-    /**
-     * @param  Collection<int, Media>  $media
-     * @return array{media_id: ?int, state: string, media: ?Media}
-     */
-    private function mediaSetting(?string $value, Collection $media): array
-    {
-        if ($value === null || $value === '') {
-            return ['media_id' => null, 'state' => 'empty', 'media' => null];
-        }
-
-        $mediaId = $this->mediaId($value);
-        $model = $mediaId === null ? null : $media->get($mediaId);
-
-        if (! $this->isReadyImage($model)) {
-            return ['media_id' => $mediaId, 'state' => 'invalid', 'media' => null];
-        }
-
-        return ['media_id' => $mediaId, 'state' => 'ready', 'media' => $model];
-    }
-
-    private function mediaId(?string $value): ?int
-    {
-        if ($value === null || ! ctype_digit($value) || (int) $value < 1) {
-            return null;
-        }
-
-        return (int) $value;
-    }
-
-    private function isReadyImage(?Media $media): bool
-    {
-        return $media instanceof Media
-            && $media->status === Media::STATUS_READY
-            && $media->deletion_token === null
-            && str_starts_with($media->mime_type, 'image/');
-    }
 }

@@ -15,8 +15,6 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
-    'media' => env('MEDIA_DISK', 'public'),
-
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -44,7 +42,7 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/public'),
             'url' => rtrim(
-                env('MEDIA_URL', rtrim(env('APP_URL', 'http://localhost'), '/').'/storage'),
+                env('FILES_URL', rtrim(env('APP_URL', 'http://localhost'), '/').'/storage'),
                 '/',
             ),
             'visibility' => 'public',

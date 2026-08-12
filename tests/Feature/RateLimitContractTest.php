@@ -205,37 +205,6 @@ class RateLimitContractTest extends TestCase
         );
     }
 
-    public function test_admin_media_upload_limiter_uses_admin_id_and_ip_fallback_buckets(): void
-    {
-        $limiter = RateLimiterFacade::limiter('admin-media-upload');
-        $this->assertNotNull($limiter);
-        $admin = User::factory()->create();
-        $authenticatedRequest = Request::create(
-            ApiRouting::path('/admin/media'),
-            'POST',
-            server: ['REMOTE_ADDR' => '192.0.2.90'],
-        );
-        $authenticatedRequest->setUserResolver(
-            static fn (?string $guard = null): ?User => $guard === 'admin' ? $admin : null,
-        );
-        $authenticatedLimit = $limiter($authenticatedRequest);
-
-        $this->assertInstanceOf(Limit::class, $authenticatedLimit);
-        $this->assertSame('admin:media-upload:user:'.$admin->getAuthIdentifier(), $authenticatedLimit->key);
-        $this->assertSame(10, $authenticatedLimit->maxAttempts);
-        $this->assertSame(60, $authenticatedLimit->decaySeconds);
-
-        $guestRequest = Request::create(
-            ApiRouting::path('/admin/media'),
-            'POST',
-            server: ['REMOTE_ADDR' => '192.0.2.91'],
-        );
-        $guestLimit = $limiter($guestRequest);
-
-        $this->assertInstanceOf(Limit::class, $guestLimit);
-        $this->assertSame('admin:media-upload:ip:192.0.2.91', $guestLimit->key);
-    }
-
     public function test_admin_file_upload_limiter_uses_its_own_admin_id_and_ip_fallback_buckets(): void
     {
         $limiter = RateLimiterFacade::limiter('admin-file-upload');

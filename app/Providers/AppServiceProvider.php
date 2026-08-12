@@ -68,14 +68,6 @@ class AppServiceProvider extends ServiceProvider
             'public-system-settings',
             static fn (Request $request): Limit => Limit::perMinute(60)->by('public:system-settings:ip:'.$request->ip()),
         );
-        RateLimiter::for('admin-media-upload', static function (Request $request): Limit {
-            $admin = $request->user('admin');
-            $key = $admin === null
-                ? 'admin:media-upload:ip:'.$request->ip()
-                : 'admin:media-upload:user:'.$admin->getAuthIdentifier();
-
-            return Limit::perMinute(10)->by($key);
-        });
         RateLimiter::for('admin-file-upload', static function (Request $request): Limit {
             $admin = $request->user('admin');
             $key = $admin === null

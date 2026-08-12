@@ -177,11 +177,10 @@ class AdminRbacTest extends TestCase
             ->where('is_system', true)
             ->get();
 
-        $this->assertCount(39, $permissions);
+        $this->assertCount(36, $permissions);
         $this->assertContains('system.activity-log.view', $permissions->pluck('name'));
         $this->assertContains('system.login-log.view', $permissions->pluck('name'));
         $this->assertContains('system.member.invalidate_sessions', $permissions->pluck('name'));
-        $this->assertContains('system.media.delete', $permissions->pluck('name'));
         $this->assertContains('system.file.delete', $permissions->pluck('name'));
 
         $permissions->each(function (Permission $permission): void {
@@ -202,7 +201,6 @@ class AdminRbacTest extends TestCase
         $roleCreate = Menu::query()->where('code', 'system.roles.create')->firstOrFail();
         $assignRole = Menu::query()->where('code', 'system.users.assign-role')->firstOrFail();
         $memberPage = Menu::query()->where('code', 'SystemMember')->firstOrFail();
-        $mediaPage = Menu::query()->where('code', 'system.media')->firstOrFail();
         $filePage = Menu::query()->where('code', 'system.file')->firstOrFail();
         $systemSettingsPage = Menu::query()->where('code', 'system.configs')->firstOrFail();
         $systemSettingsUpdate = Menu::query()->where('code', 'system.configs.update')->firstOrFail();
@@ -226,13 +224,6 @@ class AdminRbacTest extends TestCase
             'system.member.invalidate_sessions',
         ], $memberPage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
         $this->assertFalse(Menu::query()->where('code', 'SystemMember.delete')->exists());
-        $this->assertSame(Menu::TYPE_PAGE, $mediaPage->type);
-        $this->assertSame('/system/media', $mediaPage->path);
-        $this->assertSame(['system.media.view'], $mediaPage->permissions()->pluck('name')->all());
-        $this->assertEqualsCanonicalizing([
-            'system.media.create',
-            'system.media.delete',
-        ], $mediaPage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
         $this->assertSame(Menu::TYPE_PAGE, $filePage->type);
         $this->assertSame('/system/file', $filePage->path);
         $this->assertSame(['system.file.view'], $filePage->permissions()->pluck('name')->all());

@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\Admin\DictionaryItemController;
 use App\Http\Controllers\Api\Admin\DictionaryTypeController;
 use App\Http\Controllers\Api\Admin\FileController;
 use App\Http\Controllers\Api\Admin\LoginLogController;
-use App\Http\Controllers\Api\Admin\MediaController;
 use App\Http\Controllers\Api\Admin\MemberController;
 use App\Http\Controllers\Api\Admin\MenuController;
 use App\Http\Controllers\Api\Admin\PermissionController;
@@ -80,16 +79,6 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
         Route::post('/members/{member}/invalidate-sessions', [MemberController::class, 'invalidateSessions'])
             ->middleware($adminPermission('system.member.invalidate_sessions'))
             ->name('members.invalidate-sessions');
-
-        Route::apiResource('media', MediaController::class)
-            ->only(['index', 'store', 'destroy'])
-            ->middlewareFor('index', $adminPermission('system.media.view'))
-            ->middlewareFor('store', [
-                $adminPermission('system.media.create'),
-                'throttle:admin-media-upload',
-            ])
-            ->middlewareFor('destroy', $adminPermission('system.media.delete'))
-            ->parameters(['media' => 'media']);
 
         Route::apiResource('files', FileController::class)
             ->only(['index', 'store', 'destroy'])

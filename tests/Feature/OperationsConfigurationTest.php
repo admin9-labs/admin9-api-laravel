@@ -61,8 +61,7 @@ class OperationsConfigurationTest extends TestCase
         $this->assertStringContainsString("env('MAIL_FROM_NAME', env('APP_NAME', 'Admin9 API'))", file_get_contents(config_path('mail.php')));
         $this->assertStringContainsString("env('LOG_SLACK_USERNAME', env('APP_NAME', 'Admin9 API'))", file_get_contents(config_path('logging.php')));
         $this->assertSame('database', $environmentDefaults['QUEUE_CONNECTION']);
-        $this->assertSame('public', $environmentDefaults['MEDIA_DISK']);
-        $this->assertArrayNotHasKey('MEDIA_URL', $environmentDefaults);
+        $this->assertSame('http://localhost:8000/storage', $environmentDefaults['FILES_URL']);
         $this->assertSame('database', $environmentDefaults['CACHE_STORE']);
         $this->assertSame('stack', $environmentDefaults['LOG_CHANNEL']);
         $this->assertSame(['single'], config('logging.channels.stack.channels'));
@@ -94,15 +93,15 @@ class OperationsConfigurationTest extends TestCase
         $this->assertStringNotContainsString('token', strtolower($serialized));
     }
 
-    public function test_public_disk_url_prefers_media_url_and_falls_back_to_app_url_storage(): void
+    public function test_public_disk_url_prefers_files_url_and_falls_back_to_app_url_storage(): void
     {
         $this->assertSame(
             'https://api.example.test/storage',
             $this->publicDiskUrl('https://api.example.test/', null),
         );
         $this->assertSame(
-            'https://media.example.test/storage',
-            $this->publicDiskUrl('https://api.example.test/', 'https://media.example.test/storage/'),
+            'https://files.example.test/storage',
+            $this->publicDiskUrl('https://api.example.test/', 'https://files.example.test/storage/'),
         );
     }
 
@@ -143,18 +142,18 @@ class OperationsConfigurationTest extends TestCase
         }
     }
 
-    private function publicDiskUrl(string $appUrl, ?string $mediaUrl): string
+    private function publicDiskUrl(string $appUrl, ?string $filesUrl): string
     {
         $repository = Env::getRepository();
         $originalAppUrl = $repository->get('APP_URL');
-        $originalMediaUrl = $repository->get('MEDIA_URL');
+        $originalFilesUrl = $repository->get('FILES_URL');
 
         $repository->clear('APP_URL');
-        $repository->clear('MEDIA_URL');
+        $repository->clear('FILES_URL');
         $repository->set('APP_URL', $appUrl);
 
-        if ($mediaUrl !== null) {
-            $repository->set('MEDIA_URL', $mediaUrl);
+        if ($filesUrl !== null) {
+            $repository->set('FILES_URL', $filesUrl);
         }
 
         try {
@@ -164,14 +163,14 @@ class OperationsConfigurationTest extends TestCase
             return $configuration['disks']['public']['url'];
         } finally {
             $repository->clear('APP_URL');
-            $repository->clear('MEDIA_URL');
+            $repository->clear('FILES_URL');
 
             if ($originalAppUrl !== null) {
                 $repository->set('APP_URL', $originalAppUrl);
             }
 
-            if ($originalMediaUrl !== null) {
-                $repository->set('MEDIA_URL', $originalMediaUrl);
+            if ($originalFilesUrl !== null) {
+                $repository->set('FILES_URL', $originalFilesUrl);
             }
         }
     }
