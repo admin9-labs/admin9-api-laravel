@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Listeners\LogQueueBusy;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Queue\Events\QueueBusy;
+use Illuminate\Support\Env;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
@@ -60,6 +61,8 @@ class OperationsConfigurationTest extends TestCase
         $this->assertStringContainsString("env('MAIL_FROM_NAME', env('APP_NAME', 'Admin9 API'))", file_get_contents(config_path('mail.php')));
         $this->assertStringContainsString("env('LOG_SLACK_USERNAME', env('APP_NAME', 'Admin9 API'))", file_get_contents(config_path('logging.php')));
         $this->assertSame('database', $environmentDefaults['QUEUE_CONNECTION']);
+        $this->assertSame('public', $environmentDefaults['MEDIA_DISK']);
+        $this->assertArrayNotHasKey('MEDIA_URL', $environmentDefaults);
         $this->assertSame('database', $environmentDefaults['CACHE_STORE']);
         $this->assertSame('stack', $environmentDefaults['LOG_CHANNEL']);
         $this->assertSame(['single'], config('logging.channels.stack.channels'));
@@ -89,6 +92,18 @@ class OperationsConfigurationTest extends TestCase
         $this->assertStringNotContainsString('secret', strtolower($serialized));
         $this->assertStringNotContainsString('password', strtolower($serialized));
         $this->assertStringNotContainsString('token', strtolower($serialized));
+    }
+
+    public function test_public_disk_url_prefers_media_url_and_falls_back_to_app_url_storage(): void
+    {
+        $this->assertSame(
+            'https://api.example.test/storage',
+            $this->publicDiskUrl('https://api.example.test/', null),
+        );
+        $this->assertSame(
+            'https://media.example.test/storage',
+            $this->publicDiskUrl('https://api.example.test/', 'https://media.example.test/storage/'),
+        );
     }
 
     public function test_scheduler_failure_hooks_use_operations_log_channels(): void
@@ -125,6 +140,39 @@ class OperationsConfigurationTest extends TestCase
 
         foreach ($schedule->events() as $event) {
             $this->runFailureCallbacks($event);
+        }
+    }
+
+    private function publicDiskUrl(string $appUrl, ?string $mediaUrl): string
+    {
+        $repository = Env::getRepository();
+        $originalAppUrl = $repository->get('APP_URL');
+        $originalMediaUrl = $repository->get('MEDIA_URL');
+
+        $repository->clear('APP_URL');
+        $repository->clear('MEDIA_URL');
+        $repository->set('APP_URL', $appUrl);
+
+        if ($mediaUrl !== null) {
+            $repository->set('MEDIA_URL', $mediaUrl);
+        }
+
+        try {
+            /** @var array{disks: array{public: array{url: string}}} $configuration */
+            $configuration = require config_path('filesystems.php');
+
+            return $configuration['disks']['public']['url'];
+        } finally {
+            $repository->clear('APP_URL');
+            $repository->clear('MEDIA_URL');
+
+            if ($originalAppUrl !== null) {
+                $repository->set('APP_URL', $originalAppUrl);
+            }
+
+            if ($originalMediaUrl !== null) {
+                $repository->set('MEDIA_URL', $originalMediaUrl);
+            }
         }
     }
 
