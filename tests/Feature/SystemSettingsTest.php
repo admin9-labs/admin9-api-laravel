@@ -365,7 +365,7 @@ class SystemSettingsTest extends TestCase
             'sort' => 999,
         ])->saveQuietly();
         $this->setting(SystemSettings::FAVICON_MEDIA_ID_KEY)->deleteQuietly();
-        SystemConfig::factory()->create(['key' => 'site.title']);
+        SystemConfig::factory()->create(['key' => 'site.title', 'value' => 'Legacy Name']);
 
         $migration = require database_path('migrations/2026_08_12_085238_initialize_managed_system_settings.php');
         $migration->up();
@@ -383,6 +383,22 @@ class SystemSettingsTest extends TestCase
         $this->assertSame($definition['is_public'], $configured->is_public);
         $this->assertSame($definition['is_active'], $configured->is_active);
         $this->assertSame($definition['sort'], $configured->sort);
+    }
+
+    public function test_initialization_migration_moves_the_legacy_title_when_the_managed_name_is_missing(): void
+    {
+        $this->setting(SystemSettings::SYSTEM_NAME_KEY)->deleteQuietly();
+        SystemConfig::factory()->create([
+            'key' => 'site.title',
+            'value' => 'Legacy Name',
+        ]);
+
+        $migration = require database_path('migrations/2026_08_12_085238_initialize_managed_system_settings.php');
+        $migration->up();
+        $migration->up();
+
+        $this->assertDatabaseMissing('system_configs', ['key' => 'site.title']);
+        $this->assertSame('Legacy Name', $this->setting(SystemSettings::SYSTEM_NAME_KEY)->value);
     }
 
     public function test_forward_fix_restores_missing_managed_settings_without_overwriting_values(): void

@@ -13,11 +13,10 @@ return new class extends Migration
         $connection = DB::connection($this->getConnection());
 
         $connection->transaction(function () use ($connection): void {
-            $connection->table('system_configs')
-                ->where('key', 'site.title')
-                ->delete();
-
             $timestamp = now();
+            $legacySystemName = $connection->table('system_configs')
+                ->where('key', 'site.title')
+                ->value('value');
             $definitions = [
                 'system.identity.name' => ['name' => '系统名称', 'type' => 'string', 'config_group' => 'system.identity', 'description' => '系统对外展示名称', 'is_public' => true, 'is_active' => true, 'sort' => 10],
                 'system.identity.copyright' => ['name' => '版权信息', 'type' => 'text', 'config_group' => 'system.identity', 'description' => '系统页脚版权信息', 'is_public' => true, 'is_active' => true, 'sort' => 20],
@@ -31,7 +30,7 @@ return new class extends Migration
                 ->map(fn (array $definition, string $key): array => [
                     ...$definition,
                     'key' => $key,
-                    'value' => null,
+                    'value' => $key === 'system.identity.name' ? $legacySystemName : null,
                     'created_at' => $timestamp,
                     'updated_at' => $timestamp,
                 ])
@@ -48,6 +47,10 @@ return new class extends Migration
                         'updated_at' => $timestamp,
                     ]);
             }
+
+            $connection->table('system_configs')
+                ->where('key', 'site.title')
+                ->delete();
         });
     }
 
