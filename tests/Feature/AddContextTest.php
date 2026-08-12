@@ -108,11 +108,13 @@ class AddContextTest extends TestCase
 
     public function test_it_exposes_request_id_to_api_route_not_found_payloads(): void
     {
-        $response = $this->getJson(ApiRouting::path('/_test/missing-route'))
+        $path = ApiRouting::path('/_test/missing-route');
+
+        $response = $this->getJson($path)
             ->assertNotFound()
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 404)
-            ->assertJsonPath('message', 'The route _test/missing-route could not be found.')
+            ->assertJsonPath('message', 'The route '.ltrim($path, '/').' could not be found.')
             ->assertHeader('X-Request-Id');
 
         $this->assertResponseRequestIdMatchesHeader($response);
@@ -184,7 +186,7 @@ class AddContextTest extends TestCase
             ->assertOk()
             ->assertHeader('X-Request-Id')
             ->assertJsonPath('context_method', 'GET')
-            ->assertJsonPath('context_path', '_test/add-context')
+            ->assertJsonPath('context_path', ltrim(ApiRouting::path('/_test/add-context'), '/'))
             ->assertJsonPath('context_url', null);
 
         $requestId = $response->json('context_request_id');
@@ -209,7 +211,7 @@ class AddContextTest extends TestCase
         $this->assertArrayNotHasKey('request_id', $rawExtra);
     }
 
-    public function test_responder_payloads_on_web_routes_receive_request_ids_in_empty_prefix_mode(): void
+    public function test_responder_payloads_on_web_routes_remain_outside_the_api_context(): void
     {
         Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
             return $responder->success();
@@ -227,11 +229,11 @@ class AddContextTest extends TestCase
         $this->getJson('/_test/add-context-web-responder')
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('request_id', fn ($requestId) => is_string($requestId))
-            ->assertHeader('X-Request-Id');
+            ->assertJsonMissingPath('request_id')
+            ->assertHeaderMissing('X-Request-Id');
     }
 
-    public function test_raw_web_responses_receive_headers_without_changing_their_payload(): void
+    public function test_raw_web_responses_remain_outside_the_api_context(): void
     {
         Route::get('/_test/add-context-web', function () {
             return response()->json(['ok' => true]);
@@ -240,18 +242,18 @@ class AddContextTest extends TestCase
         $this->getJson('/_test/add-context-web')
             ->assertOk()
             ->assertJsonMissingPath('request_id')
-            ->assertHeader('X-Request-Id');
+            ->assertHeaderMissing('X-Request-Id');
     }
 
-    public function test_web_health_and_documentation_routes_enter_the_request_context_boundary(): void
+    public function test_web_health_and_documentation_routes_remain_outside_the_api_context(): void
     {
         foreach (['/', '/up', '/docs/api'] as $path) {
             $this->get($path)
-                ->assertHeader('X-Request-Id');
+                ->assertHeaderMissing('X-Request-Id');
         }
     }
 
-    public function test_real_cors_preflight_requests_are_allowed_for_root_level_api_routes(): void
+    public function test_real_cors_preflight_requests_are_allowed_for_prefixed_api_routes(): void
     {
         $response = $this->call('OPTIONS', ApiRouting::path('/auth/login'), server: [
             'HTTP_ORIGIN' => 'https://console.example.com',

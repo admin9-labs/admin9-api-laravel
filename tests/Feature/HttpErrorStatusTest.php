@@ -12,27 +12,26 @@ use Tests\TestCase;
 
 class HttpErrorStatusTest extends TestCase
 {
-    public function test_admin_and_member_api_routes_are_registered_at_the_domain_root(): void
+    public function test_admin_and_member_api_routes_are_registered_under_the_application_api_prefix(): void
     {
-        $this->postJson('/admin/auth/login')
+        $this->postJson(ApiRouting::path('/admin/auth/login'))
             ->assertUnprocessable()
             ->assertHeader('X-Request-Id');
 
-        $this->postJson('/auth/login')
+        $this->postJson(ApiRouting::path('/auth/login'))
             ->assertUnprocessable()
             ->assertHeader('X-Request-Id');
     }
 
-    #[DataProvider('legacyApiPathProvider')]
-    public function test_legacy_api_paths_return_not_found_with_request_ids(string $uri): void
+    #[DataProvider('legacyRootApiPathProvider')]
+    public function test_legacy_root_api_paths_return_not_found_outside_the_api_context(string $uri): void
     {
-        $response = $this->get($uri)
+        $this->get($uri)
             ->assertNotFound()
-            ->assertHeader('X-Request-Id')
+            ->assertHeaderMissing('X-Request-Id')
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 404);
-
-        $this->assertResponseRequestIdMatchesHeader($response);
+            ->assertJsonPath('code', 404)
+            ->assertJsonMissingPath('request_id');
     }
 
     #[DataProvider('webAcceptProvider')]
@@ -42,10 +41,10 @@ class HttpErrorStatusTest extends TestCase
             ->get('/_test/generic-missing')
             ->assertNotFound()
             ->assertHeader('Content-Type', 'application/json')
-            ->assertHeader('X-Request-Id')
+            ->assertHeaderMissing('X-Request-Id')
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 404)
-            ->assertJsonPath('request_id', fn ($requestId) => is_string($requestId));
+            ->assertJsonMissingPath('request_id');
     }
 
     public function test_missing_storage_paths_keep_the_environment_specific_error_with_a_real_status(): void
@@ -55,10 +54,10 @@ class HttpErrorStatusTest extends TestCase
         $this->get('/storage/media/_test/missing-image.png')
             ->assertStatus($expectedStatus)
             ->assertHeader('Content-Type', 'application/json')
-            ->assertHeader('X-Request-Id')
+            ->assertHeaderMissing('X-Request-Id')
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', $expectedStatus)
-            ->assertJsonPath('request_id', fn ($requestId) => is_string($requestId));
+            ->assertJsonMissingPath('request_id');
     }
 
     #[DataProvider('apiHttpStatusProvider')]
@@ -122,19 +121,19 @@ class HttpErrorStatusTest extends TestCase
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 
-    public function test_successful_web_responses_keep_their_payload_and_receive_request_ids(): void
+    public function test_successful_web_responses_keep_their_payload_outside_the_api_context(): void
     {
         $this->get('/')
             ->assertOk()
             ->assertJsonPath('status', 'ok')
-            ->assertHeader('X-Request-Id');
+            ->assertHeaderMissing('X-Request-Id');
     }
 
-    public static function legacyApiPathProvider(): array
+    public static function legacyRootApiPathProvider(): array
     {
         return [
-            'api without trailing slash' => ['/api'],
-            'api route from the old contract' => ['/api/admin/auth/me'],
+            'admin route from the old contract' => ['/admin/auth/me'],
+            'member route from the old contract' => ['/auth/me'],
         ];
     }
 

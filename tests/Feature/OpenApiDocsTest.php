@@ -41,15 +41,16 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
-    public function test_generated_openapi_document_uses_root_paths_and_only_api_middleware_routes(): void
+    public function test_generated_openapi_document_uses_the_application_api_prefix_and_only_api_middleware_routes(): void
     {
         $document = $this->openApiDocument();
 
         $this->assertSame([['url' => 'http://localhost']], $document['servers']);
+        $this->assertSame('api', ApiRouting::PREFIX);
 
         foreach (array_keys($document['paths']) as $path) {
             $this->assertStringStartsWith('/', $path);
-            $this->assertFalse(str_starts_with($path, '/api/'));
+            $this->assertStringStartsWith(ApiRouting::path('/').'/', $path);
         }
 
         foreach (['/', '/up', '/docs/api', '/docs/api.json'] as $nonApiPath) {

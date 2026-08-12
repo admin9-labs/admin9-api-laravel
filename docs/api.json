@@ -16,7 +16,7 @@
         }
     ],
     "paths": {
-        "/admin/activity-logs": {
+        "/api/admin/activity-logs": {
             "get": {
                 "operationId": "admin.activity-logs.index",
                 "tags": [
@@ -201,7 +201,7 @@
                 }
             }
         },
-        "/auth/login": {
+        "/api/auth/login": {
             "post": {
                 "operationId": "member.auth.login",
                 "tags": [
@@ -304,7 +304,7 @@
                 "security": []
             }
         },
-        "/auth/refresh": {
+        "/api/auth/refresh": {
             "post": {
                 "operationId": "member.auth.refresh",
                 "tags": [
@@ -401,7 +401,7 @@
                 ]
             }
         },
-        "/auth/me": {
+        "/api/auth/me": {
             "get": {
                 "operationId": "member.auth.me",
                 "tags": [
@@ -477,7 +477,7 @@
                 }
             }
         },
-        "/auth/password": {
+        "/api/auth/password": {
             "put": {
                 "operationId": "member.auth.password.update",
                 "tags": [
@@ -561,7 +561,7 @@
                 }
             }
         },
-        "/auth/logout": {
+        "/api/auth/logout": {
             "post": {
                 "operationId": "member.auth.logout",
                 "tags": [
@@ -632,7 +632,7 @@
                 }
             }
         },
-        "/admin/auth/login": {
+        "/api/admin/auth/login": {
             "post": {
                 "operationId": "admin.auth.login",
                 "tags": [
@@ -742,7 +742,7 @@
                 "security": []
             }
         },
-        "/admin/auth/refresh": {
+        "/api/admin/auth/refresh": {
             "post": {
                 "operationId": "admin.auth.refresh",
                 "tags": [
@@ -843,7 +843,7 @@
                 ]
             }
         },
-        "/admin/auth/me": {
+        "/api/admin/auth/me": {
             "get": {
                 "operationId": "admin.auth.me",
                 "tags": [
@@ -923,7 +923,7 @@
                 }
             }
         },
-        "/admin/auth/password": {
+        "/api/admin/auth/password": {
             "put": {
                 "operationId": "admin.auth.password.update",
                 "tags": [
@@ -1004,7 +1004,7 @@
                 }
             }
         },
-        "/admin/auth/logout": {
+        "/api/admin/auth/logout": {
             "post": {
                 "operationId": "admin.auth.logout",
                 "tags": [
@@ -1072,7 +1072,7 @@
                 }
             }
         },
-        "/admin/dictionary-items": {
+        "/api/admin/dictionary-items": {
             "get": {
                 "operationId": "admin.dictionary-items.index",
                 "summary": "Display a listing of the resource",
@@ -1350,7 +1350,7 @@
                 }
             }
         },
-        "/admin/dictionary-items/{dictionaryItem}": {
+        "/api/admin/dictionary-items/{dictionaryItem}": {
             "get": {
                 "operationId": "admin.dictionary-items.show",
                 "summary": "Display the specified resource",
@@ -1617,7 +1617,7 @@
                 }
             }
         },
-        "/admin/dictionary-types": {
+        "/api/admin/dictionary-types": {
             "get": {
                 "operationId": "admin.dictionary-types.index",
                 "summary": "Display a listing of the resource",
@@ -1873,7 +1873,7 @@
                 }
             }
         },
-        "/admin/dictionary-types/{dictionaryType}": {
+        "/api/admin/dictionary-types/{dictionaryType}": {
             "get": {
                 "operationId": "admin.dictionary-types.show",
                 "summary": "Display the specified resource",
@@ -2143,7 +2143,7 @@
                 }
             }
         },
-        "/admin/files": {
+        "/api/admin/files": {
             "get": {
                 "operationId": "admin.files.index",
                 "tags": [
@@ -2384,7 +2384,7 @@
                 }
             }
         },
-        "/admin/files/{file}": {
+        "/api/admin/files/{file}": {
             "delete": {
                 "operationId": "admin.files.destroy",
                 "tags": [
@@ -2466,7 +2466,7 @@
                 }
             }
         },
-        "/admin/login-logs": {
+        "/api/admin/login-logs": {
             "get": {
                 "operationId": "admin.login-logs.index",
                 "tags": [
@@ -2657,7 +2657,7 @@
                 }
             }
         },
-        "/admin/media": {
+        "/api/admin/media": {
             "get": {
                 "operationId": "admin.media.index",
                 "tags": [
@@ -2881,7 +2881,7 @@
                 }
             }
         },
-        "/admin/media/{media}": {
+        "/api/admin/media/{media}": {
             "delete": {
                 "operationId": "admin.media.destroy",
                 "tags": [
@@ -2966,7 +2966,7 @@
                 }
             }
         },
-        "/admin/members": {
+        "/api/admin/members": {
             "get": {
                 "operationId": "admin.members.index",
                 "tags": [
@@ -3194,7 +3194,7 @@
                 }
             }
         },
-        "/admin/members/{member}": {
+        "/api/admin/members/{member}": {
             "get": {
                 "operationId": "admin.members.show",
                 "tags": [
@@ -3381,7 +3381,7 @@
                 }
             }
         },
-        "/admin/members/{member}/status": {
+        "/api/admin/members/{member}/status": {
             "put": {
                 "operationId": "admin.members.update-status",
                 "tags": [
@@ -3484,7 +3484,7 @@
                 }
             }
         },
-        "/admin/members/{member}/password": {
+        "/api/admin/members/{member}/password": {
             "put": {
                 "operationId": "admin.members.reset-password",
                 "tags": [
@@ -3587,7 +3587,7 @@
                 }
             }
         },
-        "/admin/members/{member}/invalidate-sessions": {
+        "/api/admin/members/{member}/invalidate-sessions": {
             "post": {
                 "operationId": "admin.members.invalidate-sessions",
                 "tags": [
@@ -3680,7 +3680,7 @@
                 }
             }
         },
-        "/admin/menus/tree": {
+        "/api/admin/menus/tree": {
             "get": {
                 "operationId": "admin.menus.tree",
                 "summary": "Return the complete bounded visible menu tree for admin shell navigation",
@@ -3749,7 +3749,7 @@
                 }
             }
         },
-        "/admin/menus": {
+        "/api/admin/menus": {
             "get": {
                 "operationId": "admin.menus.index",
                 "summary": "Return the complete bounded admin menu catalog for management UIs",
@@ -3906,7 +3906,7 @@
                 }
             }
         },
-        "/admin/menus/{menu}": {
+        "/api/admin/menus/{menu}": {
             "get": {
                 "operationId": "admin.menus.show",
                 "summary": "Display the specified resource",
@@ -4176,7 +4176,7 @@
                 }
             }
         },
-        "/admin/permissions": {
+        "/api/admin/permissions": {
             "get": {
                 "operationId": "admin.permissions.index",
                 "summary": "Return the complete bounded RBAC permission catalog for configuration UIs",
@@ -4333,7 +4333,7 @@
                 }
             }
         },
-        "/admin/permissions/{permission}": {
+        "/api/admin/permissions/{permission}": {
             "get": {
                 "operationId": "admin.permissions.show",
                 "summary": "Display the specified resource",
@@ -4603,7 +4603,7 @@
                 }
             }
         },
-        "/admin/roles": {
+        "/api/admin/roles": {
             "get": {
                 "operationId": "admin.roles.index",
                 "summary": "Return the complete bounded admin role catalog for assignment UIs",
@@ -4760,7 +4760,7 @@
                 }
             }
         },
-        "/admin/roles/{role}": {
+        "/api/admin/roles/{role}": {
             "get": {
                 "operationId": "admin.roles.show",
                 "summary": "Display the specified resource",
@@ -5027,7 +5027,7 @@
                 }
             }
         },
-        "/admin/roles/{role}/permissions": {
+        "/api/admin/roles/{role}/permissions": {
             "put": {
                 "operationId": "admin.roles.permissions.update",
                 "tags": [
@@ -5130,7 +5130,7 @@
                 }
             }
         },
-        "/admin/system-configs": {
+        "/api/admin/system-configs": {
             "get": {
                 "operationId": "admin.system-configs.index",
                 "summary": "Display a listing of the resource",
@@ -5412,7 +5412,7 @@
                 }
             }
         },
-        "/admin/system-configs/{systemConfig}": {
+        "/api/admin/system-configs/{systemConfig}": {
             "get": {
                 "operationId": "admin.system-configs.show",
                 "summary": "Display the specified resource",
@@ -5685,7 +5685,7 @@
                 }
             }
         },
-        "/system-settings/public": {
+        "/api/system-settings/public": {
             "get": {
                 "operationId": "system-settings.public",
                 "tags": [
@@ -5748,7 +5748,7 @@
                 "security": []
             }
         },
-        "/admin/system-settings": {
+        "/api/admin/system-settings": {
             "get": {
                 "operationId": "admin.system-settings.show",
                 "tags": [
@@ -5813,7 +5813,7 @@
                 }
             }
         },
-        "/admin/system-settings/basic": {
+        "/api/admin/system-settings/basic": {
             "put": {
                 "operationId": "admin.system-settings.basic.update",
                 "tags": [
@@ -5894,7 +5894,7 @@
                 }
             }
         },
-        "/admin/system-settings/branding": {
+        "/api/admin/system-settings/branding": {
             "put": {
                 "operationId": "admin.system-settings.branding.update",
                 "tags": [
@@ -5975,7 +5975,7 @@
                 }
             }
         },
-        "/admin/users": {
+        "/api/admin/users": {
             "get": {
                 "operationId": "admin.users.index",
                 "summary": "Display a listing of the resource",
@@ -6165,7 +6165,7 @@
                 }
             }
         },
-        "/admin/users/{user}": {
+        "/api/admin/users/{user}": {
             "get": {
                 "operationId": "admin.users.show",
                 "summary": "Display the specified resource",
@@ -6432,7 +6432,7 @@
                 }
             }
         },
-        "/admin/users/{user}/password": {
+        "/api/admin/users/{user}/password": {
             "put": {
                 "operationId": "admin.users.password.update",
                 "tags": [
@@ -6527,7 +6527,7 @@
                 }
             }
         },
-        "/admin/users/{user}/roles": {
+        "/api/admin/users/{user}/roles": {
             "put": {
                 "operationId": "admin.users.roles.update",
                 "tags": [

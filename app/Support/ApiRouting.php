@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 
 final class ApiRouting
 {
-    public const PREFIX = '';
+    public const PREFIX = 'api';
 
     public static function path(string $path): string
     {
