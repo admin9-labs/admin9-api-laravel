@@ -385,6 +385,75 @@ class SystemSettingsTest extends TestCase
         $this->assertSame($definition['sort'], $configured->sort);
     }
 
+    public function test_forward_fix_restores_missing_managed_settings_without_overwriting_values(): void
+    {
+        $configured = $this->setting(SystemSettings::SYSTEM_NAME_KEY);
+        $createdAt = now()->subDay()->startOfSecond();
+        $configured->forceFill([
+            'value' => 'Configured Name',
+            'name' => 'Wrong',
+            'type' => SystemConfig::TYPE_JSON,
+            'config_group' => 'wrong',
+            'description' => 'Wrong',
+            'is_public' => false,
+            'is_active' => false,
+            'sort' => 999,
+            'created_at' => $createdAt,
+        ])->saveQuietly();
+        SystemConfig::query()
+            ->whereIn('key', array_diff(SystemSettings::managedKeys(), [SystemSettings::SYSTEM_NAME_KEY]))
+            ->delete();
+
+        $migration = require database_path('migrations/2026_08_12_125128_backfill_missing_managed_system_settings.php');
+        $migration->up();
+        $migration->up();
+
+        $this->assertSame(
+            count(SystemSettings::managedKeys()),
+            SystemConfig::query()->whereIn('key', SystemSettings::managedKeys())->count(),
+        );
+        $this->assertSame(
+            SystemSettings::managedKeys(),
+            SystemConfig::query()
+                ->whereIn('key', SystemSettings::managedKeys())
+                ->orderBy('sort')
+                ->pluck('key')
+                ->all(),
+        );
+        $configured->refresh();
+        $this->assertSame('Configured Name', $configured->value);
+        $this->assertTrue($configured->created_at->equalTo($createdAt));
+
+        foreach (SystemSettings::definitions() as $key => $definition) {
+            $setting = $this->setting($key);
+            $this->assertSame($definition['name'], $setting->name);
+            $this->assertSame($definition['type'], $setting->type);
+            $this->assertSame($definition['config_group'], $setting->config_group);
+            $this->assertSame($definition['description'], $setting->description);
+            $this->assertSame($definition['is_public'], $setting->is_public);
+            $this->assertSame($definition['is_active'], $setting->is_active);
+            $this->assertSame($definition['sort'], $setting->sort);
+        }
+    }
+
+    public function test_forward_fix_restores_all_managed_settings_idempotently(): void
+    {
+        SystemConfig::query()->whereIn('key', SystemSettings::managedKeys())->delete();
+
+        $migration = require database_path('migrations/2026_08_12_125128_backfill_missing_managed_system_settings.php');
+        $migration->up();
+        $migration->up();
+
+        $keys = SystemConfig::query()
+            ->whereIn('key', SystemSettings::managedKeys())
+            ->orderBy('sort')
+            ->pluck('key');
+
+        $this->assertCount(7, $keys);
+        $this->assertSame(7, $keys->unique()->count());
+        $this->assertSame(SystemSettings::managedKeys(), $keys->all());
+    }
+
     /**
      * @return array{system_name: string, copyright: ?string, icp_filing_number: ?string}
      */
