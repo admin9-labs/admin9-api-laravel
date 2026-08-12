@@ -299,6 +299,42 @@ class AdminRbacTest extends TestCase
         }
     }
 
+    public function test_seeder_removes_legacy_media_resources_and_bindings(): void
+    {
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $system = Menu::query()->where('code', 'system')->firstOrFail();
+        $legacyPermissions = collect(['view', 'create', 'delete'])
+            ->map(fn (string $action): Permission => Permission::query()->create([
+                'name' => "system.media.{$action}",
+                'guard_name' => 'admin',
+                'display_name' => "媒体{$action}",
+                'group' => 'system.media',
+                'description' => 'legacy media permission',
+                'sort' => 900,
+                'is_system' => true,
+                'is_active' => true,
+            ]));
+        $legacyMenu = Menu::query()->create([
+            'parent_id' => $system->id,
+            'name' => '素材管理',
+            'code' => 'system.media',
+            'path' => '/system/media',
+            'component' => 'system/media/index',
+            'type' => Menu::TYPE_PAGE,
+            'sort' => 38,
+            'is_visible' => true,
+            'is_active' => true,
+        ]);
+        $legacyMenu->permissions()->attach($legacyPermissions->firstOrFail());
+
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $this->assertSame(0, Permission::query()->where('group', 'system.media')->count());
+        $this->assertSame(0, Menu::query()->where('code', 'like', 'system.media%')->count());
+        $this->assertSame(0, DB::table('menu_permission')->where('menu_id', $legacyMenu->id)->count());
+    }
+
     public function test_system_settings_menu_migration_is_replayable_irreversible_and_removes_historical_bindings(): void
     {
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);

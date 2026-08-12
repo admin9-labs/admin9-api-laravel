@@ -139,7 +139,40 @@ class AdminRbacSeeder extends Seeder
             $menus[$definition['code']] = $menu;
         }
 
+        $this->removeObsoleteMediaResources();
         $this->removeObsoleteSystemSettingsMenus();
+    }
+
+    private function removeObsoleteMediaResources(): void
+    {
+        DB::transaction(function (): void {
+            $obsoleteMenus = Menu::query()
+                ->whereIn('code', ['system.media', 'system.media.create', 'system.media.delete'])
+                ->lockForUpdate()
+                ->get();
+
+            if ($obsoleteMenus->isNotEmpty()) {
+                $menuIds = $obsoleteMenus->modelKeys();
+
+                if (Schema::hasTable('role_menu')) {
+                    DB::table('role_menu')->whereIn('menu_id', $menuIds)->delete();
+                }
+
+                $obsoleteMenus
+                    ->sortByDesc(fn (Menu $menu): int => strlen((string) $menu->code))
+                    ->each(function (Menu $menu): void {
+                        $menu->permissions()->detach();
+                        $menu->delete();
+                    });
+            }
+
+            Permission::query()
+                ->where('guard_name', self::ADMIN_GUARD)
+                ->whereIn('name', ['system.media.view', 'system.media.create', 'system.media.delete'])
+                ->delete();
+        });
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     /**
@@ -159,9 +192,6 @@ class AdminRbacSeeder extends Seeder
             ['name' => 'system.member.status', 'display_name' => '会员启停', 'group' => 'system.member', 'description' => '启用或停用会员', 'sort' => 840],
             ['name' => 'system.member.reset_password', 'display_name' => '会员重置密码', 'group' => 'system.member', 'description' => '重置会员密码', 'sort' => 850],
             ['name' => 'system.member.invalidate_sessions', 'display_name' => '会员会话失效', 'group' => 'system.member', 'description' => '强制会员会话失效', 'sort' => 860],
-            ['name' => 'system.media.view', 'display_name' => '媒体查看', 'group' => 'system.media', 'description' => '查看媒体', 'sort' => 910],
-            ['name' => 'system.media.create', 'display_name' => '媒体上传', 'group' => 'system.media', 'description' => '上传媒体', 'sort' => 920],
-            ['name' => 'system.media.delete', 'display_name' => '媒体删除', 'group' => 'system.media', 'description' => '删除媒体', 'sort' => 930],
             ['name' => 'system.file.view', 'display_name' => '文件查看', 'group' => 'system.file', 'description' => '查看文件', 'sort' => 940],
             ['name' => 'system.file.create', 'display_name' => '文件上传', 'group' => 'system.file', 'description' => '上传文件', 'sort' => 950],
             ['name' => 'system.file.delete', 'display_name' => '文件删除', 'group' => 'system.file', 'description' => '删除文件', 'sort' => 960],
@@ -200,7 +230,6 @@ class AdminRbacSeeder extends Seeder
             ...$this->pageWithButtons('system.permissions', 'system', '权限管理', '/system/permissions', 'system/permissions/index', 'lock', 'system.permission', 25),
             ...$this->pageWithButtons('system.users', 'system', '用户管理', '/system/users', 'system/users/index', 'user', 'system.user', 30, ['assign-role' => '分配角色']),
             ...$this->memberPageWithButtons(),
-            ...$this->mediaPageWithButtons(),
             ...$this->filePageWithButtons(),
             ...$this->pageWithButtons('system.menus', 'system', '菜单管理', '/system/menus', 'system/menus/index', 'menu', 'system.menu', 40),
             ...$this->pageWithButtons('system.dictionaries', 'system', '字典管理', '/system/dictionaries', 'system/dictionaries/index', 'book', 'system.dictionary', 50),
@@ -368,48 +397,6 @@ class AdminRbacSeeder extends Seeder
     /**
      * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
      */
-    private function mediaPageWithButtons(): array
-    {
-        return [
-            [
-                'code' => 'system.media',
-                'parent_code' => 'system',
-                'name' => '素材管理',
-                'path' => '/system/media',
-                'component' => 'system/media/index',
-                'icon' => 'image',
-                'type' => Menu::TYPE_PAGE,
-                'permission_name' => 'system.media.view',
-                'sort' => 38,
-                'is_visible' => true,
-            ],
-            [
-                'code' => 'system.media.create',
-                'parent_code' => 'system.media',
-                'name' => '上传',
-                'path' => null,
-                'component' => null,
-                'icon' => null,
-                'type' => Menu::TYPE_BUTTON,
-                'permission_name' => 'system.media.create',
-                'sort' => 10,
-                'is_visible' => false,
-            ],
-            [
-                'code' => 'system.media.delete',
-                'parent_code' => 'system.media',
-                'name' => '删除',
-                'path' => null,
-                'component' => null,
-                'icon' => null,
-                'type' => Menu::TYPE_BUTTON,
-                'permission_name' => 'system.media.delete',
-                'sort' => 20,
-                'is_visible' => false,
-            ],
-        ];
-    }
-
     /**
      * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
      */
