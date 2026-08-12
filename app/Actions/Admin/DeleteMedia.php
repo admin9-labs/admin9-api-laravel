@@ -3,9 +3,12 @@
 namespace App\Actions\Admin;
 
 use App\Exceptions\MediaDeleteFailedException;
+use App\Exceptions\MediaInUseBySystemSettingsException;
 use App\Models\Media;
+use App\Models\SystemConfig;
 use App\Models\User;
 use App\Support\Audit\SecurityActivityRecorder;
+use App\Support\SystemSettings;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Context;
@@ -80,6 +83,13 @@ class DeleteMedia
     {
         $claim = DB::transaction(function () use ($deletionToken, $media): ?array {
             $lockedMedia = Media::query()->lockForUpdate()->findOrFail($media->getKey());
+
+            if (SystemConfig::query()
+                ->whereIn('key', SystemSettings::brandingMediaKeys())
+                ->where('value', (string) $lockedMedia->getKey())
+                ->exists()) {
+                throw new MediaInUseBySystemSettingsException;
+            }
 
             $claimIsActive = $lockedMedia->deletion_token !== null
                 && $lockedMedia->deletion_started_at?->isAfter(now()->subMinutes(self::CLAIM_TTL_MINUTES));

@@ -162,12 +162,47 @@ class RateLimitContractTest extends TestCase
     {
         $memberLogin = RouteFacade::getRoutes()->getByName('member.auth.login');
         $adminLogin = RouteFacade::getRoutes()->getByName('admin.auth.login');
+        $publicSystemSettings = RouteFacade::getRoutes()->getByName('system-settings.public');
 
         $this->assertInstanceOf(Route::class, $memberLogin);
         $this->assertInstanceOf(Route::class, $adminLogin);
+        $this->assertInstanceOf(Route::class, $publicSystemSettings);
         $this->assertContains('throttle:member-api', $memberLogin->gatherMiddleware());
         $this->assertContains('throttle:member-login', $memberLogin->gatherMiddleware());
         $this->assertContains('throttle:admin-login', $adminLogin->gatherMiddleware());
+        $this->assertContains('throttle:public-system-settings', $publicSystemSettings->gatherMiddleware());
+    }
+
+    public function test_public_system_settings_limiter_uses_a_namespaced_ip_bucket(): void
+    {
+        $limiter = RateLimiterFacade::limiter('public-system-settings');
+        $this->assertNotNull($limiter);
+        $request = Request::create(
+            ApiRouting::path('/system-settings/public'),
+            'GET',
+            server: ['REMOTE_ADDR' => '192.0.2.82'],
+        );
+        $limit = $limiter($request);
+
+        $this->assertInstanceOf(Limit::class, $limit);
+        $this->assertSame('public:system-settings:ip:192.0.2.82', $limit->key);
+        $this->assertSame(60, $limit->maxAttempts);
+        $this->assertSame(60, $limit->decaySeconds);
+    }
+
+    public function test_public_system_settings_throttles_the_sixty_first_request(): void
+    {
+        for ($attempt = 1; $attempt <= 60; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.83'])
+                ->getJson(ApiRouting::path('/system-settings/public'))
+                ->assertOk();
+        }
+
+        $this->assertRateLimited(
+            $this->withServerVariables(['REMOTE_ADDR' => '192.0.2.83'])
+                ->getJson(ApiRouting::path('/system-settings/public')),
+            expectedLimit: '60',
+        );
     }
 
     public function test_admin_media_upload_limiter_uses_admin_id_and_ip_fallback_buckets(): void
@@ -199,6 +234,37 @@ class RateLimitContractTest extends TestCase
 
         $this->assertInstanceOf(Limit::class, $guestLimit);
         $this->assertSame('admin:media-upload:ip:192.0.2.91', $guestLimit->key);
+    }
+
+    public function test_admin_file_upload_limiter_uses_its_own_admin_id_and_ip_fallback_buckets(): void
+    {
+        $limiter = RateLimiterFacade::limiter('admin-file-upload');
+        $this->assertNotNull($limiter);
+        $admin = User::factory()->create();
+        $authenticatedRequest = Request::create(
+            ApiRouting::path('/admin/files'),
+            'POST',
+            server: ['REMOTE_ADDR' => '192.0.2.92'],
+        );
+        $authenticatedRequest->setUserResolver(
+            static fn (?string $guard = null): ?User => $guard === 'admin' ? $admin : null,
+        );
+        $authenticatedLimit = $limiter($authenticatedRequest);
+
+        $this->assertInstanceOf(Limit::class, $authenticatedLimit);
+        $this->assertSame('admin:file-upload:user:'.$admin->getAuthIdentifier(), $authenticatedLimit->key);
+        $this->assertSame(10, $authenticatedLimit->maxAttempts);
+        $this->assertSame(60, $authenticatedLimit->decaySeconds);
+
+        $guestRequest = Request::create(
+            ApiRouting::path('/admin/files'),
+            'POST',
+            server: ['REMOTE_ADDR' => '192.0.2.93'],
+        );
+        $guestLimit = $limiter($guestRequest);
+
+        $this->assertInstanceOf(Limit::class, $guestLimit);
+        $this->assertSame('admin:file-upload:ip:192.0.2.93', $guestLimit->key);
     }
 
     private function postMemberLogin(string $ipAddress): TestResponse

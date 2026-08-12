@@ -6,6 +6,7 @@
     "keywords": ["admin9", "laravel", "api", "back-office"],
     "license": "MIT",
     "require": {
+        "ext-zip": "*",
         "php": "^8.3",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",

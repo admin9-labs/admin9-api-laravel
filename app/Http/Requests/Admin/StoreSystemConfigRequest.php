@@ -7,6 +7,11 @@ use Illuminate\Validation\Rule;
 
 class StoreSystemConfigRequest extends SystemConfigRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->rejectManagedSystemSetting();
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

@@ -7,6 +7,11 @@ use Illuminate\Validation\Rule;
 
 class UpdateSystemConfigRequest extends SystemConfigRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $this->rejectManagedSystemSetting($this->systemConfig());
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

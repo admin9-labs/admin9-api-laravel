@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Support\ApiRouting;
+use App\Support\FileUploadPolicy;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use Tests\TestCase;
@@ -209,9 +210,15 @@ class OpenApiDocsTest extends TestCase
             500 => 'ApiServerErrorResponse',
             503 => 'ApiServiceUnavailableResponse',
         ];
+        $expectedComponentNames = [
+            ...array_values($expectedComponents),
+            'ApiFileDeleteFailedResponse',
+            'ApiMediaInUseBySystemSettingsResponse',
+            'ApiManagedSystemSettingConflictResponse',
+        ];
 
         $this->assertSame(
-            array_values($expectedComponents),
+            $expectedComponentNames,
             array_keys($document['components']['responses']),
         );
 
@@ -680,6 +687,187 @@ class OpenApiDocsTest extends TestCase
         $serviceUnavailable = $document['components']['responses']['ApiServiceUnavailableResponse']['content']['application/json']['schema'];
         $this->assertSame(['media_delete_failed'], $serviceUnavailable['properties']['error_code']['enum']);
         $this->assertContains('error_code', $serviceUnavailable['required']);
+    }
+
+    public function test_generated_openapi_document_exposes_exact_system_settings_contract(): void
+    {
+        $document = $this->openApiDocument();
+        $operations = $this->operationsById($document);
+        $operationIds = [
+            'system-settings.public',
+            'admin.system-settings.show',
+            'admin.system-settings.basic.update',
+            'admin.system-settings.branding.update',
+        ];
+
+        foreach ($operationIds as $operationId) {
+            $this->assertArrayHasKey($operationId, $operations);
+        }
+
+        $this->assertSame([['http' => []]], $document['security']);
+        $this->assertSame([], $operations['system-settings.public']['security']);
+        $this->assertSame(
+            '#/components/responses/ApiRateLimitResponse',
+            $operations['system-settings.public']['responses']['429']['$ref'],
+        );
+        foreach (array_slice($operationIds, 1) as $operationId) {
+            $this->assertArrayNotHasKey('security', $operations[$operationId]);
+            $this->assertSame('#/components/responses/ApiUnauthorizedResponse', $operations[$operationId]['responses']['401']['$ref']);
+            $this->assertSame('#/components/responses/ApiForbiddenResponse', $operations[$operationId]['responses']['403']['$ref']);
+        }
+        foreach ($operationIds as $operationId) {
+            $this->assertSame(
+                '#/components/schemas/SystemSettingsResource',
+                $operations[$operationId]['responses']['200']['content']['application/json']['schema']['properties']['data']['$ref'],
+            );
+        }
+        $this->assertSame(
+            '#/components/schemas/UpdateBasicSystemSettingsRequest',
+            $operations['admin.system-settings.basic.update']['requestBody']['content']['application/json']['schema']['$ref'],
+        );
+        $this->assertSame(
+            '#/components/schemas/UpdateBrandingSystemSettingsRequest',
+            $operations['admin.system-settings.branding.update']['requestBody']['content']['application/json']['schema']['$ref'],
+        );
+
+        $settings = $document['components']['schemas']['SystemSettingsResource'];
+        $this->assertSame(['basic', 'branding'], $settings['required']);
+        $this->assertSame(
+            ['system_name', 'copyright', 'icp_filing_number'],
+            $settings['properties']['basic']['required'],
+        );
+        $this->assertSame(
+            ['navigation_logo', 'login_logo', 'login_background', 'favicon'],
+            $settings['properties']['branding']['required'],
+        );
+        $this->assertSame(
+            $settings['properties']['basic']['required'],
+            array_keys($settings['properties']['basic']['properties']),
+        );
+        $this->assertSame(
+            $settings['properties']['branding']['required'],
+            array_keys($settings['properties']['branding']['properties']),
+        );
+        foreach ($settings['properties']['basic']['required'] as $field) {
+            $this->assertSame(['string', 'null'], $settings['properties']['basic']['properties'][$field]['type']);
+        }
+        foreach ($settings['properties']['branding']['required'] as $field) {
+            $this->assertSame('#/components/schemas/MediaSetting', $settings['properties']['branding']['properties'][$field]['$ref']);
+        }
+
+        $mediaSetting = $document['components']['schemas']['MediaSetting'];
+        $this->assertSame(['media_id', 'state', 'media'], $mediaSetting['required']);
+        $this->assertSame($mediaSetting['required'], array_keys($mediaSetting['properties']));
+        $this->assertSame(['integer', 'null'], $mediaSetting['properties']['media_id']['type']);
+        $this->assertSame('int64', $mediaSetting['properties']['media_id']['format']);
+        $this->assertSame(['empty', 'ready', 'invalid'], $mediaSetting['properties']['state']['enum']);
+        $this->assertSame([
+            ['$ref' => '#/components/schemas/MediaResource'],
+            ['type' => 'null'],
+        ], $mediaSetting['properties']['media']['anyOf']);
+
+        $basicRequest = $document['components']['schemas']['UpdateBasicSystemSettingsRequest'];
+        $this->assertSame(['system_name', 'copyright', 'icp_filing_number'], $basicRequest['required']);
+        $this->assertSame($basicRequest['required'], array_keys($basicRequest['properties']));
+        $this->assertSame('string', $basicRequest['properties']['system_name']['type']);
+        $this->assertSame(['string', 'null'], $basicRequest['properties']['copyright']['type']);
+        $this->assertSame(['string', 'null'], $basicRequest['properties']['icp_filing_number']['type']);
+
+        $brandingRequest = $document['components']['schemas']['UpdateBrandingSystemSettingsRequest'];
+        $this->assertSame([
+            'navigation_logo_media_id',
+            'login_logo_media_id',
+            'login_background_media_id',
+            'favicon_media_id',
+        ], $brandingRequest['required']);
+        $this->assertSame($brandingRequest['required'], array_keys($brandingRequest['properties']));
+        foreach ($brandingRequest['required'] as $field) {
+            $this->assertSame(['integer', 'null'], $brandingRequest['properties'][$field]['type']);
+        }
+
+        $mediaDelete = $document['paths'][ApiRouting::path('/admin/media/{media}')]['delete']['responses']['409'];
+        $this->assertSame('#/components/responses/ApiMediaInUseBySystemSettingsResponse', $mediaDelete['$ref']);
+        $mediaConflict = $document['components']['responses']['ApiMediaInUseBySystemSettingsResponse']['content']['application/json']['schema'];
+        $this->assertSame(409, $mediaConflict['properties']['code']['const']);
+        $this->assertContains('error_code', $mediaConflict['required']);
+        $this->assertSame(['media_in_use_by_system_settings'], $mediaConflict['properties']['error_code']['enum']);
+
+        foreach ([
+            ['path' => '/admin/system-configs', 'method' => 'post'],
+            ['path' => '/admin/system-configs/{systemConfig}', 'method' => 'put'],
+            ['path' => '/admin/system-configs/{systemConfig}', 'method' => 'delete'],
+        ] as $operation) {
+            $conflict = $document['paths'][ApiRouting::path($operation['path'])][$operation['method']]['responses']['409'];
+            $this->assertSame('#/components/responses/ApiManagedSystemSettingConflictResponse', $conflict['$ref']);
+        }
+        $managedConflict = $document['components']['responses']['ApiManagedSystemSettingConflictResponse']['content']['application/json']['schema'];
+        $this->assertSame(409, $managedConflict['properties']['code']['const']);
+        $this->assertContains('error_code', $managedConflict['required']);
+        $this->assertSame(['managed_system_setting_immutable'], $managedConflict['properties']['error_code']['enum']);
+
+        $fileDelete = $document['paths'][ApiRouting::path('/admin/files/{file}')]['delete']['responses']['503'];
+        $this->assertSame('#/components/responses/ApiFileDeleteFailedResponse', $fileDelete['$ref']);
+        $fileDeleteFailure = $document['components']['responses']['ApiFileDeleteFailedResponse']['content']['application/json']['schema'];
+        $this->assertSame(['file_delete_failed'], $fileDeleteFailure['properties']['error_code']['enum']);
+    }
+
+    public function test_generated_openapi_document_exposes_exact_file_management_contract(): void
+    {
+        $document = $this->openApiDocument();
+        $operations = $this->operationsById($document);
+
+        foreach (['admin.files.index', 'admin.files.store', 'admin.files.destroy'] as $operationId) {
+            $this->assertArrayHasKey($operationId, $operations);
+        }
+
+        $path = ApiRouting::path('/admin/files');
+        $requestBody = $document['paths'][$path]['post']['requestBody'];
+        $this->assertSame(['multipart/form-data'], array_keys($requestBody['content']));
+        $requestReference = $requestBody['content']['multipart/form-data']['schema']['$ref'];
+        $requestSchema = $document['components']['schemas'][str($requestReference)->afterLast('/')->toString()];
+        $this->assertSame(['file'], $requestSchema['required']);
+        $this->assertSame('binary', $requestSchema['properties']['file']['format']);
+        $this->assertArrayNotHasKey('type', $requestSchema['properties']);
+        $this->assertSame(
+            app(FileUploadPolicy::class)->openApiDescription(),
+            $requestSchema['properties']['file']['description'],
+        );
+        $this->assertStringContainsString('image (JPG, JPEG, PNG, WEBP, GIF; max 5 MiB)', $requestSchema['properties']['file']['description']);
+        $this->assertStringContainsString('document (PDF, TXT, CSV; max 20 MiB)', $requestSchema['properties']['file']['description']);
+        $this->assertStringContainsString('video (MP4; max 100 MiB)', $requestSchema['properties']['file']['description']);
+        $this->assertStringContainsString('100 MiB', $requestSchema['properties']['file']['description']);
+
+        $fileReference = $document['paths'][$path]['get']['responses']['200']['content']['application/json']['schema']['properties']['data']['items']['$ref'];
+        $fileSchema = $document['components']['schemas'][str($fileReference)->afterLast('/')->toString()];
+        $this->assertSame([
+            'id',
+            'name',
+            'type',
+            'mime_type',
+            'extension',
+            'size',
+            'url',
+            'width',
+            'height',
+            'status',
+            'created_at',
+        ], $fileSchema['required']);
+        $this->assertSame(app(FileUploadPolicy::class)->types(), $fileSchema['properties']['type']['enum']);
+        $this->assertSame(['image', 'document', 'video', 'audio', 'other'], $fileSchema['properties']['type']['enum']);
+        $this->assertSame(['pending', 'ready', 'failed'], $fileSchema['properties']['status']['enum']);
+        foreach (['disk', 'path', 'created_by'] as $internalProperty) {
+            $this->assertArrayNotHasKey($internalProperty, $fileSchema['properties']);
+        }
+
+        $deleteResponse = $document['paths'][ApiRouting::path('/admin/files/{file}')]['delete']['responses']['503'];
+        $this->assertSame('#/components/responses/ApiFileDeleteFailedResponse', $deleteResponse['$ref']);
+        $fileDeleteFailed = $document['components']['responses']['ApiFileDeleteFailedResponse']['content']['application/json']['schema'];
+        $this->assertSame(['file_delete_failed'], $fileDeleteFailed['properties']['error_code']['enum']);
+
+        $mediaDeleteResponse = $document['paths'][ApiRouting::path('/admin/media/{media}')]['delete']['responses']['503'];
+        $this->assertSame('#/components/responses/ApiServiceUnavailableResponse', $mediaDeleteResponse['$ref']);
+        $mediaDeleteFailed = $document['components']['responses']['ApiServiceUnavailableResponse']['content']['application/json']['schema'];
+        $this->assertSame(['media_delete_failed'], $mediaDeleteFailed['properties']['error_code']['enum']);
     }
 
     /**

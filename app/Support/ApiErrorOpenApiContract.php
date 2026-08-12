@@ -2,7 +2,10 @@
 
 namespace App\Support;
 
+use App\Exceptions\FileDeleteFailedException;
+use App\Exceptions\ManagedSystemSettingException;
 use App\Exceptions\MediaDeleteFailedException;
+use App\Exceptions\MediaInUseBySystemSettingsException;
 use App\Support\Auth\AccountInactiveException;
 use App\Support\OpenApi\EmptyObjectType;
 use Dedoc\Scramble\Support\Generator\Header;
@@ -42,6 +45,17 @@ final class ApiErrorOpenApiContract
     public function transformDocument(OpenApi $document): void
     {
         $responseReferences = $this->registerResponses($document);
+        $fileDeleteFailedReference = $this->registerFileDeleteFailedResponse($document);
+        $mediaInUseReference = $this->registerConflictResponse(
+            $document,
+            'ApiMediaInUseBySystemSettingsResponse',
+            MediaInUseBySystemSettingsException::ERROR_CODE,
+        );
+        $managedSystemSettingReference = $this->registerConflictResponse(
+            $document,
+            'ApiManagedSystemSettingConflictResponse',
+            ManagedSystemSettingException::ERROR_CODE,
+        );
 
         foreach ($document->paths as $path) {
             foreach ($path->operations as $operation) {
@@ -91,6 +105,22 @@ final class ApiErrorOpenApiContract
                     $this->replaceResponse($operation, $responseCode, $responseReferences[$responseCode]);
                 }
 
+                if ($route->getName() === 'admin.files.destroy') {
+                    $this->replaceResponse($operation, Response::HTTP_SERVICE_UNAVAILABLE, $fileDeleteFailedReference);
+                }
+
+                if ($route->getName() === 'admin.media.destroy') {
+                    $this->replaceResponse($operation, Response::HTTP_CONFLICT, $mediaInUseReference);
+                }
+
+                if (in_array($route->getName(), [
+                    'admin.system-configs.store',
+                    'admin.system-configs.update',
+                    'admin.system-configs.destroy',
+                ], true)) {
+                    $this->replaceResponse($operation, Response::HTTP_CONFLICT, $managedSystemSettingReference);
+                }
+
                 $this->addRequestIdHeaderToResponses($operation);
             }
         }
@@ -116,7 +146,29 @@ final class ApiErrorOpenApiContract
         return $references;
     }
 
-    private function errorResponse(int $status): OpenApiResponse
+    private function registerFileDeleteFailedResponse(OpenApi $document): Reference
+    {
+        $reference = new Reference('responses', 'ApiFileDeleteFailedResponse', $document->components);
+        $document->components->add(
+            $reference,
+            $this->errorResponse(Response::HTTP_SERVICE_UNAVAILABLE, FileDeleteFailedException::ERROR_CODE),
+        );
+
+        return $reference;
+    }
+
+    private function registerConflictResponse(OpenApi $document, string $name, string $errorCode): Reference
+    {
+        $reference = new Reference('responses', $name, $document->components);
+        $document->components->add(
+            $reference,
+            $this->errorResponse(Response::HTTP_CONFLICT, $errorCode),
+        );
+
+        return $reference;
+    }
+
+    private function errorResponse(int $status, ?string $errorCode = null): OpenApiResponse
     {
         $errors = $status === Response::HTTP_UNPROCESSABLE_ENTITY
             ? (new ObjectType)->additionalProperties((new ArrayType)->setItems(new StringType))
@@ -137,11 +189,11 @@ final class ApiErrorOpenApiContract
             );
         }
 
-        if ($status === Response::HTTP_SERVICE_UNAVAILABLE) {
+        if ($errorCode !== null || $status === Response::HTTP_SERVICE_UNAVAILABLE) {
             $envelope
                 ->addProperty(
                     'error_code',
-                    (new StringType)->enum([MediaDeleteFailedException::ERROR_CODE]),
+                    (new StringType)->enum([$errorCode ?? MediaDeleteFailedException::ERROR_CODE]),
                 )
                 ->setRequired(['success', 'code', 'message', 'data', 'errors', 'request_id', 'error_code']);
         }

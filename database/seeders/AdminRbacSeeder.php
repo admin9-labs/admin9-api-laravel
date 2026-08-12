@@ -7,6 +7,8 @@ use App\Models\Permission;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use LogicException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -136,6 +138,8 @@ class AdminRbacSeeder extends Seeder
             $menu->permissions()->sync($permission === null ? [] : [$permission->id]);
             $menus[$definition['code']] = $menu;
         }
+
+        $this->removeObsoleteSystemSettingsMenus();
     }
 
     /**
@@ -158,6 +162,9 @@ class AdminRbacSeeder extends Seeder
             ['name' => 'system.media.view', 'display_name' => '媒体查看', 'group' => 'system.media', 'description' => '查看媒体', 'sort' => 910],
             ['name' => 'system.media.create', 'display_name' => '媒体上传', 'group' => 'system.media', 'description' => '上传媒体', 'sort' => 920],
             ['name' => 'system.media.delete', 'display_name' => '媒体删除', 'group' => 'system.media', 'description' => '删除媒体', 'sort' => 930],
+            ['name' => 'system.file.view', 'display_name' => '文件查看', 'group' => 'system.file', 'description' => '查看文件', 'sort' => 940],
+            ['name' => 'system.file.create', 'display_name' => '文件上传', 'group' => 'system.file', 'description' => '上传文件', 'sort' => 950],
+            ['name' => 'system.file.delete', 'display_name' => '文件删除', 'group' => 'system.file', 'description' => '删除文件', 'sort' => 960],
             ['name' => 'system.role.view', 'display_name' => '角色查看', 'group' => 'system.role', 'description' => '查看后台角色', 'sort' => 210],
             ['name' => 'system.role.create', 'display_name' => '角色创建', 'group' => 'system.role', 'description' => '创建后台角色', 'sort' => 220],
             ['name' => 'system.role.update', 'display_name' => '角色更新', 'group' => 'system.role', 'description' => '更新后台角色及权限', 'sort' => 230],
@@ -194,10 +201,69 @@ class AdminRbacSeeder extends Seeder
             ...$this->pageWithButtons('system.users', 'system', '用户管理', '/system/users', 'system/users/index', 'user', 'system.user', 30, ['assign-role' => '分配角色']),
             ...$this->memberPageWithButtons(),
             ...$this->mediaPageWithButtons(),
+            ...$this->filePageWithButtons(),
             ...$this->pageWithButtons('system.menus', 'system', '菜单管理', '/system/menus', 'system/menus/index', 'menu', 'system.menu', 40),
             ...$this->pageWithButtons('system.dictionaries', 'system', '字典管理', '/system/dictionaries', 'system/dictionaries/index', 'book', 'system.dictionary', 50),
-            ...$this->pageWithButtons('system.configs', 'system', '系统配置', '/system/configs', 'system/configs/index', 'settings', 'system.config', 60),
+            ...$this->systemSettingsPage(),
         ];
+    }
+
+    /**
+     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     */
+    private function systemSettingsPage(): array
+    {
+        return [
+            [
+                'code' => 'system.configs',
+                'parent_code' => 'system',
+                'name' => '系统设置',
+                'path' => '/system/configs',
+                'component' => 'system/configs/index',
+                'icon' => 'settings',
+                'type' => Menu::TYPE_PAGE,
+                'permission_name' => 'system.config.view',
+                'sort' => 60,
+                'is_visible' => true,
+            ],
+            [
+                'code' => 'system.configs.update',
+                'parent_code' => 'system.configs',
+                'name' => '编辑',
+                'path' => null,
+                'component' => null,
+                'icon' => null,
+                'type' => Menu::TYPE_BUTTON,
+                'permission_name' => 'system.config.update',
+                'sort' => 20,
+                'is_visible' => false,
+            ],
+        ];
+    }
+
+    private function removeObsoleteSystemSettingsMenus(): void
+    {
+        DB::transaction(function (): void {
+            $obsoleteMenus = Menu::query()
+                ->whereIn('code', ['system.configs.create', 'system.configs.delete'])
+                ->lockForUpdate()
+                ->get();
+
+            if ($obsoleteMenus->isEmpty()) {
+                return;
+            }
+
+            $menuIds = $obsoleteMenus->modelKeys();
+
+            if (Schema::hasTable('role_menu')) {
+                DB::table('role_menu')->whereIn('menu_id', $menuIds)->delete();
+            }
+
+            $obsoleteMenus->each(function (Menu $menu): void {
+                $menu->permissions()->detach();
+                $menu->delete();
+            });
+        });
     }
 
     /**
@@ -338,6 +404,51 @@ class AdminRbacSeeder extends Seeder
                 'icon' => null,
                 'type' => Menu::TYPE_BUTTON,
                 'permission_name' => 'system.media.delete',
+                'sort' => 20,
+                'is_visible' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     */
+    private function filePageWithButtons(): array
+    {
+        return [
+            [
+                'code' => 'system.file',
+                'parent_code' => 'system',
+                'name' => '文件管理',
+                'path' => '/system/file',
+                'component' => 'system/file/index',
+                'icon' => 'file',
+                'type' => Menu::TYPE_PAGE,
+                'permission_name' => 'system.file.view',
+                'sort' => 39,
+                'is_visible' => true,
+            ],
+            [
+                'code' => 'system.file.create',
+                'parent_code' => 'system.file',
+                'name' => '上传',
+                'path' => null,
+                'component' => null,
+                'icon' => null,
+                'type' => Menu::TYPE_BUTTON,
+                'permission_name' => 'system.file.create',
+                'sort' => 10,
+                'is_visible' => false,
+            ],
+            [
+                'code' => 'system.file.delete',
+                'parent_code' => 'system.file',
+                'name' => '删除',
+                'path' => null,
+                'component' => null,
+                'icon' => null,
+                'type' => Menu::TYPE_BUTTON,
+                'permission_name' => 'system.file.delete',
                 'sort' => 20,
                 'is_visible' => false,
             ],

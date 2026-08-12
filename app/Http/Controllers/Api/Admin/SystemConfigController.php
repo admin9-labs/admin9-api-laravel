@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Exceptions\ManagedSystemSettingException;
 use App\Http\Controllers\Controller;
 use App\Http\Filters\SystemConfigFilter;
 use App\Http\Requests\Admin\StoreSystemConfigRequest;
 use App\Http\Requests\Admin\UpdateSystemConfigRequest;
 use App\Http\Resources\Admin\SystemConfigResource;
 use App\Models\SystemConfig;
+use App\Support\SystemSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
@@ -31,6 +33,10 @@ class SystemConfigController extends Controller
      */
     public function store(StoreSystemConfigRequest $request): JsonResponse
     {
+        if (SystemSettings::isManagedKey($request->validated('key'))) {
+            throw new ManagedSystemSettingException;
+        }
+
         $systemConfig = DB::transaction(fn (): SystemConfig => SystemConfig::query()->create($request->validated()));
 
         return $this->success([
@@ -53,6 +59,13 @@ class SystemConfigController extends Controller
      */
     public function update(UpdateSystemConfigRequest $request, SystemConfig $systemConfig): JsonResponse
     {
+        if (
+            SystemSettings::isManagedKey($systemConfig->key)
+            || SystemSettings::isManagedKey($request->validated('key'))
+        ) {
+            throw new ManagedSystemSettingException;
+        }
+
         DB::transaction(function () use ($request, $systemConfig): void {
             $systemConfig->update($request->validated());
         });
@@ -67,6 +80,10 @@ class SystemConfigController extends Controller
      */
     public function destroy(SystemConfig $systemConfig): JsonResponse
     {
+        if (SystemSettings::isManagedKey($systemConfig->key)) {
+            throw new ManagedSystemSettingException;
+        }
+
         DB::transaction(function () use ($systemConfig): void {
             $systemConfig->delete();
         });

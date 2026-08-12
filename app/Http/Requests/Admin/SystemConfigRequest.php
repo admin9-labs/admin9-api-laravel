@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Exceptions\ManagedSystemSettingException;
 use App\Models\SystemConfig;
+use App\Support\SystemSettings;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -79,6 +81,18 @@ abstract class SystemConfigRequest extends FormRequest
         $systemConfig = $this->route('system_config');
 
         return $systemConfig instanceof SystemConfig ? $systemConfig : null;
+    }
+
+    protected function rejectManagedSystemSetting(?SystemConfig $systemConfig = null): void
+    {
+        $submittedKey = $this->input('key');
+
+        if (
+            SystemSettings::isManagedKey($systemConfig?->key)
+            || SystemSettings::isManagedKey(is_string($submittedKey) ? $submittedKey : null)
+        ) {
+            throw new ManagedSystemSettingException;
+        }
     }
 
     private function configurationType(?SystemConfig $systemConfig): string

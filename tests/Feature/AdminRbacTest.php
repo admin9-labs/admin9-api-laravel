@@ -7,11 +7,14 @@ use App\Models\Menu;
 use App\Models\User;
 use App\Support\ApiRouting;
 use Database\Seeders\AdminRbacSeeder;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route as RouteFacade;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
@@ -174,11 +177,12 @@ class AdminRbacTest extends TestCase
             ->where('is_system', true)
             ->get();
 
-        $this->assertCount(36, $permissions);
+        $this->assertCount(39, $permissions);
         $this->assertContains('system.activity-log.view', $permissions->pluck('name'));
         $this->assertContains('system.login-log.view', $permissions->pluck('name'));
         $this->assertContains('system.member.invalidate_sessions', $permissions->pluck('name'));
         $this->assertContains('system.media.delete', $permissions->pluck('name'));
+        $this->assertContains('system.file.delete', $permissions->pluck('name'));
 
         $permissions->each(function (Permission $permission): void {
             $this->assertNotEmpty($permission->getAttribute('display_name'));
@@ -199,6 +203,9 @@ class AdminRbacTest extends TestCase
         $assignRole = Menu::query()->where('code', 'system.users.assign-role')->firstOrFail();
         $memberPage = Menu::query()->where('code', 'SystemMember')->firstOrFail();
         $mediaPage = Menu::query()->where('code', 'system.media')->firstOrFail();
+        $filePage = Menu::query()->where('code', 'system.file')->firstOrFail();
+        $systemSettingsPage = Menu::query()->where('code', 'system.configs')->firstOrFail();
+        $systemSettingsUpdate = Menu::query()->where('code', 'system.configs.update')->firstOrFail();
         $logs = Menu::query()->where('code', 'system.logs')->firstOrFail();
 
         $this->assertSame(Menu::TYPE_DIRECTORY, $system->type);
@@ -226,6 +233,20 @@ class AdminRbacTest extends TestCase
             'system.media.create',
             'system.media.delete',
         ], $mediaPage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
+        $this->assertSame(Menu::TYPE_PAGE, $filePage->type);
+        $this->assertSame('/system/file', $filePage->path);
+        $this->assertSame(['system.file.view'], $filePage->permissions()->pluck('name')->all());
+        $this->assertEqualsCanonicalizing([
+            'system.file.create',
+            'system.file.delete',
+        ], $filePage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
+        $this->assertSame('系统设置', $systemSettingsPage->name);
+        $this->assertSame(Menu::TYPE_PAGE, $systemSettingsPage->type);
+        $this->assertSame(['system.config.view'], $systemSettingsPage->permissions()->pluck('name')->all());
+        $this->assertSame(['system.configs.update'], $systemSettingsPage->children()->pluck('code')->all());
+        $this->assertSame(Menu::TYPE_BUTTON, $systemSettingsUpdate->type);
+        $this->assertSame(['system.config.update'], $systemSettingsUpdate->permissions()->pluck('name')->all());
+        $this->assertFalse(Menu::query()->whereIn('code', ['system.configs.create', 'system.configs.delete'])->exists());
         $this->assertFalse($roleCreate->is_visible);
         $this->assertFalse(Menu::query()->where('code', 'system.activity-logs')->exists());
         $this->assertFalse(Menu::query()->where('code', 'system.login-logs')->exists());
@@ -238,6 +259,99 @@ class AdminRbacTest extends TestCase
             'system.activity-log.view',
             'system.login-log.view',
         ], $logs->permissions()->pluck('name')->all());
+    }
+
+    public function test_seeder_repeatedly_removes_obsolete_system_settings_buttons_and_bindings(): void
+    {
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $systemSettingsPage = Menu::query()->where('code', 'system.configs')->firstOrFail();
+        $role = Role::query()->where('name', 'system-admin')->where('guard_name', 'admin')->firstOrFail();
+
+        Schema::create('role_menu', function (Blueprint $table): void {
+            $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
+            $table->foreignId('menu_id')->constrained('menus')->restrictOnDelete();
+            $table->primary(['role_id', 'menu_id']);
+        });
+
+        try {
+            $obsoleteMenuIds = collect(['create', 'delete'])->map(function (string $action) use ($role, $systemSettingsPage): int {
+                $menu = Menu::query()->create([
+                    'parent_id' => $systemSettingsPage->id,
+                    'name' => $action === 'create' ? '新增' : '删除',
+                    'code' => "system.configs.{$action}",
+                    'type' => Menu::TYPE_BUTTON,
+                    'sort' => $action === 'create' ? 10 : 30,
+                    'is_visible' => false,
+                    'is_active' => true,
+                ]);
+                $permission = Permission::findByName("system.config.{$action}", 'admin');
+                $menu->permissions()->attach($permission);
+                DB::table('role_menu')->insert(['role_id' => $role->id, 'menu_id' => $menu->id]);
+
+                return $menu->id;
+            });
+
+            Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+            Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+            $systemSettingsPage->refresh();
+
+            $this->assertSame('系统设置', $systemSettingsPage->name);
+            $this->assertSame(['system.configs.update'], $systemSettingsPage->children()->pluck('code')->all());
+            $this->assertSame(['system.config.update'], $systemSettingsPage->children()->firstOrFail()->permissions()->pluck('name')->all());
+            $this->assertSame(0, Menu::query()->whereIn('id', $obsoleteMenuIds)->count());
+            $this->assertSame(0, DB::table('menu_permission')->whereIn('menu_id', $obsoleteMenuIds)->count());
+            $this->assertSame(0, DB::table('role_menu')->whereIn('menu_id', $obsoleteMenuIds)->count());
+        } finally {
+            Schema::dropIfExists('role_menu');
+        }
+    }
+
+    public function test_system_settings_menu_migration_is_replayable_irreversible_and_removes_historical_bindings(): void
+    {
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $systemSettingsPage = Menu::query()->where('code', 'system.configs')->firstOrFail();
+        $systemSettingsPage->update(['name' => '系统配置']);
+        $role = Role::query()->where('name', 'system-admin')->where('guard_name', 'admin')->firstOrFail();
+
+        Schema::create('role_menu', function (Blueprint $table): void {
+            $table->foreignId('role_id')->constrained('roles')->cascadeOnDelete();
+            $table->foreignId('menu_id')->constrained('menus')->restrictOnDelete();
+            $table->primary(['role_id', 'menu_id']);
+        });
+
+        try {
+            $obsoleteMenuIds = collect(['create', 'delete'])->map(function (string $action) use ($role, $systemSettingsPage): int {
+                $menu = Menu::query()->create([
+                    'parent_id' => $systemSettingsPage->id,
+                    'name' => $action === 'create' ? '新增' : '删除',
+                    'code' => "system.configs.{$action}",
+                    'type' => Menu::TYPE_BUTTON,
+                    'sort' => $action === 'create' ? 10 : 30,
+                    'is_visible' => false,
+                    'is_active' => true,
+                ]);
+                $permission = Permission::findByName("system.config.{$action}", 'admin');
+                $menu->permissions()->attach($permission);
+                DB::table('role_menu')->insert(['role_id' => $role->id, 'menu_id' => $menu->id]);
+
+                return $menu->id;
+            });
+
+            $migration = require database_path('migrations/2026_08_12_085238_rename_system_config_menu_to_system_settings.php');
+            $migration->up();
+            $migration->up();
+            $migration->down();
+
+            $this->assertSame('系统设置', $systemSettingsPage->refresh()->name);
+            $this->assertSame(0, Menu::query()->whereIn('id', $obsoleteMenuIds)->count());
+            $this->assertSame(0, DB::table('menu_permission')->whereIn('menu_id', $obsoleteMenuIds)->count());
+            $this->assertSame(0, DB::table('role_menu')->whereIn('menu_id', $obsoleteMenuIds)->count());
+        } finally {
+            Schema::dropIfExists('role_menu');
+        }
     }
 
     public function test_permission_managed_admin_routes_declare_existing_seed_permission_names(): void
@@ -270,11 +384,7 @@ class AdminRbacTest extends TestCase
             ->values()
             ->all();
 
-        $routeOnlyPermissionNames = [
-            'system.media.create',
-            'system.media.delete',
-            'system.media.view',
-        ];
+        $routeOnlyPermissionNames = ['system.config.create', 'system.config.delete'];
 
         $this->assertSame($routeOnlyPermissionNames, $routePermissionNames->diff($menuPermissionNames)->values()->all());
         $this->assertSame(

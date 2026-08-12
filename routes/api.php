@@ -1,7 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\SystemSettingsController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/system-settings/public', [SystemSettingsController::class, 'public'])
+    ->middleware('throttle:public-system-settings')
+    ->name('system-settings.public');
 
 Route::middleware('throttle:member-api')->group(function () {
     Route::post('/auth/login', [AuthController::class, 'login'])

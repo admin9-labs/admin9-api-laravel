@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Http\Requests\Admin\StoreDictionaryItemRequest;
+use App\Http\Requests\Admin\StoreFileRequest;
 use App\Http\Requests\Admin\StoreMediaRequest;
 use App\Http\Requests\Admin\StoreMemberRequest;
 use App\Http\Requests\Admin\StoreMenuRequest;
@@ -12,12 +13,14 @@ use App\Http\Requests\Admin\UpdateMemberStatusRequest;
 use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\ActivityLogResource;
 use App\Http\Resources\Admin\DictionaryItemResource;
+use App\Http\Resources\Admin\FileResource;
 use App\Http\Resources\Admin\LoginLogResource;
 use App\Http\Resources\Admin\MediaResource;
 use App\Http\Resources\Admin\MemberResource;
 use App\Http\Resources\Admin\MenuResource;
 use App\Http\Resources\Admin\PermissionResource;
 use App\Http\Resources\Admin\SystemConfigResource;
+use App\Http\Resources\SystemSettingsResource;
 use Dedoc\Scramble\Support\Generator\Combined\AllOf;
 use Dedoc\Scramble\Support\Generator\Combined\AnyOf;
 use Dedoc\Scramble\Support\Generator\OpenApi;
@@ -37,6 +40,8 @@ use LogicException;
 
 class AdminApiOpenApiContract
 {
+    public function __construct(private FileUploadPolicy $fileUploadPolicy) {}
+
     public function transformOperation(Operation $operation, RouteInfo $routeInfo): void
     {
         $routeName = $routeInfo->route->getName();
@@ -49,7 +54,7 @@ class AdminApiOpenApiContract
             $this->normalizeLogFilterParameters($operation, ['subject_id']);
         }
 
-        if ($routeName === 'admin.media.store' && $operation->requestBodyObject !== null) {
+        if (in_array($routeName, ['admin.media.store', 'admin.files.store'], true) && $operation->requestBodyObject !== null) {
             $schema = $operation->requestBodyObject->content['application/json'] ?? null;
 
             if ($schema !== null) {
@@ -65,9 +70,11 @@ class AdminApiOpenApiContract
         $this->normalizeLoginLogSchema($this->objectSchema($document, LoginLogResource::class));
         $this->normalizeDictionaryMetaSchemas($document);
         $this->normalizeSystemConfigSchemas($document);
+        $this->normalizeSystemSettingsSchemas($document);
         $this->normalizeMenuSchemas($document);
         $this->normalizeMemberSchemas($document);
         $this->normalizeMediaSchemas($document);
+        $this->normalizeFileSchemas($document);
     }
 
     /**
@@ -142,6 +149,40 @@ class AdminApiOpenApiContract
 
         $this->objectSchema($document, SystemConfigResource::class)
             ->addProperty('value', $resolvedValue);
+    }
+
+    private function normalizeSystemSettingsSchemas(OpenApi $document): void
+    {
+        $mediaSetting = (new ObjectType)
+            ->addProperty('media_id', (new IntegerType)->format('int64')->nullable(true))
+            ->addProperty('state', (new StringType)->enum(['empty', 'ready', 'invalid']))
+            ->addProperty(
+                'media',
+                $document->components
+                    ->getSchemaReference($this->schemaComponentName($document, MediaResource::class))
+                    ->nullable(true),
+            )
+            ->addRequired(['media_id', 'state', 'media']);
+        $mediaSettingReference = $document->components->addSchema(
+            'MediaSetting',
+            Schema::fromType($mediaSetting),
+        );
+        $basic = (new ObjectType)
+            ->addProperty('system_name', (new StringType)->nullable(true))
+            ->addProperty('copyright', (new StringType)->nullable(true))
+            ->addProperty('icp_filing_number', (new StringType)->nullable(true))
+            ->addRequired(['system_name', 'copyright', 'icp_filing_number']);
+        $branding = (new ObjectType)
+            ->addProperty('navigation_logo', $mediaSettingReference)
+            ->addProperty('login_logo', $mediaSettingReference)
+            ->addProperty('login_background', $mediaSettingReference)
+            ->addProperty('favicon', $mediaSettingReference)
+            ->addRequired(['navigation_logo', 'login_logo', 'login_background', 'favicon']);
+
+        $this->objectSchema($document, SystemSettingsResource::class)
+            ->addProperty('basic', $basic)
+            ->addProperty('branding', $branding)
+            ->setRequired(['basic', 'branding']);
     }
 
     private function normalizeMenuSchemas(OpenApi $document): void
@@ -268,6 +309,47 @@ class AdminApiOpenApiContract
                     ->setDescription('JPEG, PNG, WebP, or GIF image up to 5 MiB. The filename extension must match the detected MIME type.'),
             )
             ->addRequired(['file']);
+    }
+
+    private function normalizeFileSchemas(OpenApi $document): void
+    {
+        $this->objectSchema($document, FileResource::class)
+            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('name', new StringType)
+            ->addProperty('type', (new StringType)->enum($this->fileUploadPolicy->types()))
+            ->addProperty('mime_type', new StringType)
+            ->addProperty('extension', new StringType)
+            ->addProperty('size', (new IntegerType)->format('int64'))
+            ->addProperty('url', (new StringType)->format('uri')->nullable(true))
+            ->addProperty('width', (new IntegerType)->nullable(true))
+            ->addProperty('height', (new IntegerType)->nullable(true))
+            ->addProperty('status', (new StringType)->enum(['pending', 'ready', 'failed']))
+            ->addProperty('created_at', new StringType)
+            ->addRequired([
+                'id',
+                'name',
+                'type',
+                'mime_type',
+                'extension',
+                'size',
+                'url',
+                'width',
+                'height',
+                'status',
+                'created_at',
+            ]);
+
+        $storeFileSchema = $this->objectSchema($document, StoreFileRequest::class);
+        $storeFileSchema
+            ->addProperty(
+                'file',
+                (new StringType)
+                    ->format('binary')
+                    ->contentMediaType('application/octet-stream')
+                    ->setDescription($this->fileUploadPolicy->openApiDescription()),
+            )
+            ->addRequired(['file']);
+        unset($storeFileSchema->properties['type']);
     }
 
     /**

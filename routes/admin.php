@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\Admin\ActivityLogController;
 use App\Http\Controllers\Api\Admin\AuthController;
 use App\Http\Controllers\Api\Admin\DictionaryItemController;
 use App\Http\Controllers\Api\Admin\DictionaryTypeController;
+use App\Http\Controllers\Api\Admin\FileController;
 use App\Http\Controllers\Api\Admin\LoginLogController;
 use App\Http\Controllers\Api\Admin\MediaController;
 use App\Http\Controllers\Api\Admin\MemberController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Api\Admin\MenuController;
 use App\Http\Controllers\Api\Admin\PermissionController;
 use App\Http\Controllers\Api\Admin\RoleController;
 use App\Http\Controllers\Api\Admin\SystemConfigController;
+use App\Http\Controllers\Api\Admin\SystemSettingsController;
 use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\Admin\UserRoleController;
 use Illuminate\Support\Facades\Route;
@@ -89,6 +91,16 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
             ->middlewareFor('destroy', $adminPermission('system.media.delete'))
             ->parameters(['media' => 'media']);
 
+        Route::apiResource('files', FileController::class)
+            ->only(['index', 'store', 'destroy'])
+            ->middlewareFor('index', $adminPermission('system.file.view'))
+            ->middlewareFor('store', [
+                $adminPermission('system.file.create'),
+                'throttle:admin-file-upload',
+            ])
+            ->middlewareFor('destroy', $adminPermission('system.file.delete'))
+            ->parameters(['files' => 'file']);
+
         Route::apiResource('dictionary-types', DictionaryTypeController::class)
             ->middlewareFor(['index', 'show'], $adminPermission('system.dictionary.view'))
             ->middlewareFor('store', $adminPermission('system.dictionary.create'))
@@ -109,6 +121,16 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
             ->middlewareFor('update', $adminPermission('system.config.update'))
             ->middlewareFor('destroy', $adminPermission('system.config.delete'))
             ->parameters(['system-configs' => 'system_config']);
+
+        Route::get('/system-settings', [SystemSettingsController::class, 'show'])
+            ->middleware($adminPermission('system.config.view'))
+            ->name('system-settings.show');
+        Route::put('/system-settings/basic', [SystemSettingsController::class, 'updateBasic'])
+            ->middleware($adminPermission('system.config.update'))
+            ->name('system-settings.basic.update');
+        Route::put('/system-settings/branding', [SystemSettingsController::class, 'updateBranding'])
+            ->middleware($adminPermission('system.config.update'))
+            ->name('system-settings.branding.update');
 
         Route::get('/activity-logs', [ActivityLogController::class, 'index'])
             ->middleware($adminPermission('system.activity-log.view'))

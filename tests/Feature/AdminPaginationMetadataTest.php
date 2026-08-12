@@ -20,7 +20,7 @@ class AdminPaginationMetadataTest extends TestCase
     use LazilyRefreshDatabase;
 
     /**
-     * @param  callable(): void  $seedRecords
+     * @param  callable(): int  $seedRecords
      * @param  array<int, string>  $expectedDataKeys
      */
     #[DataProvider('paginatedAdminIndexEndpoints')]
@@ -32,7 +32,7 @@ class AdminPaginationMetadataTest extends TestCase
         $user->givePermissionTo($permission);
         $token = $this->adminTokenFor($user);
 
-        $seedRecords();
+        $expectedTotal = $seedRecords();
 
         $response = $this->getJson($path, ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -41,7 +41,7 @@ class AdminPaginationMetadataTest extends TestCase
             ->assertJsonPath('meta.page', 1)
             ->assertJsonPath('meta.page_size', 2)
             ->assertJsonPath('meta.has_more', true)
-            ->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('meta.total', $expectedTotal)
             ->assertJsonCount(2, 'data')
             ->assertHeader('X-Request-Id');
 
@@ -122,7 +122,7 @@ class AdminPaginationMetadataTest extends TestCase
     }
 
     /**
-     * @return array<string, array{permission: string, path: string, seedRecords: callable(): void, expectedDataKeys: array<int, string>}>
+     * @return array<string, array{permission: string, path: string, seedRecords: callable(): int, expectedDataKeys: array<int, string>}>
      */
     public static function paginatedAdminIndexEndpoints(): array
     {
@@ -130,35 +130,43 @@ class AdminPaginationMetadataTest extends TestCase
             'users' => [
                 'permission' => 'system.user.view',
                 'path' => ApiRouting::path('/admin/users?page_size=2'),
-                'seedRecords' => static function (): void {
+                'seedRecords' => static function (): int {
                     User::factory()->count(2)->create();
+
+                    return User::query()->count();
                 },
                 'expectedDataKeys' => ['id', 'email'],
             ],
             'dictionary types' => [
                 'permission' => 'system.dictionary.view',
                 'path' => ApiRouting::path('/admin/dictionary-types?page_size=2'),
-                'seedRecords' => static function (): void {
+                'seedRecords' => static function (): int {
                     DictionaryType::factory()->count(3)->create();
+
+                    return DictionaryType::query()->count();
                 },
                 'expectedDataKeys' => ['id', 'code'],
             ],
             'dictionary items' => [
                 'permission' => 'system.dictionary.view',
                 'path' => ApiRouting::path('/admin/dictionary-items?page_size=2'),
-                'seedRecords' => static function (): void {
+                'seedRecords' => static function (): int {
                     $dictionaryType = DictionaryType::factory()->create();
                     DictionaryItem::factory()->count(3)->create([
                         'dictionary_type_id' => $dictionaryType->id,
                     ]);
+
+                    return DictionaryItem::query()->count();
                 },
                 'expectedDataKeys' => ['id', 'code', 'type.id'],
             ],
             'system configs' => [
                 'permission' => 'system.config.view',
                 'path' => ApiRouting::path('/admin/system-configs?page_size=2'),
-                'seedRecords' => static function (): void {
+                'seedRecords' => static function (): int {
                     SystemConfig::factory()->count(3)->create();
+
+                    return SystemConfig::query()->count();
                 },
                 'expectedDataKeys' => ['id', 'key'],
             ],
