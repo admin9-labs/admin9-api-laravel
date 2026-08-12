@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\AdminApiOpenApiContract;
 use App\Support\ApiErrorOpenApiContract;
+use App\Support\Database\TestingDatabaseGuard;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Operation;
@@ -46,6 +47,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        TestingDatabaseGuard::ensureIsolated($this->app);
+
         app(JsonResponderDefault::class)->apply([
             'deny' => Response::HTTP_FORBIDDEN,
         ]);
