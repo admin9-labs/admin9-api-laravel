@@ -6,26 +6,30 @@ use Illuminate\Http\Request;
 
 final class ApiRouting
 {
-    public const PREFIX = 'api';
+    public static function prefix(): string
+    {
+        return trim((string) config('app.api_route_prefix'), '/');
+    }
 
     public static function path(string $path): string
     {
         $path = '/'.ltrim($path, '/');
+        $prefix = self::prefix();
 
-        if (self::PREFIX === '') {
+        if ($prefix === '') {
             return $path;
         }
 
-        return '/'.trim(self::PREFIX, '/').($path === '/' ? '' : $path);
+        return '/'.$prefix.($path === '/' ? '' : $path);
     }
 
     public static function matches(Request $request): bool
     {
-        if (self::PREFIX === '') {
+        $prefix = self::prefix();
+
+        if ($prefix === '') {
             return true;
         }
-
-        $prefix = trim(self::PREFIX, '/');
 
         return $request->is($prefix, $prefix.'/*');
     }

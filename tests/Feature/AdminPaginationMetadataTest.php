@@ -34,7 +34,7 @@ class AdminPaginationMetadataTest extends TestCase
 
         $expectedTotal = $seedRecords();
 
-        $response = $this->getJson($path, ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path($path), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('meta.pagination', 'page')
@@ -68,7 +68,7 @@ class AdminPaginationMetadataTest extends TestCase
 
         $expectedIdentifiers = $seedRecords();
 
-        $response = $this->getJson($path, ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path($path), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertHeader('X-Request-Id');
@@ -129,7 +129,7 @@ class AdminPaginationMetadataTest extends TestCase
         return [
             'users' => [
                 'permission' => 'system.user.view',
-                'path' => ApiRouting::path('/admin/users?page_size=2'),
+                'path' => '/admin/users?page_size=2',
                 'seedRecords' => static function (): int {
                     User::factory()->count(2)->create();
 
@@ -139,7 +139,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'dictionary types' => [
                 'permission' => 'system.dictionary.view',
-                'path' => ApiRouting::path('/admin/dictionary-types?page_size=2'),
+                'path' => '/admin/dictionary-types?page_size=2',
                 'seedRecords' => static function (): int {
                     DictionaryType::factory()->count(3)->create();
 
@@ -149,7 +149,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'dictionary items' => [
                 'permission' => 'system.dictionary.view',
-                'path' => ApiRouting::path('/admin/dictionary-items?page_size=2'),
+                'path' => '/admin/dictionary-items?page_size=2',
                 'seedRecords' => static function (): int {
                     $dictionaryType = DictionaryType::factory()->create();
                     DictionaryItem::factory()->count(3)->create([
@@ -162,7 +162,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'system configs' => [
                 'permission' => 'system.config.view',
-                'path' => ApiRouting::path('/admin/system-configs?page_size=2'),
+                'path' => '/admin/system-configs?page_size=2',
                 'seedRecords' => static function (): int {
                     SystemConfig::factory()->count(3)->create();
 
@@ -181,7 +181,7 @@ class AdminPaginationMetadataTest extends TestCase
         return [
             'roles' => [
                 'permission' => 'system.role.view',
-                'path' => ApiRouting::path('/admin/roles?page_size=2'),
+                'path' => '/admin/roles?page_size=2',
                 'seedRecords' => static function (): array {
                     foreach (range(1, 4) as $number) {
                         Role::findOrCreate("bounded-catalog-role-{$number}", 'admin');
@@ -198,7 +198,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'permissions' => [
                 'permission' => 'system.permission.view',
-                'path' => ApiRouting::path('/admin/permissions?page_size=2'),
+                'path' => '/admin/permissions?page_size=2',
                 'seedRecords' => static function (): array {
                     foreach (range(1, 4) as $number) {
                         Permission::findOrCreate("bounded.catalog.permission.{$number}", 'admin');
@@ -215,7 +215,7 @@ class AdminPaginationMetadataTest extends TestCase
             ],
             'menus' => [
                 'permission' => 'system.menu.view',
-                'path' => ApiRouting::path('/admin/menus?page_size=2'),
+                'path' => '/admin/menus?page_size=2',
                 'seedRecords' => static function (): array {
                     foreach (range(1, 4) as $number) {
                         Menu::factory()->create([

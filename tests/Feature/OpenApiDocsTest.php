@@ -46,7 +46,7 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
 
         $this->assertSame([['url' => 'http://localhost']], $document['servers']);
-        $this->assertSame('api', ApiRouting::PREFIX);
+        $this->assertSame('api', ApiRouting::prefix());
 
         foreach (array_keys($document['paths']) as $path) {
             $this->assertStringStartsWith('/', $path);

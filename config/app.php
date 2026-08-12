@@ -54,6 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'api_route_prefix' => env('API_ROUTE_PREFIX', 'api'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

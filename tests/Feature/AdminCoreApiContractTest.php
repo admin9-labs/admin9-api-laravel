@@ -32,7 +32,7 @@ class AdminCoreApiContractTest extends TestCase
         $seedResource($this);
         $token = $this->managerTokenFor([$permissionName]);
 
-        $response = $this->getJson($path, ['Authorization' => 'Bearer '.$token])
+        $response = $this->getJson(ApiRouting::path($path), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertHeader('X-Request-Id');
@@ -384,7 +384,7 @@ class AdminCoreApiContractTest extends TestCase
         return [
             'menus catalog' => [
                 'permissionName' => 'system.menu.view',
-                'path' => ApiRouting::path('/admin/menus?page_size=1'),
+                'path' => '/admin/menus?page_size=1',
                 'seedResource' => static function (self $test): void {
                     $permission = $test->createAdminPermission('system.contract.menu.view');
 
@@ -397,7 +397,7 @@ class AdminCoreApiContractTest extends TestCase
             ],
             'permissions catalog' => [
                 'permissionName' => 'system.permission.view',
-                'path' => ApiRouting::path('/admin/permissions?page_size=1'),
+                'path' => '/admin/permissions?page_size=1',
                 'seedResource' => static function (self $test): void {
                     $test->createAdminPermission('dynamic.contract.catalog', [
                         'display_name' => 'Contract Catalog',
@@ -408,7 +408,7 @@ class AdminCoreApiContractTest extends TestCase
             ],
             'roles catalog' => [
                 'permissionName' => 'system.role.view',
-                'path' => ApiRouting::path('/admin/roles?page_size=1'),
+                'path' => '/admin/roles?page_size=1',
                 'seedResource' => static function (): void {
                     Role::findOrCreate('contract-catalog-role', 'admin');
                 },
