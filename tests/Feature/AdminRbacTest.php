@@ -198,6 +198,7 @@ class AdminRbacTest extends TestCase
         $roleCreate = Menu::query()->where('code', 'system.roles.create')->firstOrFail();
         $assignRole = Menu::query()->where('code', 'system.users.assign-role')->firstOrFail();
         $memberPage = Menu::query()->where('code', 'SystemMember')->firstOrFail();
+        $mediaPage = Menu::query()->where('code', 'system.media')->firstOrFail();
         $logs = Menu::query()->where('code', 'system.logs')->firstOrFail();
 
         $this->assertSame(Menu::TYPE_DIRECTORY, $system->type);
@@ -218,7 +219,13 @@ class AdminRbacTest extends TestCase
             'system.member.invalidate_sessions',
         ], $memberPage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
         $this->assertFalse(Menu::query()->where('code', 'SystemMember.delete')->exists());
-        $this->assertFalse(Menu::query()->whereHas('permissions', fn ($query) => $query->where('name', 'like', 'system.media.%'))->exists());
+        $this->assertSame(Menu::TYPE_PAGE, $mediaPage->type);
+        $this->assertSame('/system/media', $mediaPage->path);
+        $this->assertSame(['system.media.view'], $mediaPage->permissions()->pluck('name')->all());
+        $this->assertEqualsCanonicalizing([
+            'system.media.create',
+            'system.media.delete',
+        ], $mediaPage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
         $this->assertFalse($roleCreate->is_visible);
         $this->assertFalse(Menu::query()->where('code', 'system.activity-logs')->exists());
         $this->assertFalse(Menu::query()->where('code', 'system.login-logs')->exists());

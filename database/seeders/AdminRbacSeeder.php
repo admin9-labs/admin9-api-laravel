@@ -193,6 +193,7 @@ class AdminRbacSeeder extends Seeder
             ...$this->pageWithButtons('system.permissions', 'system', '权限管理', '/system/permissions', 'system/permissions/index', 'lock', 'system.permission', 25),
             ...$this->pageWithButtons('system.users', 'system', '用户管理', '/system/users', 'system/users/index', 'user', 'system.user', 30, ['assign-role' => '分配角色']),
             ...$this->memberPageWithButtons(),
+            ...$this->mediaPageWithButtons(),
             ...$this->pageWithButtons('system.menus', 'system', '菜单管理', '/system/menus', 'system/menus/index', 'menu', 'system.menu', 40),
             ...$this->pageWithButtons('system.dictionaries', 'system', '字典管理', '/system/dictionaries', 'system/dictionaries/index', 'book', 'system.dictionary', 50),
             ...$this->pageWithButtons('system.configs', 'system', '系统配置', '/system/configs', 'system/configs/index', 'settings', 'system.config', 60),
@@ -295,6 +296,51 @@ class AdminRbacSeeder extends Seeder
                 'sort' => $button['sort'],
                 'is_visible' => false,
             ])->values()->all(),
+        ];
+    }
+
+    /**
+     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     */
+    private function mediaPageWithButtons(): array
+    {
+        return [
+            [
+                'code' => 'system.media',
+                'parent_code' => 'system',
+                'name' => '素材管理',
+                'path' => '/system/media',
+                'component' => 'system/media/index',
+                'icon' => 'image',
+                'type' => Menu::TYPE_PAGE,
+                'permission_name' => 'system.media.view',
+                'sort' => 38,
+                'is_visible' => true,
+            ],
+            [
+                'code' => 'system.media.create',
+                'parent_code' => 'system.media',
+                'name' => '上传',
+                'path' => null,
+                'component' => null,
+                'icon' => null,
+                'type' => Menu::TYPE_BUTTON,
+                'permission_name' => 'system.media.create',
+                'sort' => 10,
+                'is_visible' => false,
+            ],
+            [
+                'code' => 'system.media.delete',
+                'parent_code' => 'system.media',
+                'name' => '删除',
+                'path' => null,
+                'component' => null,
+                'icon' => null,
+                'type' => Menu::TYPE_BUTTON,
+                'permission_name' => 'system.media.delete',
+                'sort' => 20,
+                'is_visible' => false,
+            ],
         ];
     }
 }
