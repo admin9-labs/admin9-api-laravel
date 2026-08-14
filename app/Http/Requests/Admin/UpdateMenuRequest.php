@@ -4,13 +4,14 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\Menu;
 use App\Models\Permission;
+use App\Support\Admin\MenuHierarchyValidator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class UpdateMenuRequest extends FormRequest
 {
-    public const DESCENDANT_PARENT_MESSAGE = 'The selected parent menu must not be a descendant of this menu.';
+    public const DESCENDANT_PARENT_MESSAGE = MenuHierarchyValidator::DESCENDANT_PARENT_MESSAGE;
 
     /**
      * Determine if the user is authorized to make this request.
@@ -40,7 +41,7 @@ class UpdateMenuRequest extends FormRequest
             'code' => ['sometimes', 'required', 'string', 'max:100', Rule::unique(Menu::class, 'code')->ignore($menu)],
             'path' => ['nullable', 'string', 'max:255'],
             'component' => ['nullable', 'string', 'max:255'],
-            'icon' => ['nullable', 'string', 'max:100'],
+            'icon' => ['nullable', 'string', 'max:100', 'regex:/^(?:icon-)?[a-z][a-z0-9-]*$/'],
             'type' => ['sometimes', 'string', Rule::in(Menu::allowedTypes())],
             'permission_ids' => ['sometimes', 'array'],
             'permission_ids.*' => ['integer', 'distinct', Rule::exists(Permission::class, 'id')->where('guard_name', 'admin')],
@@ -66,7 +67,11 @@ class UpdateMenuRequest extends FormRequest
                 }
             },
             function (Validator $validator): void {
-                if ($validator->errors()->has('parent_id') || ! $this->filled('parent_id')) {
+                if (! $this->exists('parent_id') && ! $this->exists('type')) {
+                    return;
+                }
+
+                if ($validator->errors()->hasAny(['parent_id', 'type'])) {
                     return;
                 }
 
@@ -76,31 +81,38 @@ class UpdateMenuRequest extends FormRequest
                     return;
                 }
 
-                if ($this->isDescendantMenu((int) $this->input('parent_id'), $menu->id)) {
-                    $validator->errors()->add('parent_id', self::DESCENDANT_PARENT_MESSAGE);
+                $parentId = $this->exists('parent_id') ? $this->input('parent_id') : $menu->parent_id;
+                $errors = app(MenuHierarchyValidator::class)->errors(
+                    $this->menuSnapshot(),
+                    (int) $menu->getKey(),
+                    (string) $this->input('type', $menu->type),
+                    $parentId === null ? null : (int) $parentId,
+                );
+
+                foreach ($errors as $field => $messages) {
+                    foreach ($messages as $message) {
+                        $validator->errors()->add($field, $message);
+                    }
                 }
             },
         ];
     }
 
-    private function isDescendantMenu(int $candidateParentId, int $menuId): bool
+    /**
+     * @return array<int, array{id: int, parent_id: ?int, type: string}>
+     */
+    private function menuSnapshot(): array
     {
-        $visitedMenuIds = [];
-        $currentMenuId = $candidateParentId;
-
-        while (true) {
-            if ($currentMenuId === $menuId || isset($visitedMenuIds[$currentMenuId])) {
-                return true;
-            }
-
-            $visitedMenuIds[$currentMenuId] = true;
-            $parentId = Menu::query()->whereKey($currentMenuId)->value('parent_id');
-
-            if ($parentId === null) {
-                return false;
-            }
-
-            $currentMenuId = (int) $parentId;
-        }
+        return Menu::query()
+            ->select(['id', 'parent_id', 'type'])
+            ->get()
+            ->mapWithKeys(static fn (Menu $menu): array => [
+                (int) $menu->getKey() => [
+                    'id' => (int) $menu->getKey(),
+                    'parent_id' => $menu->parent_id === null ? null : (int) $menu->parent_id,
+                    'type' => (string) $menu->type,
+                ],
+            ])
+            ->all();
     }
 }

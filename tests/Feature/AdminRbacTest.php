@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use Illuminate\Support\Facades\Schema;
+use LogicException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
@@ -44,6 +45,102 @@ class AdminRbacTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.user.email', 'admin@admin9.dev');
+    }
+
+    public function test_admin_rbac_seeder_preserves_core_menu_and_permission_binding_edits(): void
+    {
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $customParent = Menu::factory()->directory()->create(['code' => 'custom.seed-parent']);
+        $customPermission = $this->createAdminPermission('custom.seeded-menu.view');
+        $roles = Menu::query()->where('seed_key', 'admin9.core.system.roles')->firstOrFail();
+        $roles->update([
+            'parent_id' => $customParent->id,
+            'name' => '自定义角色管理',
+            'code' => 'custom.roles',
+            'path' => '/custom/roles',
+            'component' => 'custom/roles/index',
+            'icon' => 'book',
+            'sort' => 99,
+            'is_visible' => false,
+            'is_active' => false,
+        ]);
+        $roles->permissions()->sync([$customPermission->id]);
+
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $roles->refresh();
+        $this->assertSame($customParent->id, $roles->parent_id);
+        $this->assertSame('自定义角色管理', $roles->name);
+        $this->assertSame('custom.roles', $roles->code);
+        $this->assertSame('/custom/roles', $roles->path);
+        $this->assertSame('custom/roles/index', $roles->component);
+        $this->assertSame('book', $roles->icon);
+        $this->assertSame(99, $roles->sort);
+        $this->assertFalse($roles->is_visible);
+        $this->assertFalse($roles->is_active);
+        $this->assertSame([$customPermission->id], $roles->permissions()->pluck('permissions.id')->all());
+        $this->assertSame(1, Menu::query()->where('seed_key', 'admin9.core.system.roles')->count());
+        $this->assertFalse(Menu::query()->where('code', 'system.roles')->exists());
+    }
+
+    public function test_seeded_leaf_deleted_through_api_stays_deleted_after_full_seeder_reruns(): void
+    {
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $leaf = Menu::query()->where('seed_key', 'admin9.core.system.roles.delete')->firstOrFail();
+        $leaf->update(['code' => 'custom.roles.remove']);
+        $token = $this->managerTokenFor(['system.menu.delete']);
+
+        $this->deleteJson(
+            ApiRouting::path('/admin/menus/').$leaf->id,
+            [],
+            ['Authorization' => 'Bearer '.$token],
+        )->assertOk();
+
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $this->assertDatabaseMissing('menus', ['seed_key' => 'admin9.core.system.roles.delete']);
+        $this->assertDatabaseMissing('menus', ['code' => 'system.roles.delete']);
+        $this->assertDatabaseMissing('menus', ['code' => 'custom.roles.remove']);
+        $this->assertSame(1, DB::table('menu_seed_tombstones')
+            ->where('seed_key', 'admin9.core.system.roles.delete')
+            ->count());
+    }
+
+    public function test_all_seeded_menus_have_unique_internal_identities(): void
+    {
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $seedKeys = Menu::query()->pluck('seed_key');
+
+        $this->assertNotEmpty($seedKeys);
+        $this->assertFalse($seedKeys->containsStrict(null));
+        $this->assertSame($seedKeys->count(), $seedKeys->unique()->count());
+    }
+
+    public function test_admin_rbac_seeder_rolls_back_all_changes_when_audit_menu_code_conflicts(): void
+    {
+        $conflictingMenu = Menu::factory()->directory()->create(['code' => 'system.logs']);
+
+        try {
+            Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+            $this->fail('Expected the audit menu code conflict to abort the RBAC seeder.');
+        } catch (LogicException $exception) {
+            $this->assertStringContainsString('default code [system.logs]', $exception->getMessage());
+        }
+
+        $this->assertSame(1, Menu::query()->count());
+        $this->assertModelExists($conflictingMenu);
+        $this->assertFalse(Menu::query()->whereNotNull('seed_key')->exists());
+        $this->assertFalse(Permission::query()->where('guard_name', 'admin')->exists());
+        $this->assertFalse(Role::query()->where('guard_name', 'admin')->exists());
+        $this->assertFalse(User::query()->where('email', 'admin@admin9.dev')->exists());
+        $this->assertDatabaseCount('menu_permission', 0);
+        $this->assertDatabaseCount('role_has_permissions', 0);
+        $this->assertDatabaseCount('model_has_roles', 0);
     }
 
     public function test_admin_rbac_seeder_does_not_elevate_existing_admin_email(): void
@@ -252,7 +349,7 @@ class AdminRbacTest extends TestCase
         ], $logs->permissions()->pluck('name')->all());
     }
 
-    public function test_seeder_repeatedly_removes_obsolete_system_settings_buttons_and_bindings(): void
+    public function test_seeder_does_not_repeat_historical_system_settings_cleanup(): void
     {
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
@@ -289,17 +386,20 @@ class AdminRbacTest extends TestCase
             $systemSettingsPage->refresh();
 
             $this->assertSame('系统设置', $systemSettingsPage->name);
-            $this->assertSame(['system.configs.update'], $systemSettingsPage->children()->pluck('code')->all());
-            $this->assertSame(['system.config.update'], $systemSettingsPage->children()->firstOrFail()->permissions()->pluck('name')->all());
-            $this->assertSame(0, Menu::query()->whereIn('id', $obsoleteMenuIds)->count());
-            $this->assertSame(0, DB::table('menu_permission')->whereIn('menu_id', $obsoleteMenuIds)->count());
-            $this->assertSame(0, DB::table('role_menu')->whereIn('menu_id', $obsoleteMenuIds)->count());
+            $this->assertEqualsCanonicalizing([
+                'system.configs.create',
+                'system.configs.update',
+                'system.configs.delete',
+            ], $systemSettingsPage->children()->pluck('code')->all());
+            $this->assertSame(2, Menu::query()->whereIn('id', $obsoleteMenuIds)->count());
+            $this->assertSame(2, DB::table('menu_permission')->whereIn('menu_id', $obsoleteMenuIds)->count());
+            $this->assertSame(2, DB::table('role_menu')->whereIn('menu_id', $obsoleteMenuIds)->count());
         } finally {
             Schema::dropIfExists('role_menu');
         }
     }
 
-    public function test_seeder_removes_legacy_media_resources_and_bindings(): void
+    public function test_forward_migration_removes_legacy_media_resources_and_bindings(): void
     {
         Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
 
@@ -328,11 +428,53 @@ class AdminRbacTest extends TestCase
         ]);
         $legacyMenu->permissions()->attach($legacyPermissions->firstOrFail());
 
-        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+        $migration = require database_path('migrations/2026_08_14_163241_remove_obsolete_media_rbac_resources.php');
+        $migration->up();
+        $migration->up();
+        $migration->down();
 
         $this->assertSame(0, Permission::query()->where('group', 'system.media')->count());
         $this->assertSame(0, Menu::query()->where('code', 'like', 'system.media%')->count());
         $this->assertSame(0, DB::table('menu_permission')->where('menu_id', $legacyMenu->id)->count());
+    }
+
+    public function test_forward_media_cleanup_preserves_custom_menu_that_only_reuses_legacy_code(): void
+    {
+        $system = Menu::factory()->directory()->create(['code' => 'custom.system-root']);
+        $legacyPermission = Permission::query()->create([
+            'name' => 'system.media.view',
+            'guard_name' => 'admin',
+            'display_name' => 'Legacy media view',
+            'group' => 'system.media',
+            'description' => 'legacy media permission',
+            'sort' => 900,
+            'is_system' => true,
+            'is_active' => true,
+        ]);
+        $customMenu = Menu::factory()->create([
+            'parent_id' => $system->id,
+            'name' => 'Custom Media Workspace',
+            'code' => 'system.media',
+            'path' => '/custom/media',
+            'component' => 'custom/media/index',
+            'type' => Menu::TYPE_PAGE,
+        ]);
+        $customMenu->permissions()->attach($legacyPermission);
+
+        $migration = require database_path('migrations/2026_08_14_163241_remove_obsolete_media_rbac_resources.php');
+        $migration->up();
+
+        $this->assertDatabaseHas('menus', [
+            'id' => $customMenu->id,
+            'code' => 'system.media',
+            'path' => '/custom/media',
+            'component' => 'custom/media/index',
+        ]);
+        $this->assertDatabaseMissing('permissions', ['id' => $legacyPermission->id]);
+        $this->assertDatabaseMissing('menu_permission', [
+            'menu_id' => $customMenu->id,
+            'permission_id' => $legacyPermission->id,
+        ]);
     }
 
     public function test_system_settings_menu_migration_is_replayable_irreversible_and_removes_historical_bindings(): void

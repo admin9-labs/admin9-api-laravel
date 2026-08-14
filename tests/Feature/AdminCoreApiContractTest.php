@@ -81,10 +81,16 @@ class AdminCoreApiContractTest extends TestCase
             'system.menu.view',
             'system.menu.update',
         ]);
+        $directory = Menu::factory()->directory()->create(['code' => 'contract']);
+        $buttonParent = Menu::factory()->create([
+            'parent_id' => $directory->id,
+            'code' => 'contract.actions',
+        ]);
 
         $create = $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Contract Menu',
             'code' => 'contract.menu',
+            'parent_id' => $directory->id,
             'path' => '/contract/menu',
             'component' => 'contract/menu/index',
             'type' => Menu::TYPE_PAGE,
@@ -109,6 +115,7 @@ class AdminCoreApiContractTest extends TestCase
 
         $update = $this->patchJson(ApiRouting::path('/admin/menus/').$menuId, [
             'type' => Menu::TYPE_BUTTON,
+            'parent_id' => $buttonParent->id,
             'path' => null,
             'component' => null,
             'is_visible' => false,
@@ -116,6 +123,7 @@ class AdminCoreApiContractTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.menu.type', Menu::TYPE_BUTTON)
+            ->assertJsonPath('data.menu.parent_id', $buttonParent->id)
             ->assertJsonPath('data.menu.is_visible', false);
         $this->assertWrappedResourceShape($update, 'menu', $this->menuResourceKeys());
     }

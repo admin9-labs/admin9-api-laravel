@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\MenuResource;
 use App\Models\Menu;
 use App\Support\Admin\AdminPermissionChecker;
+use App\Support\Admin\MenuHierarchyValidator;
 use App\Support\Audit\AdminActivityRecorder;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +23,7 @@ class MenuController extends Controller
     public function __construct(
         private AdminPermissionChecker $permissionChecker,
         private AdminActivityRecorder $activityRecorder,
+        private MenuHierarchyValidator $hierarchyValidator,
     ) {}
 
     /**
@@ -65,6 +67,25 @@ class MenuController extends Controller
         $permissionIds = Arr::pull($validated, 'permission_ids', []);
 
         $menu = DB::transaction(function () use ($validated, $permissionIds): Menu {
+            $parentId = $validated['parent_id'] ?? null;
+            $parent = $parentId === null
+                ? null
+                : Menu::query()->whereKey($parentId)->lockForUpdate()->first();
+
+            if ($parentId !== null && ! $parent instanceof Menu) {
+                throw ValidationException::withMessages([
+                    'parent_id' => [__('validation.exists', ['attribute' => 'parent id'])],
+                ]);
+            }
+
+            $snapshot = $parent instanceof Menu ? $this->menuSnapshot(collect([$parent])) : [];
+            $this->assertValidHierarchy(
+                $snapshot,
+                null,
+                (string) ($validated['type'] ?? Menu::TYPE_PAGE),
+                $parentId === null ? null : (int) $parentId,
+            );
+
             $menu = Menu::query()->create($validated);
             $menu->permissions()->sync($permissionIds);
             $menu->load('permissions');
@@ -102,11 +123,27 @@ class MenuController extends Controller
         $permissionIds = Arr::pull($validated, 'permission_ids', []);
 
         $menu = DB::transaction(function () use ($menu, $permissionIds, $shouldSyncPermissions, $validated): Menu {
-            if (array_key_exists('parent_id', $validated)) {
-                $parentId = $validated['parent_id'] === null ? null : (int) $validated['parent_id'];
+            if (array_key_exists('parent_id', $validated) || array_key_exists('type', $validated)) {
+                $lockedMenus = $this->lockMenuGraph();
+                $snapshot = $this->menuSnapshot($lockedMenus);
+                $menu = $lockedMenus->firstWhere('id', $menu->getKey());
 
-                $this->lockMenuGraphAndValidateParent($menu, $parentId);
-                $menu->refresh();
+                if (! $menu instanceof Menu) {
+                    abort(404);
+                }
+
+                $parentId = array_key_exists('parent_id', $validated)
+                    ? ($validated['parent_id'] === null ? null : (int) $validated['parent_id'])
+                    : ($menu->parent_id === null ? null : (int) $menu->parent_id);
+
+                $this->assertValidHierarchy(
+                    $snapshot,
+                    (int) $menu->getKey(),
+                    (string) ($validated['type'] ?? $menu->type),
+                    $parentId,
+                );
+            } else {
+                $menu = Menu::query()->whereKey($menu->getKey())->lockForUpdate()->firstOrFail();
             }
 
             $menu->load('permissions');
@@ -123,7 +160,7 @@ class MenuController extends Controller
             }
 
             return $menu->refresh()->load(['children.permissions', 'permissions']);
-        });
+        }, 5);
 
         return $this->success([
             'menu' => MenuResource::make($menu),
@@ -135,62 +172,78 @@ class MenuController extends Controller
      */
     public function destroy(Menu $menu): JsonResponse
     {
-        if ($menu->children()->exists()) {
+        $deleted = DB::transaction(function () use ($menu): bool {
+            $lockedMenus = $this->lockMenuGraph();
+            $lockedMenu = $lockedMenus->firstWhere('id', $menu->getKey());
+
+            if (! $lockedMenu instanceof Menu) {
+                return true;
+            }
+
+            if ($lockedMenus->contains(
+                fn (Menu $candidate): bool => (int) $candidate->parent_id === (int) $lockedMenu->getKey()
+            )) {
+                return false;
+            }
+
+            $seedKey = $lockedMenu->getAttribute('seed_key');
+
+            if (is_string($seedKey) && $seedKey !== '') {
+                DB::table('menu_seed_tombstones')->insertOrIgnore([
+                    'seed_key' => $seedKey,
+                    'deleted_at' => now(),
+                ]);
+            }
+
+            $lockedMenu->delete();
+
+            return true;
+        }, 5);
+
+        if (! $deleted) {
             return $this->error('Menus with child menus cannot be deleted.', 422);
         }
-
-        DB::transaction(function () use ($menu): void {
-            $menu->delete();
-        });
 
         return $this->success(message: 'deleted');
     }
 
-    private function lockMenuGraphAndValidateParent(Menu $menu, ?int $candidateParentId): void
+    /**
+     * Lock menu rows in one deterministic order for every graph mutation.
+     *
+     * @return Collection<int, Menu>
+     */
+    private function lockMenuGraph(): Collection
     {
-        /** @var array<int, int|null> $parentIdsByMenuId */
-        $parentIdsByMenuId = Menu::query()
-            ->select(['id', 'parent_id'])
+        return Menu::query()
             ->orderBy('id')
             ->lockForUpdate()
-            ->get()
-            ->mapWithKeys(static fn (Menu $lockedMenu): array => [
-                (int) $lockedMenu->getKey() => $lockedMenu->parent_id === null
-                    ? null
-                    : (int) $lockedMenu->parent_id,
-            ])
-            ->all();
+            ->get();
+    }
 
-        if ($candidateParentId === null) {
-            return;
-        }
+    /**
+     * @param  Collection<int, Menu>  $menus
+     * @return array<int, array{id: int, parent_id: ?int, type: string}>
+     */
+    private function menuSnapshot(Collection $menus): array
+    {
+        return $menus->mapWithKeys(static fn (Menu $lockedMenu): array => [
+            (int) $lockedMenu->getKey() => [
+                'id' => (int) $lockedMenu->getKey(),
+                'parent_id' => $lockedMenu->parent_id === null ? null : (int) $lockedMenu->parent_id,
+                'type' => (string) $lockedMenu->type,
+            ],
+        ])->all();
+    }
 
-        $menuId = (int) $menu->getKey();
-        $visitedMenuIds = [];
-        $currentMenuId = $candidateParentId;
+    /**
+     * @param  array<int, array{id: int, parent_id: ?int, type: string}>  $menusById
+     */
+    private function assertValidHierarchy(array $menusById, ?int $menuId, string $type, ?int $parentId): void
+    {
+        $errors = $this->hierarchyValidator->errors($menusById, $menuId, $type, $parentId);
 
-        while (true) {
-            if ($currentMenuId === $menuId || isset($visitedMenuIds[$currentMenuId])) {
-                throw ValidationException::withMessages([
-                    'parent_id' => [UpdateMenuRequest::DESCENDANT_PARENT_MESSAGE],
-                ]);
-            }
-
-            $visitedMenuIds[$currentMenuId] = true;
-
-            if (! array_key_exists($currentMenuId, $parentIdsByMenuId)) {
-                throw ValidationException::withMessages([
-                    'parent_id' => [__('validation.exists', ['attribute' => 'parent id'])],
-                ]);
-            }
-
-            $parentId = $parentIdsByMenuId[$currentMenuId];
-
-            if ($parentId === null) {
-                return;
-            }
-
-            $currentMenuId = $parentId;
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
         }
     }
 

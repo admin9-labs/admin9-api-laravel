@@ -7348,6 +7348,7 @@
                             "string",
                             "null"
                         ],
+                        "pattern": "^(?:icon-)?[a-z][a-z0-9-]*$",
                         "maxLength": 100
                     },
                     "type": {
@@ -7939,6 +7940,7 @@
                             "string",
                             "null"
                         ],
+                        "pattern": "^(?:icon-)?[a-z][a-z0-9-]*$",
                         "maxLength": 100
                     },
                     "type": {

@@ -487,6 +487,7 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame(['type' => 'integer', 'format' => 'int64'], $menuSchema['properties']['permission_ids']['items']);
         $this->assertSame(['type' => 'string'], $menuSchema['properties']['permission_names']['items']);
         $this->assertSame('#/components/schemas/PermissionResource', $menuSchema['properties']['permissions']['items']['$ref']);
+        $this->assertArrayNotHasKey('seed_key', $menuSchema['properties']);
 
         foreach (['StoreMenuRequest', 'UpdateMenuRequest'] as $schemaName) {
             $properties = $schemas[$schemaName]['properties'];
@@ -494,6 +495,7 @@ class OpenApiDocsTest extends TestCase
             $this->assertArrayHasKey('permission_ids', $properties);
             $this->assertArrayNotHasKey('permission_id', $properties);
             $this->assertArrayNotHasKey('permission_name', $properties);
+            $this->assertArrayNotHasKey('seed_key', $properties);
         }
     }
 

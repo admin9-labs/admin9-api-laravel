@@ -3,10 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Menu;
-use App\Models\Permission;
+use App\Support\Admin\SeededMenuProvisioner;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use LogicException;
 
 class AdminAuditLogMenuSeeder extends Seeder
 {
@@ -20,51 +18,23 @@ class AdminAuditLogMenuSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::transaction(function (): void {
-            $systemMenu = Menu::query()
-                ->where('code', 'system')
-                ->first();
+        $warnings = app(SeededMenuProvisioner::class)->provision([[
+            'seed_key' => 'admin9.core.system.logs',
+            'parent_seed_key' => 'admin9.core.system',
+            'code' => 'system.logs',
+            'name' => '日志管理',
+            'path' => '/system/log',
+            'component' => 'system/log/index',
+            'icon' => 'file',
+            'type' => Menu::TYPE_PAGE,
+            'permission_names' => self::PERMISSION_NAMES,
+            'sort' => 70,
+            'is_visible' => true,
+            'is_active' => true,
+        ]]);
 
-            if (! $systemMenu instanceof Menu) {
-                throw new LogicException('Cannot seed admin audit log menu: required parent menu [system] is missing.');
-            }
-
-            $permissions = Permission::query()
-                ->where('guard_name', 'admin')
-                ->whereIn('name', self::PERMISSION_NAMES)
-                ->get()
-                ->keyBy('name');
-            $missingPermissions = collect(self::PERMISSION_NAMES)
-                ->reject(fn (string $permissionName): bool => $permissions->has($permissionName))
-                ->values();
-
-            if ($missingPermissions->isNotEmpty()) {
-                throw new LogicException(sprintf(
-                    'Cannot seed admin audit log menu: required admin permission(s) [%s] are missing.',
-                    $missingPermissions->implode(', '),
-                ));
-            }
-
-            $menu = Menu::query()->updateOrCreate(
-                ['code' => 'system.logs'],
-                [
-                    'parent_id' => $systemMenu->id,
-                    'name' => '日志管理',
-                    'path' => '/system/log',
-                    'component' => 'system/log/index',
-                    'icon' => 'file',
-                    'type' => Menu::TYPE_PAGE,
-                    'sort' => 70,
-                    'is_visible' => true,
-                    'is_active' => true,
-                ],
-            );
-
-            $menu->permissions()->sync(
-                collect(self::PERMISSION_NAMES)
-                    ->map(fn (string $permissionName): int => (int) $permissions->get($permissionName)->getKey())
-                    ->all(),
-            );
-        });
+        foreach ($warnings as $warning) {
+            $this->command?->warn($warning);
+        }
     }
 }

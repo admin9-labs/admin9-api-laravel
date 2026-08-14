@@ -71,10 +71,11 @@ return new class extends Migration
                 DB::table('system_configs')->where('key', $legacyKey)->delete();
             }
 
-            if (Schema::hasTable('media')) {
-                Schema::drop('media');
-            }
         });
+
+        if (Schema::hasTable('media')) {
+            Schema::drop('media');
+        }
     }
 
     public function down(): void

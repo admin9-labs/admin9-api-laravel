@@ -6,6 +6,7 @@ use App\Models\Menu;
 use App\Models\Permission;
 use Database\Seeders\AdminAuditLogMenuSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use LogicException;
 use Tests\TestCase;
 
@@ -13,9 +14,11 @@ class AdminAuditLogMenuSeederTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
-    public function test_seeder_is_idempotent_and_restores_authoritative_menu_and_bindings(): void
+    public function test_seeder_is_idempotent_and_preserves_all_menu_and_binding_edits(): void
     {
         $system = Menu::factory()->directory()->create(['code' => 'system']);
+        $system->setAttribute('seed_key', 'admin9.core.system');
+        $system->save();
         $activityPermission = $this->createPermission('system.activity-log.view');
         $loginPermission = $this->createPermission('system.login-log.view');
         $extraPermission = $this->createPermission('dynamic.extra.view');
@@ -27,8 +30,10 @@ class AdminAuditLogMenuSeederTest extends TestCase
         $menu->update([
             'parent_id' => null,
             'name' => 'Drifted',
+            'code' => 'renamed.logs',
             'path' => '/wrong',
             'component' => 'wrong/index',
+            'icon' => null,
             'sort' => 1,
             'is_visible' => false,
             'is_active' => false,
@@ -39,20 +44,19 @@ class AdminAuditLogMenuSeederTest extends TestCase
         $menu->refresh();
 
         $this->assertSame($menuId, $menu->id);
-        $this->assertSame(1, Menu::query()->where('code', 'system.logs')->count());
-        $this->assertSame($system->id, $menu->parent_id);
-        $this->assertSame('日志管理', $menu->name);
-        $this->assertSame('/system/log', $menu->path);
-        $this->assertSame('system/log/index', $menu->component);
-        $this->assertSame('file', $menu->icon);
+        $this->assertSame(1, Menu::query()->where('seed_key', 'admin9.core.system.logs')->count());
+        $this->assertSame(0, Menu::query()->where('code', 'system.logs')->count());
+        $this->assertNull($menu->parent_id);
+        $this->assertSame('Drifted', $menu->name);
+        $this->assertSame('renamed.logs', $menu->code);
+        $this->assertSame('/wrong', $menu->path);
+        $this->assertSame('wrong/index', $menu->component);
+        $this->assertNull($menu->icon);
         $this->assertSame(Menu::TYPE_PAGE, $menu->type);
-        $this->assertSame(70, $menu->sort);
-        $this->assertTrue($menu->is_visible);
-        $this->assertTrue($menu->is_active);
-        $this->assertEqualsCanonicalizing([
-            $activityPermission->id,
-            $loginPermission->id,
-        ], $menu->permissions()->pluck('permissions.id')->all());
+        $this->assertSame(1, $menu->sort);
+        $this->assertFalse($menu->is_visible);
+        $this->assertFalse($menu->is_active);
+        $this->assertSame([$extraPermission->id], $menu->permissions()->pluck('permissions.id')->all());
     }
 
     public function test_seeder_fails_when_system_parent_menu_is_missing(): void
@@ -61,14 +65,16 @@ class AdminAuditLogMenuSeederTest extends TestCase
         $this->createPermission('system.login-log.view');
 
         $this->expectException(LogicException::class);
-        $this->expectExceptionMessage('required parent menu [system] is missing');
+        $this->expectExceptionMessage('required parent [admin9.core.system] is missing');
 
         (new AdminAuditLogMenuSeeder)->run();
     }
 
     public function test_seeder_fails_atomically_when_a_required_permission_is_missing(): void
     {
-        Menu::factory()->directory()->create(['code' => 'system']);
+        $system = Menu::factory()->directory()->create(['code' => 'system']);
+        $system->setAttribute('seed_key', 'admin9.core.system');
+        $system->save();
         $this->createPermission('system.activity-log.view');
 
         try {
@@ -79,6 +85,29 @@ class AdminAuditLogMenuSeederTest extends TestCase
         }
 
         $this->assertDatabaseMissing('menus', ['code' => 'system.logs']);
+    }
+
+    public function test_deleted_seeded_menu_is_not_recreated(): void
+    {
+        $system = Menu::factory()->directory()->create(['code' => 'system']);
+        $system->setAttribute('seed_key', 'admin9.core.system');
+        $system->save();
+        $this->createPermission('system.activity-log.view');
+        $this->createPermission('system.login-log.view');
+        $seeder = new AdminAuditLogMenuSeeder;
+        $seeder->run();
+
+        $menu = Menu::query()->where('seed_key', 'admin9.core.system.logs')->firstOrFail();
+        DB::table('menu_seed_tombstones')->insert([
+            'seed_key' => 'admin9.core.system.logs',
+            'deleted_at' => now(),
+        ]);
+        $menu->delete();
+
+        $seeder->run();
+
+        $this->assertDatabaseMissing('menus', ['seed_key' => 'admin9.core.system.logs']);
+        $this->assertDatabaseCount('menu_seed_tombstones', 1);
     }
 
     private function createPermission(string $name): Permission

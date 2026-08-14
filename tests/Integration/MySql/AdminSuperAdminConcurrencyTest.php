@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\ApiRouting;
+use Database\Seeders\AdminAuditLogMenuSeeder;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -283,21 +284,28 @@ class AdminSuperAdminConcurrencyTest extends TestCase
             $this->resetDatabase();
             $this->createPermission('system.menu.update');
 
-            $firstMenu = Menu::factory()->create(['code' => "concurrent-menu-first-{$round}"]);
-            $secondMenu = Menu::factory()->create(['code' => "concurrent-menu-second-{$round}"]);
-            $manager = User::factory()->create(['email' => "concurrent-menu-manager-{$round}@example.com"]);
+            $root = Menu::factory()->directory()->create(['code' => "concurrent-menu-root-{$round}"]);
+            $page = Menu::factory()->create([
+                'parent_id' => $root->id,
+                'code' => "concurrent-menu-page-{$round}",
+                'type' => Menu::TYPE_PAGE,
+            ]);
+            $directory = Menu::factory()->directory()->create(['code' => "concurrent-menu-directory-{$round}"]);
+            $manager = User::factory()->create(['email' => "concurrent-menu-cycle-manager-{$round}@example.com"]);
             $manager->givePermissionTo('system.menu.update');
             $token = $this->tokenFor($manager);
 
             $results = $this->raceMenuParentRequests(
-                scenario: "menu-parent-round-{$round}",
-                targetIds: [$firstMenu->id, $secondMenu->id],
+                scenario: "menu-cycle-round-{$round}",
+                targetIds: [$page->id, $directory->id],
                 requests: [
-                    $this->request('PATCH', ApiRouting::path("/admin/menus/{$firstMenu->id}"), $token, [
-                        'parent_id' => $secondMenu->id,
+                    $this->request('PUT', ApiRouting::path("/admin/menus/{$page->id}"), $token, [
+                        'type' => Menu::TYPE_PAGE,
+                        'parent_id' => $directory->id,
                     ]),
-                    $this->request('PATCH', ApiRouting::path("/admin/menus/{$secondMenu->id}"), $token, [
-                        'parent_id' => $firstMenu->id,
+                    $this->request('PUT', ApiRouting::path("/admin/menus/{$directory->id}"), $token, [
+                        'type' => Menu::TYPE_BUTTON,
+                        'parent_id' => $page->id,
                     ]),
                 ],
             );
@@ -308,18 +316,175 @@ class AdminSuperAdminConcurrencyTest extends TestCase
             );
             $rejection = collect($results)->firstWhere('status', 422);
             $this->assertIsArray($rejection);
-            $this->assertSame(
-                [UpdateMenuRequest::DESCENDANT_PARENT_MESSAGE],
-                $rejection['body']['errors']['parent_id'] ?? null,
+            $this->assertContains(
+                UpdateMenuRequest::DESCENDANT_PARENT_MESSAGE,
+                $rejection['body']['errors']['parent_id'] ?? [],
             );
 
-            $firstParentId = $firstMenu->refresh()->parent_id;
-            $secondParentId = $secondMenu->refresh()->parent_id;
+            $page->refresh();
+            $directory->refresh();
 
-            $this->assertTrue(
-                ($firstParentId === $secondMenu->id && $secondParentId === null)
-                || ($firstParentId === null && $secondParentId === $firstMenu->id),
+            $pageMoveCommitted = $page->parent_id === $directory->id
+                && $directory->parent_id === null
+                && $directory->type === Menu::TYPE_DIRECTORY;
+            $directoryMoveCommitted = $page->parent_id === $root->id
+                && $directory->parent_id === $page->id
+                && $directory->type === Menu::TYPE_BUTTON;
+
+            $this->assertTrue($pageMoveCommitted || $directoryMoveCommitted);
+        }
+    }
+
+    public function test_menu_parent_delete_serializes_concurrent_child_creation(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.menu.create');
+            $this->createPermission('system.menu.delete');
+
+            $parent = Menu::factory()->directory()->create(['code' => "concurrent-menu-parent-{$round}"]);
+            $childCode = "concurrent-menu-child-{$round}";
+            $manager = User::factory()->create(['email' => "concurrent-menu-manager-{$round}@example.com"]);
+            $manager->givePermissionTo(['system.menu.create', 'system.menu.delete']);
+            $token = $this->tokenFor($manager);
+
+            $results = $this->raceMenuParentRequests(
+                scenario: "menu-delete-create-round-{$round}",
+                targetIds: [$parent->id],
+                requests: [
+                    $this->request('DELETE', ApiRouting::path("/admin/menus/{$parent->id}"), $token),
+                    $this->request('POST', ApiRouting::path('/admin/menus'), $token, [
+                        'name' => "Concurrent Child {$round}",
+                        'code' => $childCode,
+                        'type' => Menu::TYPE_PAGE,
+                        'parent_id' => $parent->id,
+                    ]),
+                ],
             );
+
+            $statuses = array_column($results, 'status');
+            sort($statuses);
+            $this->assertSame([200, 422], $statuses, json_encode($results, JSON_THROW_ON_ERROR));
+
+            $parentExists = Menu::query()->whereKey($parent->id)->exists();
+            $child = Menu::query()->where('code', $childCode)->first();
+
+            if ($parentExists) {
+                $this->assertInstanceOf(Menu::class, $child);
+                $this->assertSame($parent->id, $child->parent_id);
+            } else {
+                $this->assertNull($child);
+            }
+        }
+    }
+
+    public function test_menu_parent_delete_serializes_concurrent_structure_update(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.menu.update');
+            $this->createPermission('system.menu.delete');
+
+            $originalParent = Menu::factory()->directory()->create(['code' => "concurrent-original-parent-{$round}"]);
+            $targetParent = Menu::factory()->directory()->create(['code' => "concurrent-target-parent-{$round}"]);
+            $page = Menu::factory()->create([
+                'parent_id' => $originalParent->id,
+                'code' => "concurrent-reparent-page-{$round}",
+                'type' => Menu::TYPE_PAGE,
+            ]);
+            $manager = User::factory()->create(['email' => "concurrent-reparent-manager-{$round}@example.com"]);
+            $manager->givePermissionTo(['system.menu.update', 'system.menu.delete']);
+            $token = $this->tokenFor($manager);
+
+            $results = $this->raceMenuParentRequests(
+                scenario: "menu-delete-reparent-round-{$round}",
+                targetIds: [$targetParent->id],
+                requests: [
+                    $this->request('PUT', ApiRouting::path("/admin/menus/{$page->id}"), $token, [
+                        'parent_id' => $targetParent->id,
+                    ]),
+                    $this->request('DELETE', ApiRouting::path("/admin/menus/{$targetParent->id}"), $token),
+                ],
+            );
+
+            $statuses = array_column($results, 'status');
+            sort($statuses);
+            $this->assertSame([200, 422], $statuses, json_encode($results, JSON_THROW_ON_ERROR));
+
+            $page->refresh();
+            $this->assertTrue(Menu::query()
+                ->whereKey($page->parent_id)
+                ->where('type', Menu::TYPE_DIRECTORY)
+                ->exists());
+
+            if (Menu::query()->whereKey($targetParent->id)->exists()) {
+                $this->assertSame($targetParent->id, $page->parent_id);
+            } else {
+                $this->assertSame($originalParent->id, $page->parent_id);
+            }
+        }
+    }
+
+    public function test_concurrent_seeded_menu_deletes_create_one_tombstone(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.menu.delete');
+
+            $menu = Menu::factory()->directory()->create(['code' => "concurrent-seeded-delete-{$round}"]);
+            $seedKey = "admin9.test.concurrent-delete-{$round}";
+            $menu->setAttribute('seed_key', $seedKey);
+            $menu->save();
+            $manager = User::factory()->create(['email' => "concurrent-menu-delete-manager-{$round}@example.com"]);
+            $manager->givePermissionTo('system.menu.delete');
+            $token = $this->tokenFor($manager);
+
+            $results = $this->raceMenuParentRequests(
+                scenario: "menu-double-delete-round-{$round}",
+                targetIds: [$menu->id],
+                requests: [
+                    $this->request('DELETE', ApiRouting::path("/admin/menus/{$menu->id}"), $token),
+                    $this->request('DELETE', ApiRouting::path("/admin/menus/{$menu->id}"), $token),
+                ],
+            );
+
+            $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results, JSON_THROW_ON_ERROR));
+            $this->assertDatabaseMissing('menus', ['id' => $menu->id]);
+            $this->assertSame(1, DB::table('menu_seed_tombstones')->where('seed_key', $seedKey)->count());
+        }
+    }
+
+    public function test_seeded_menu_delete_serializes_with_seeder_rerun(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.activity-log.view');
+            $this->createPermission('system.login-log.view');
+            $this->createPermission('system.menu.delete');
+            $system = Menu::factory()->directory()->create(['code' => 'system']);
+            $system->setAttribute('seed_key', 'admin9.core.system');
+            $system->save();
+            (new AdminAuditLogMenuSeeder)->run();
+            $logs = Menu::query()->where('seed_key', 'admin9.core.system.logs')->firstOrFail();
+            $manager = User::factory()->create(['email' => "concurrent-seeder-manager-{$round}@example.com"]);
+            $manager->givePermissionTo('system.menu.delete');
+            $request = $this->request(
+                'DELETE',
+                ApiRouting::path("/admin/menus/{$logs->id}"),
+                $this->tokenFor($manager),
+            );
+
+            $results = $this->raceMenuDeletionWithSeeder(
+                "menu-seeder-delete-round-{$round}",
+                $logs,
+                $request,
+            );
+
+            $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results, JSON_THROW_ON_ERROR));
+            $this->assertDatabaseMissing('menus', ['seed_key' => 'admin9.core.system.logs']);
+            $this->assertSame(1, DB::table('menu_seed_tombstones')
+                ->where('seed_key', 'admin9.core.system.logs')
+                ->count());
         }
     }
 
@@ -554,6 +719,43 @@ class AdminSuperAdminConcurrencyTest extends TestCase
 
     /**
      * @param  array{method: string, uri: string, token: string, payload: array<string, mixed>}  $request
+     * @return array<int, array{status: int, body: array<string, mixed>, connection_id: int}>
+     */
+    private function raceMenuDeletionWithSeeder(string $scenario, Menu $menu, array $request): array
+    {
+        $connection = DB::connection();
+        $temporaryDirectory = $this->createTemporaryDirectory($scenario);
+        $processes = [];
+        $connection->beginTransaction();
+
+        try {
+            $lockedMenu = Menu::query()->whereKey($menu->getKey())->lockForUpdate()->first(['id']);
+            $this->assertInstanceOf(Menu::class, $lockedMenu);
+
+            $requestReadyFile = $temporaryDirectory.'/request.json';
+            $seederReadyFile = $temporaryDirectory.'/seeder.json';
+            $processes = [
+                ['process' => $this->startRequestProcess($request, $requestReadyFile), 'ready_file' => $requestReadyFile],
+                ['process' => $this->startMenuSeederProcess($request, $seederReadyFile), 'ready_file' => $seederReadyFile],
+            ];
+
+            $workerConnectionIds = $this->waitForReadyWorkers($processes);
+            $this->waitForLockWaits($connection, $workerConnectionIds, $processes);
+            $connection->commit();
+
+            return $this->waitForResults($processes);
+        } finally {
+            if ($connection->transactionLevel() > 0) {
+                $connection->rollBack();
+            }
+
+            $this->stopProcesses($processes);
+            $this->removeTemporaryDirectory($temporaryDirectory);
+        }
+    }
+
+    /**
+     * @param  array{method: string, uri: string, token: string, payload: array<string, mixed>}  $request
      * @param  array<string, string>  $environmentOverrides
      */
     private function startRequestProcess(array $request, string $readyFile, array $environmentOverrides = []): Process
@@ -562,6 +764,22 @@ class AdminSuperAdminConcurrencyTest extends TestCase
             [PHP_BINARY, base_path('tests/Support/mysql-concurrency-request.php')],
             base_path(),
             [...$this->workerEnvironment($request, $readyFile), ...$environmentOverrides],
+        );
+        $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
+        $process->start();
+
+        return $process;
+    }
+
+    /**
+     * @param  array{method: string, uri: string, token: string, payload: array<string, mixed>}  $request
+     */
+    private function startMenuSeederProcess(array $request, string $readyFile): Process
+    {
+        $process = new Process(
+            [PHP_BINARY, base_path('tests/Support/mysql-concurrency-menu-seeder.php')],
+            base_path(),
+            $this->workerEnvironment($request, $readyFile),
         );
         $process->setTimeout(self::PROCESS_TIMEOUT_SECONDS);
         $process->start();

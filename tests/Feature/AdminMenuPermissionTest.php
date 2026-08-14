@@ -5,9 +5,11 @@ namespace Tests\Feature;
 use App\Models\Menu;
 use App\Models\User;
 use App\Support\ApiRouting;
+use Database\Seeders\AdminRbacSeeder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission as SpatiePermission;
 use Spatie\Permission\Models\Role;
@@ -143,11 +145,13 @@ class AdminMenuPermissionTest extends TestCase
     public function test_menu_store_syncs_permission_ids_and_omission_creates_empty_binding(): void
     {
         $permission = $this->createAdminPermission('system.menu.synced');
+        $directory = Menu::factory()->directory()->create(['code' => 'synced']);
         $token = $this->managerTokenFor(['system.menu.create']);
 
         $response = $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Synced Menu',
             'code' => 'synced.menu',
+            'parent_id' => $directory->id,
             'path' => '/synced/menu',
             'component' => 'synced/menu/index',
             'type' => Menu::TYPE_PAGE,
@@ -167,6 +171,7 @@ class AdminMenuPermissionTest extends TestCase
         $unrestricted = $this->postJson(ApiRouting::path('/admin/menus'), [
             'name' => 'Unrestricted Menu',
             'code' => 'unrestricted.menu',
+            'parent_id' => $directory->id,
             'type' => Menu::TYPE_PAGE,
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -181,7 +186,9 @@ class AdminMenuPermissionTest extends TestCase
     {
         $oldPermission = $this->createAdminPermission('system.menu.old');
         $newPermission = $this->createAdminPermission('system.menu.new');
+        $directory = Menu::factory()->directory()->create(['code' => 'synced']);
         $menu = $this->createMenu([
+            'parent_id' => $directory->id,
             'code' => 'synced.menu.update',
         ], [$oldPermission]);
         $token = $this->managerTokenFor(['system.menu.update']);
@@ -213,6 +220,83 @@ class AdminMenuPermissionTest extends TestCase
             ->assertJsonPath('data.menu.permission_names', []);
 
         $this->assertFalse($menu->refresh()->permissions()->exists());
+    }
+
+    public function test_menu_update_persists_every_public_menu_field(): void
+    {
+        $permission = $this->createAdminPermission('system.menu.public-fields');
+        $menu = Menu::factory()->directory()->create(['code' => 'public-fields.before']);
+        $token = $this->managerTokenFor(['system.menu.update']);
+
+        $this->putJson(ApiRouting::path('/admin/menus/').$menu->id, [
+            'parent_id' => null,
+            'name' => 'Public Fields Updated',
+            'code' => 'public-fields.after',
+            'path' => '/updated/path',
+            'component' => 'updated/component',
+            'icon' => 'icon-menu',
+            'type' => Menu::TYPE_DIRECTORY,
+            'permission_ids' => [$permission->id],
+            'sort' => 91,
+            'is_visible' => false,
+            'is_active' => false,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.menu.name', 'Public Fields Updated')
+            ->assertJsonPath('data.menu.code', 'public-fields.after')
+            ->assertJsonPath('data.menu.path', '/updated/path')
+            ->assertJsonPath('data.menu.component', 'updated/component')
+            ->assertJsonPath('data.menu.icon', 'icon-menu')
+            ->assertJsonPath('data.menu.type', Menu::TYPE_DIRECTORY)
+            ->assertJsonPath('data.menu.permission_ids', [$permission->id])
+            ->assertJsonPath('data.menu.sort', 91)
+            ->assertJsonPath('data.menu.is_visible', false)
+            ->assertJsonPath('data.menu.is_active', false);
+
+        $menu->refresh();
+        $this->assertNull($menu->parent_id);
+        $this->assertSame('public-fields.after', $menu->code);
+        $this->assertSame([$permission->id], $menu->permissions()->pluck('permissions.id')->all());
+
+        $this->putJson(ApiRouting::path('/admin/menus/').$menu->id, [
+            'icon' => null,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.menu.icon', null);
+
+        $this->assertNull($menu->refresh()->icon);
+    }
+
+    public function test_unchanged_historical_structure_and_icon_do_not_block_unrelated_updates(): void
+    {
+        $legacyParent = Menu::factory()->create([
+            'parent_id' => null,
+            'code' => 'legacy.root-page',
+            'type' => Menu::TYPE_PAGE,
+        ]);
+        $legacyMenu = Menu::factory()->directory()->create([
+            'parent_id' => $legacyParent->id,
+            'code' => 'legacy.nested-directory',
+            'icon' => 'LegacyIcon',
+        ]);
+        $token = $this->managerTokenFor(['system.menu.update']);
+
+        $this->putJson(ApiRouting::path('/admin/menus/').$legacyMenu->id, [
+            'name' => 'Legacy Menu Renamed',
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.menu.name', 'Legacy Menu Renamed')
+            ->assertJsonPath('data.menu.icon', 'LegacyIcon');
+
+        $this->putJson(ApiRouting::path('/admin/menus/').$legacyMenu->id, [
+            'icon' => null,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.menu.icon', null);
+
+        $legacyMenu->refresh();
+        $this->assertSame($legacyParent->id, $legacyMenu->parent_id);
+        $this->assertSame(Menu::TYPE_DIRECTORY, $legacyMenu->type);
     }
 
     public function test_legacy_permission_name_input_is_rejected_instead_of_becoming_unrestricted(): void
@@ -523,8 +607,8 @@ class AdminMenuPermissionTest extends TestCase
     public function test_menu_update_allows_legal_parent_changes(): void
     {
         $permission = $this->createAdminPermission('system.menu.update');
-        $originalParent = Menu::factory()->create(['code' => 'reparent.original']);
-        $newParent = Menu::factory()->create(['code' => 'reparent.new']);
+        $originalParent = Menu::factory()->directory()->create(['code' => 'reparent.original']);
+        $newParent = Menu::factory()->directory()->create(['code' => 'reparent.new']);
         $menu = Menu::factory()->create([
             'parent_id' => $originalParent->id,
             'code' => 'reparent.child',
@@ -541,6 +625,137 @@ class AdminMenuPermissionTest extends TestCase
             ->assertJsonPath('data.menu.parent_id', $newParent->id);
 
         $this->assertSame($newParent->id, $menu->refresh()->parent_id);
+    }
+
+    public function test_seeded_leaf_page_can_become_a_root_directory_without_seeder_reverting_it(): void
+    {
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $menu = Menu::query()->where('seed_key', 'admin9.core.system.logs')->firstOrFail();
+        $menuId = $menu->id;
+        $token = $this->managerTokenFor(['system.menu.update']);
+
+        $this->putJson(ApiRouting::path('/admin/menus/').$menu->id, [
+            'parent_id' => null,
+            'type' => Menu::TYPE_DIRECTORY,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.menu.parent_id', null)
+            ->assertJsonPath('data.menu.type', Menu::TYPE_DIRECTORY);
+
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+        Artisan::call('db:seed', ['--class' => AdminRbacSeeder::class]);
+
+        $menu->refresh();
+        $this->assertSame($menuId, $menu->id);
+        $this->assertNull($menu->parent_id);
+        $this->assertSame(Menu::TYPE_DIRECTORY, $menu->type);
+    }
+
+    public function test_menu_store_enforces_directory_page_button_hierarchy(): void
+    {
+        $token = $this->managerTokenFor(['system.menu.create']);
+        $directory = Menu::factory()->directory()->create(['code' => 'hierarchy.directory']);
+        $page = Menu::factory()->create([
+            'parent_id' => $directory->id,
+            'code' => 'hierarchy.page',
+        ]);
+
+        foreach ([
+            ['code' => 'invalid.directory', 'type' => Menu::TYPE_DIRECTORY, 'parent_id' => $directory->id],
+            ['code' => 'invalid.page', 'type' => Menu::TYPE_PAGE, 'parent_id' => null],
+            ['code' => 'invalid.button', 'type' => Menu::TYPE_BUTTON, 'parent_id' => $directory->id],
+        ] as $payload) {
+            $this->postJson(ApiRouting::path('/admin/menus'), [
+                'name' => $payload['code'],
+                ...$payload,
+            ], ['Authorization' => 'Bearer '.$token])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('parent_id');
+        }
+
+        $this->postJson(ApiRouting::path('/admin/menus'), [
+            'name' => 'Valid Button',
+            'code' => 'hierarchy.page.action',
+            'type' => Menu::TYPE_BUTTON,
+            'parent_id' => $page->id,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.menu.parent_id', $page->id);
+    }
+
+    public function test_menu_type_update_rejects_existing_child_type_mismatches(): void
+    {
+        $token = $this->managerTokenFor(['system.menu.update']);
+        $directory = Menu::factory()->directory()->create(['code' => 'type.directory']);
+        Menu::factory()->create([
+            'parent_id' => $directory->id,
+            'code' => 'type.page',
+        ]);
+
+        $this->patchJson(ApiRouting::path('/admin/menus/').$directory->id, [
+            'type' => Menu::TYPE_BUTTON,
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['parent_id', 'type']);
+
+        $this->assertSame(Menu::TYPE_DIRECTORY, $directory->refresh()->type);
+    }
+
+    public function test_menu_icon_format_accepts_normalized_names_and_rejects_unsafe_values(): void
+    {
+        $token = $this->managerTokenFor(['system.menu.create']);
+
+        foreach (['menu', 'icon-menu', null] as $index => $icon) {
+            $this->postJson(ApiRouting::path('/admin/menus'), [
+                'name' => "Directory {$index}",
+                'code' => "icon.valid.{$index}",
+                'type' => Menu::TYPE_DIRECTORY,
+                'icon' => $icon,
+            ], ['Authorization' => 'Bearer '.$token])
+                ->assertOk()
+                ->assertJsonPath('data.menu.icon', $icon);
+        }
+
+        $this->postJson(ApiRouting::path('/admin/menus'), [
+            'name' => 'Unsafe Icon',
+            'code' => 'icon.invalid',
+            'type' => Menu::TYPE_DIRECTORY,
+            'icon' => '<script>',
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('icon');
+    }
+
+    public function test_seed_identity_is_internal_and_seeded_leaf_deletion_records_tombstone(): void
+    {
+        $token = $this->managerTokenFor(['system.menu.view', 'system.menu.create', 'system.menu.delete']);
+        $seeded = Menu::factory()->directory()->create(['code' => 'seeded.leaf']);
+        $seeded->setAttribute('seed_key', 'admin9.test.seeded.leaf');
+        $seeded->save();
+        $custom = Menu::factory()->directory()->create(['code' => 'custom.leaf']);
+
+        $response = $this->getJson(ApiRouting::path('/admin/menus/').$seeded->id, ['Authorization' => 'Bearer '.$token])
+            ->assertOk();
+        $menuData = $response->json('data.menu');
+        $this->assertIsArray($menuData);
+        $this->assertArrayNotHasKey('seed_key', $menuData);
+
+        $this->postJson(ApiRouting::path('/admin/menus'), [
+            'name' => 'Injected Seed Identity',
+            'code' => 'seeded.injected',
+            'type' => Menu::TYPE_DIRECTORY,
+            'seed_key' => 'admin9.test.injected',
+        ], ['Authorization' => 'Bearer '.$token])->assertOk();
+        $this->assertDatabaseMissing('menus', ['seed_key' => 'admin9.test.injected']);
+
+        $this->deleteJson(ApiRouting::path('/admin/menus/').$seeded->id, [], ['Authorization' => 'Bearer '.$token])
+            ->assertOk();
+        $this->deleteJson(ApiRouting::path('/admin/menus/').$custom->id, [], ['Authorization' => 'Bearer '.$token])
+            ->assertOk();
+
+        $this->assertDatabaseHas('menu_seed_tombstones', ['seed_key' => 'admin9.test.seeded.leaf']);
+        $this->assertDatabaseCount('menu_seed_tombstones', 1);
     }
 
     public function test_menu_with_child_menus_cannot_be_deleted(): void

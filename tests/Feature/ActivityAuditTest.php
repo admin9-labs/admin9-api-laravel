@@ -33,6 +33,7 @@ class ActivityAuditTest extends TestCase
             'name' => '审计菜单',
             'code' => 'audit.menu',
             'path' => '/audit/menu',
+            'type' => Menu::TYPE_DIRECTORY,
             'permission_ids' => [$createPermission->id],
         ], ['Authorization' => 'Bearer '.$token])
             ->assertOk()
@@ -483,11 +484,41 @@ class ActivityAuditTest extends TestCase
                 'name' => 'Rollback Menu',
                 'code' => 'rollback.menu',
                 'path' => '/rollback/menu',
+                'type' => Menu::TYPE_DIRECTORY,
             ], ['Authorization' => 'Bearer '.$token]);
         });
 
         $this->assertDatabaseMissing('menus', [
             'code' => 'rollback.menu',
+        ]);
+    }
+
+    public function test_seeded_menu_delete_rolls_back_tombstone_and_menu_when_activity_log_write_fails(): void
+    {
+        $this->createPermission('system.menu.delete');
+
+        $menu = Menu::factory()->directory()->create(['code' => 'rollback.seeded-menu']);
+        $menu->setAttribute('seed_key', 'admin9.test.rollback.seeded-menu');
+        $menu->save();
+        $admin = User::factory()->create(['email' => 'audit-seeded-menu-delete-rollback@example.com']);
+        $admin->givePermissionTo('system.menu.delete');
+        $token = $this->adminTokenFor($admin);
+        $this->useFailingActivityModel();
+
+        $this->assertActivityLogFailure(function () use ($menu, $token): void {
+            $this->deleteJson(
+                ApiRouting::path('/admin/menus/').$menu->id,
+                [],
+                ['Authorization' => 'Bearer '.$token],
+            );
+        });
+
+        $this->assertDatabaseHas('menus', [
+            'id' => $menu->id,
+            'seed_key' => 'admin9.test.rollback.seeded-menu',
+        ]);
+        $this->assertDatabaseMissing('menu_seed_tombstones', [
+            'seed_key' => 'admin9.test.rollback.seeded-menu',
         ]);
     }
 

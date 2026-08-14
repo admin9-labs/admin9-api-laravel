@@ -5,11 +5,9 @@ namespace Database\Seeders;
 use App\Models\Menu;
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\Admin\SeededMenuProvisioner;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
-use LogicException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -28,27 +26,33 @@ class AdminRbacSeeder extends Seeder
      */
     public function run(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $permissionRegistrar = app(PermissionRegistrar::class);
+        $permissionRegistrar->forgetCachedPermissions();
 
-        $permissionDefinitions = collect($this->builtInPermissions());
-        $permissions = $permissionDefinitions
-            ->mapWithKeys(fn (array $definition): array => [
-                $definition['name'] => $this->upsertPermission($definition),
-            ]);
+        try {
+            DB::transaction(function () use ($permissionRegistrar): void {
+                $permissionDefinitions = collect($this->builtInPermissions());
+                $permissions = $permissionDefinitions
+                    ->mapWithKeys(fn (array $definition): array => [
+                        $definition['name'] => $this->upsertPermission($definition),
+                    ]);
 
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+                $permissionRegistrar->forgetCachedPermissions();
 
-        $superAdmin = Role::findOrCreate('super-admin', self::ADMIN_GUARD);
-        $systemAdmin = Role::findOrCreate('system-admin', self::ADMIN_GUARD);
-        $systemAdmin->syncPermissions($permissions->values());
+                $superAdmin = Role::findOrCreate('super-admin', self::ADMIN_GUARD);
+                $systemAdmin = Role::findOrCreate('system-admin', self::ADMIN_GUARD);
+                $systemAdmin->syncPermissions($permissions->values());
 
-        if (app()->environment(['local', 'testing'])) {
-            $this->seedSuperAdmin($superAdmin);
+                if (app()->environment(['local', 'testing'])) {
+                    $this->seedSuperAdmin($superAdmin);
+                }
+
+                $this->seedMenus();
+                $this->call(AdminAuditLogMenuSeeder::class);
+            }, 5);
+        } finally {
+            $permissionRegistrar->forgetCachedPermissions();
         }
-        $this->seedMenus($permissions);
-        $this->call(AdminAuditLogMenuSeeder::class);
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     private function upsertPermission(array $definition): Permission
@@ -84,95 +88,31 @@ class AdminRbacSeeder extends Seeder
         }
     }
 
-    /**
-     * @param  Collection<string, Permission>  $permissions
-     */
-    private function seedMenus(Collection $permissions): void
+    private function seedMenus(): void
     {
-        $system = Menu::query()->updateOrCreate(
-            ['code' => 'system'],
+        $definitions = [
             [
-                'parent_id' => null,
+                'seed_key' => 'admin9.core.system',
+                'parent_seed_key' => null,
+                'code' => 'system',
                 'name' => '系统管理',
                 'path' => '/system',
                 'component' => 'Layout',
                 'icon' => 'settings',
                 'type' => Menu::TYPE_DIRECTORY,
+                'permission_names' => [],
                 'sort' => 10,
                 'is_visible' => true,
                 'is_active' => true,
-            ]
-        );
-        $system->permissions()->sync([]);
+            ],
+            ...$this->menuDefinitions(),
+        ];
 
-        $menus = ['system' => $system];
+        $warnings = app(SeededMenuProvisioner::class)->provision($definitions);
 
-        foreach ($this->menuDefinitions() as $definition) {
-            $permissionName = $definition['permission_name'];
-            $permission = $permissionName === null ? null : $permissions->get($permissionName);
-
-            if ($permissionName !== null && ! $permission instanceof Permission) {
-                throw new LogicException(sprintf(
-                    'Missing built-in permission [%s] for menu [%s].',
-                    $permissionName,
-                    $definition['code'],
-                ));
-            }
-
-            $parent = $menus[$definition['parent_code']];
-
-            $menu = Menu::query()->updateOrCreate(
-                ['code' => $definition['code']],
-                [
-                    'parent_id' => $parent->id,
-                    'name' => $definition['name'],
-                    'path' => $definition['path'],
-                    'component' => $definition['component'],
-                    'icon' => $definition['icon'],
-                    'type' => $definition['type'],
-                    'sort' => $definition['sort'],
-                    'is_visible' => $definition['is_visible'],
-                    'is_active' => true,
-                ]
-            );
-            $menu->permissions()->sync($permission === null ? [] : [$permission->id]);
-            $menus[$definition['code']] = $menu;
+        foreach ($warnings as $warning) {
+            $this->command?->warn($warning);
         }
-
-        $this->removeObsoleteMediaResources();
-        $this->removeObsoleteSystemSettingsMenus();
-    }
-
-    private function removeObsoleteMediaResources(): void
-    {
-        DB::transaction(function (): void {
-            $obsoleteMenus = Menu::query()
-                ->whereIn('code', ['system.media', 'system.media.create', 'system.media.delete'])
-                ->lockForUpdate()
-                ->get();
-
-            if ($obsoleteMenus->isNotEmpty()) {
-                $menuIds = $obsoleteMenus->modelKeys();
-
-                if (Schema::hasTable('role_menu')) {
-                    DB::table('role_menu')->whereIn('menu_id', $menuIds)->delete();
-                }
-
-                $obsoleteMenus
-                    ->sortByDesc(fn (Menu $menu): int => strlen((string) $menu->code))
-                    ->each(function (Menu $menu): void {
-                        $menu->permissions()->detach();
-                        $menu->delete();
-                    });
-            }
-
-            Permission::query()
-                ->where('guard_name', self::ADMIN_GUARD)
-                ->whereIn('name', ['system.media.view', 'system.media.create', 'system.media.delete'])
-                ->delete();
-        });
-
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     /**
@@ -221,87 +161,66 @@ class AdminRbacSeeder extends Seeder
     }
 
     /**
-     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     * @return array<int, array{seed_key: string, parent_seed_key: ?string, code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_names: array<int, string>, sort: int, is_visible: bool, is_active: bool}>
      */
     private function menuDefinitions(): array
     {
         return [
-            ...$this->pageWithButtons('system.roles', 'system', '角色管理', '/system/roles', 'system/roles/index', 'team', 'system.role', 20),
-            ...$this->pageWithButtons('system.permissions', 'system', '权限管理', '/system/permissions', 'system/permissions/index', 'lock', 'system.permission', 25),
-            ...$this->pageWithButtons('system.users', 'system', '用户管理', '/system/users', 'system/users/index', 'user', 'system.user', 30, ['assign-role' => '分配角色']),
+            ...$this->pageWithButtons('admin9.core.system.roles', 'system.roles', '角色管理', '/system/roles', 'system/roles/index', 'user-group', 'system.role', 20),
+            ...$this->pageWithButtons('admin9.core.system.permissions', 'system.permissions', '权限管理', '/system/permissions', 'system/permissions/index', 'lock', 'system.permission', 25),
+            ...$this->pageWithButtons('admin9.core.system.users', 'system.users', '用户管理', '/system/users', 'system/users/index', 'user', 'system.user', 30, ['assign-role' => '分配角色']),
             ...$this->memberPageWithButtons(),
             ...$this->filePageWithButtons(),
-            ...$this->pageWithButtons('system.menus', 'system', '菜单管理', '/system/menus', 'system/menus/index', 'menu', 'system.menu', 40),
-            ...$this->pageWithButtons('system.dictionaries', 'system', '字典管理', '/system/dictionaries', 'system/dictionaries/index', 'book', 'system.dictionary', 50),
+            ...$this->pageWithButtons('admin9.core.system.menus', 'system.menus', '菜单管理', '/system/menus', 'system/menus/index', 'menu', 'system.menu', 40),
+            ...$this->pageWithButtons('admin9.core.system.dictionaries', 'system.dictionaries', '字典管理', '/system/dictionaries', 'system/dictionaries/index', 'book', 'system.dictionary', 50),
             ...$this->systemSettingsPage(),
         ];
     }
 
     /**
-     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     * @return array<int, array{seed_key: string, parent_seed_key: ?string, code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_names: array<int, string>, sort: int, is_visible: bool, is_active: bool}>
      */
     private function systemSettingsPage(): array
     {
         return [
             [
+                'seed_key' => 'admin9.core.system.settings',
+                'parent_seed_key' => 'admin9.core.system',
                 'code' => 'system.configs',
-                'parent_code' => 'system',
                 'name' => '系统设置',
                 'path' => '/system/configs',
                 'component' => 'system/configs/index',
                 'icon' => 'settings',
                 'type' => Menu::TYPE_PAGE,
-                'permission_name' => 'system.config.view',
+                'permission_names' => ['system.config.view'],
                 'sort' => 60,
                 'is_visible' => true,
+                'is_active' => true,
             ],
             [
+                'seed_key' => 'admin9.core.system.settings.update',
+                'parent_seed_key' => 'admin9.core.system.settings',
                 'code' => 'system.configs.update',
-                'parent_code' => 'system.configs',
                 'name' => '编辑',
                 'path' => null,
                 'component' => null,
                 'icon' => null,
                 'type' => Menu::TYPE_BUTTON,
-                'permission_name' => 'system.config.update',
+                'permission_names' => ['system.config.update'],
                 'sort' => 20,
                 'is_visible' => false,
+                'is_active' => true,
             ],
         ];
     }
 
-    private function removeObsoleteSystemSettingsMenus(): void
-    {
-        DB::transaction(function (): void {
-            $obsoleteMenus = Menu::query()
-                ->whereIn('code', ['system.configs.create', 'system.configs.delete'])
-                ->lockForUpdate()
-                ->get();
-
-            if ($obsoleteMenus->isEmpty()) {
-                return;
-            }
-
-            $menuIds = $obsoleteMenus->modelKeys();
-
-            if (Schema::hasTable('role_menu')) {
-                DB::table('role_menu')->whereIn('menu_id', $menuIds)->delete();
-            }
-
-            $obsoleteMenus->each(function (Menu $menu): void {
-                $menu->permissions()->detach();
-                $menu->delete();
-            });
-        });
-    }
-
     /**
      * @param  array<string, string>  $extraButtons
-     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     * @return array<int, array{seed_key: string, parent_seed_key: ?string, code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_names: array<int, string>, sort: int, is_visible: bool, is_active: bool}>
      */
     private function pageWithButtons(
+        string $seedKey,
         string $code,
-        string $parentCode,
         string $name,
         string $path,
         string $component,
@@ -319,27 +238,30 @@ class AdminRbacSeeder extends Seeder
 
         return [
             [
+                'seed_key' => $seedKey,
+                'parent_seed_key' => 'admin9.core.system',
                 'code' => $code,
-                'parent_code' => $parentCode,
                 'name' => $name,
                 'path' => $path,
                 'component' => $component,
                 'icon' => $icon,
                 'type' => Menu::TYPE_PAGE,
-                'permission_name' => "{$permissionPrefix}.view",
+                'permission_names' => ["{$permissionPrefix}.view"],
                 'sort' => $sort,
                 'is_visible' => true,
+                'is_active' => true,
             ],
             ...collect($buttons)
                 ->map(fn (string $buttonName, string $action): array => [
+                    'seed_key' => "{$seedKey}.{$action}",
+                    'parent_seed_key' => $seedKey,
                     'code' => "{$code}.{$action}",
-                    'parent_code' => $code,
                     'name' => $buttonName,
                     'path' => null,
                     'component' => null,
                     'icon' => null,
                     'type' => Menu::TYPE_BUTTON,
-                    'permission_name' => "{$permissionPrefix}.{$action}",
+                    'permission_names' => ["{$permissionPrefix}.{$action}"],
                     'sort' => match ($action) {
                         'create' => 10,
                         'update' => 20,
@@ -347,6 +269,7 @@ class AdminRbacSeeder extends Seeder
                         default => 40,
                     },
                     'is_visible' => false,
+                    'is_active' => true,
                 ])
                 ->values()
                 ->all(),
@@ -354,7 +277,7 @@ class AdminRbacSeeder extends Seeder
     }
 
     /**
-     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     * @return array<int, array{seed_key: string, parent_seed_key: ?string, code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_names: array<int, string>, sort: int, is_visible: bool, is_active: bool}>
      */
     private function memberPageWithButtons(): array
     {
@@ -368,76 +291,83 @@ class AdminRbacSeeder extends Seeder
 
         return [
             [
+                'seed_key' => 'admin9.core.system.members',
+                'parent_seed_key' => 'admin9.core.system',
                 'code' => 'SystemMember',
-                'parent_code' => 'system',
                 'name' => '会员管理',
                 'path' => '/system/members',
                 'component' => 'system/members/index',
                 'icon' => 'user-group',
                 'type' => Menu::TYPE_PAGE,
-                'permission_name' => 'system.member.view',
+                'permission_names' => ['system.member.view'],
                 'sort' => 35,
                 'is_visible' => true,
+                'is_active' => true,
             ],
             ...collect($buttons)->map(fn (array $button, string $action): array => [
+                'seed_key' => 'admin9.core.system.members.'.str_replace('_', '-', $action),
+                'parent_seed_key' => 'admin9.core.system.members',
                 'code' => "SystemMember.{$action}",
-                'parent_code' => 'SystemMember',
                 'name' => $button['name'],
                 'path' => null,
                 'component' => null,
                 'icon' => null,
                 'type' => Menu::TYPE_BUTTON,
-                'permission_name' => "system.member.{$action}",
+                'permission_names' => ["system.member.{$action}"],
                 'sort' => $button['sort'],
                 'is_visible' => false,
+                'is_active' => true,
             ])->values()->all(),
         ];
     }
 
     /**
-     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
-     */
-    /**
-     * @return array<int, array{code: string, parent_code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_name: ?string, sort: int, is_visible: bool}>
+     * @return array<int, array{seed_key: string, parent_seed_key: ?string, code: string, name: string, path: ?string, component: ?string, icon: ?string, type: string, permission_names: array<int, string>, sort: int, is_visible: bool, is_active: bool}>
      */
     private function filePageWithButtons(): array
     {
         return [
             [
+                'seed_key' => 'admin9.core.system.files',
+                'parent_seed_key' => 'admin9.core.system',
                 'code' => 'system.file',
-                'parent_code' => 'system',
                 'name' => '文件管理',
                 'path' => '/system/file',
                 'component' => 'system/file/index',
                 'icon' => 'file',
                 'type' => Menu::TYPE_PAGE,
-                'permission_name' => 'system.file.view',
+                'permission_names' => ['system.file.view'],
                 'sort' => 39,
                 'is_visible' => true,
+                'is_active' => true,
             ],
             [
+                'seed_key' => 'admin9.core.system.files.create',
+                'parent_seed_key' => 'admin9.core.system.files',
                 'code' => 'system.file.create',
-                'parent_code' => 'system.file',
                 'name' => '上传',
                 'path' => null,
                 'component' => null,
                 'icon' => null,
                 'type' => Menu::TYPE_BUTTON,
-                'permission_name' => 'system.file.create',
+                'permission_names' => ['system.file.create'],
                 'sort' => 10,
                 'is_visible' => false,
+                'is_active' => true,
             ],
             [
+                'seed_key' => 'admin9.core.system.files.delete',
+                'parent_seed_key' => 'admin9.core.system.files',
                 'code' => 'system.file.delete',
-                'parent_code' => 'system.file',
                 'name' => '删除',
                 'path' => null,
                 'component' => null,
                 'icon' => null,
                 'type' => Menu::TYPE_BUTTON,
-                'permission_name' => 'system.file.delete',
+                'permission_names' => ['system.file.delete'],
                 'sort' => 20,
                 'is_visible' => false,
+                'is_active' => true,
             ],
         ];
     }

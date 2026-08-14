@@ -254,7 +254,11 @@ class AdminPermissionManagementTest extends TestCase
     public function test_permission_can_be_deleted_only_after_menu_is_explicitly_detached(): void
     {
         $permission = $this->createPermission('dynamic.menu.detachable');
-        $menu = Menu::factory()->create(['code' => 'dynamic.menu.detachable']);
+        $directory = Menu::factory()->directory()->create(['code' => 'dynamic']);
+        $menu = Menu::factory()->create([
+            'parent_id' => $directory->id,
+            'code' => 'dynamic.menu.detachable',
+        ]);
         $menu->permissions()->sync([$permission->id]);
         $viewerToken = $this->adminTokenFor(User::factory()->create([
             'email' => 'menu-detach-viewer@example.com',
