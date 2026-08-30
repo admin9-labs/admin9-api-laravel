@@ -75,12 +75,12 @@ class AdminFileManagementTest extends TestCase
             ->assertJsonPath('data.file.mime_type', $expectedMimeType)
             ->assertJsonPath('data.file.status', File::STATUS_READY)
             ->assertJsonMissingPath('data.file.disk')
-            ->assertJsonMissingPath('data.file.path')
             ->assertJsonMissingPath('data.file.created_by')
             ->assertHeader('X-Request-Id');
 
         $file = File::query()->findOrFail($response->json('data.file.id'));
         $this->assertStringStartsWith('files/'.now()->format('Y/m').'/', $file->path);
+        $this->assertSame($file->path, $response->json('data.file.path'));
         $this->assertStringContainsString('/storage/files/', $response->json('data.file.url'));
         Storage::disk('public')->assertExists($file->path);
 
