@@ -691,6 +691,7 @@ class OpenApiDocsTest extends TestCase
         foreach ($settings['properties']['branding']['required'] as $field) {
             $this->assertSame(['string', 'null'], $settings['properties']['branding']['properties'][$field]['type']);
             $this->assertSame('uri', $settings['properties']['branding']['properties'][$field]['format']);
+            $this->assertSame('^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)', $settings['properties']['branding']['properties'][$field]['pattern']);
             $this->assertSame(2048, $settings['properties']['branding']['properties'][$field]['maxLength']);
         }
 
@@ -712,6 +713,7 @@ class OpenApiDocsTest extends TestCase
         foreach ($brandingRequest['required'] as $field) {
             $this->assertSame(['string', 'null'], $brandingRequest['properties'][$field]['type']);
             $this->assertSame('uri', $brandingRequest['properties'][$field]['format']);
+            $this->assertSame('^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)', $brandingRequest['properties'][$field]['pattern']);
             $this->assertSame(2048, $brandingRequest['properties'][$field]['maxLength']);
         }
 

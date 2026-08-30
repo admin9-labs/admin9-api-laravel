@@ -111,14 +111,16 @@ class RestoreBrandingUrlSettingsFromFilePathsMigrationTest extends TestCase
 
     public function test_retry_preserves_existing_url_values(): void
     {
+        $existingUrl = 'https://例子.测试/品牌.png';
+
         foreach (self::URL_DEFINITIONS as $key => $definition) {
-            $this->insertSetting($key, $key === 'system.branding.navigation_logo_url' ? 'https://cdn.example.test/logo.png' : null, $definition);
+            $this->insertSetting($key, $key === 'system.branding.navigation_logo_url' ? $existingUrl : null, $definition);
         }
 
         $this->migration()->up();
 
         $this->assertSame(
-            'https://cdn.example.test/logo.png',
+            $existingUrl,
             DB::connection(self::CONNECTION)
                 ->table('system_configs')
                 ->where('key', 'system.branding.navigation_logo_url')

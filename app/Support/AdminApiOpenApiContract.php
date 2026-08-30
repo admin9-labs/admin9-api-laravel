@@ -151,7 +151,11 @@ class AdminApiOpenApiContract
 
     private function normalizeSystemSettingsSchemas(OpenApi $document): void
     {
-        $brandUrl = (new StringType)->format('uri')->setMax(2048)->nullable(true);
+        $brandUrl = (new StringType)
+            ->format('uri')
+            ->pattern('^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)')
+            ->setMax(2048)
+            ->nullable(true);
         $basic = (new ObjectType)
             ->addProperty('system_name', (new StringType)->nullable(true))
             ->addProperty('copyright', (new StringType)->nullable(true))

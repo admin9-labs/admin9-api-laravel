@@ -7689,6 +7689,7 @@
                                     "null"
                                 ],
                                 "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                                 "maxLength": 2048
                             },
                             "login_logo_url": {
@@ -7697,6 +7698,7 @@
                                     "null"
                                 ],
                                 "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                                 "maxLength": 2048
                             },
                             "login_background_url": {
@@ -7705,6 +7707,7 @@
                                     "null"
                                 ],
                                 "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                                 "maxLength": 2048
                             },
                             "favicon_url": {
@@ -7713,6 +7716,7 @@
                                     "null"
                                 ],
                                 "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                                 "maxLength": 2048
                             }
                         },
@@ -7768,6 +7772,7 @@
                             "null"
                         ],
                         "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                         "maxLength": 2048
                     },
                     "login_logo_url": {
@@ -7776,6 +7781,7 @@
                             "null"
                         ],
                         "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                         "maxLength": 2048
                     },
                     "login_background_url": {
@@ -7784,6 +7790,7 @@
                             "null"
                         ],
                         "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                         "maxLength": 2048
                     },
                     "favicon_url": {
@@ -7792,6 +7799,7 @@
                             "null"
                         ],
                         "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
                         "maxLength": 2048
                     }
                 },

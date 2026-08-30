@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 return new class extends Migration
 {
@@ -153,7 +154,7 @@ return new class extends Migration
 
     private function isSafeHttpUrl(mixed $value): bool
     {
-        if (! is_string($value) || strlen($value) > 2048 || filter_var($value, FILTER_VALIDATE_URL) === false) {
+        if (! is_string($value) || Str::length($value) > 2048 || ! Str::isUrl($value, ['http', 'https'])) {
             return false;
         }
 
