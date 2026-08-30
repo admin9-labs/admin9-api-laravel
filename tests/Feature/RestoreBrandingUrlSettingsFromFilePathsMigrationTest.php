@@ -109,22 +109,55 @@ class RestoreBrandingUrlSettingsFromFilePathsMigrationTest extends TestCase
         );
     }
 
-    public function test_retry_preserves_existing_url_values(): void
+    public function test_private_non_image_and_claimed_paths_are_cleared(): void
     {
-        $existingUrl = 'https://例子.测试/品牌.png';
-
-        foreach (self::URL_DEFINITIONS as $key => $definition) {
-            $this->insertSetting($key, $key === 'system.branding.navigation_logo_url' ? $existingUrl : null, $definition);
-        }
+        $privatePath = 'files/2026/08/88918880-c212-46f0-ac99-b9dc35a92c6e.png';
+        $documentPath = 'files/2026/08/98918880-c212-46f0-ac99-b9dc35a92c6e.pdf';
+        $claimedPath = 'files/2026/08/a8918880-c212-46f0-ac99-b9dc35a92c6e.png';
+        $this->insertFile($privatePath, ['disk' => 'local']);
+        $this->insertFile($documentPath, ['type' => 'document']);
+        $this->insertFile($claimedPath, ['deletion_token' => 'b8918880-c212-46f0-ac99-b9dc35a92c6e']);
+        $this->insertPathSettings([$privatePath, $documentPath, $claimedPath, null]);
 
         $this->migration()->up();
 
         $this->assertSame(
-            $existingUrl,
+            [null, null, null, null],
             DB::connection(self::CONNECTION)
                 ->table('system_configs')
-                ->where('key', 'system.branding.navigation_logo_url')
-                ->value('value'),
+                ->whereIn('key', array_keys(self::URL_DEFINITIONS))
+                ->orderBy('sort')
+                ->pluck('value')
+                ->all(),
+        );
+    }
+
+    public function test_retry_preserves_existing_url_values(): void
+    {
+        $existingUrl = 'https://例子.测试/品牌.png';
+        $urlPrefix = 'https://cdn.example.test/';
+        $maximumLengthUrl = $urlPrefix.str_repeat('a', 2048 - strlen($urlPrefix));
+
+        foreach (self::URL_DEFINITIONS as $key => $definition) {
+            $value = match ($key) {
+                'system.branding.navigation_logo_url' => $existingUrl,
+                'system.branding.login_logo_url' => $maximumLengthUrl,
+                default => null,
+            };
+            $this->insertSetting($key, $value, $definition);
+        }
+
+        $this->migration()->up();
+
+        $this->assertSame(2048, strlen($maximumLengthUrl));
+        $this->assertSame(
+            [$existingUrl, $maximumLengthUrl, null, null],
+            DB::connection(self::CONNECTION)
+                ->table('system_configs')
+                ->whereIn('key', array_keys(self::URL_DEFINITIONS))
+                ->orderBy('sort')
+                ->pluck('value')
+                ->all(),
         );
     }
 

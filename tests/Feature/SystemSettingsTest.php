@@ -15,12 +15,16 @@ class SystemSettingsTest extends TestCase
     public function test_branding_settings_accept_valid_urls_and_clear_values(): void
     {
         $headers = $this->authorizationHeader($this->managerTokenFor(['system.config.update']));
+        $urlPrefix = 'https://cdn.example.test/';
+        $maximumLengthUrl = $urlPrefix.str_repeat('a', 2048 - strlen($urlPrefix));
         $payload = [
             'navigation_logo_url' => 'https://cdn.example.test/logo.svg',
-            'login_logo_url' => 'https://cdn.example.test/login.svg',
+            'login_logo_url' => $maximumLengthUrl,
             'login_background_url' => null,
             'favicon_url' => 'https://cdn.example.test/favicon.ico',
         ];
+
+        $this->assertSame(2048, strlen($maximumLengthUrl));
 
         $this->putJson(ApiRouting::path('/admin/system-settings/branding'), $payload, $headers)
             ->assertOk()
