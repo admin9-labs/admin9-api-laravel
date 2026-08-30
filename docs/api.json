@@ -6685,9 +6685,6 @@
                         "type": "integer",
                         "format": "int64"
                     },
-                    "path": {
-                        "type": "string"
-                    },
                     "url": {
                         "type": [
                             "string",
@@ -6726,7 +6723,6 @@
                     "mime_type",
                     "extension",
                     "size",
-                    "path",
                     "url",
                     "width",
                     "height",
@@ -7687,71 +7683,47 @@
                     "branding": {
                         "type": "object",
                         "properties": {
-                            "navigation_logo_path": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ],
-                                "maxLength": 255
-                            },
                             "navigation_logo_url": {
                                 "type": [
                                     "string",
                                     "null"
                                 ],
-                                "format": "uri"
-                            },
-                            "login_logo_path": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ],
-                                "maxLength": 255
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
                             },
                             "login_logo_url": {
                                 "type": [
                                     "string",
                                     "null"
                                 ],
-                                "format": "uri"
-                            },
-                            "login_background_path": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ],
-                                "maxLength": 255
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
                             },
                             "login_background_url": {
                                 "type": [
                                     "string",
                                     "null"
                                 ],
-                                "format": "uri"
-                            },
-                            "favicon_path": {
-                                "type": [
-                                    "string",
-                                    "null"
-                                ],
-                                "maxLength": 255
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
                             },
                             "favicon_url": {
                                 "type": [
                                     "string",
                                     "null"
                                 ],
-                                "format": "uri"
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
                             }
                         },
                         "required": [
-                            "navigation_logo_path",
                             "navigation_logo_url",
-                            "login_logo_path",
                             "login_logo_url",
-                            "login_background_path",
                             "login_background_url",
-                            "favicon_path",
                             "favicon_url"
                         ]
                     }
@@ -7794,40 +7766,48 @@
             "UpdateBrandingSystemSettingsRequest": {
                 "type": "object",
                 "properties": {
-                    "navigation_logo_path": {
+                    "navigation_logo_url": {
                         "type": [
                             "string",
                             "null"
                         ],
-                        "maxLength": 255
+                        "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                        "maxLength": 2048
                     },
-                    "login_logo_path": {
+                    "login_logo_url": {
                         "type": [
                             "string",
                             "null"
                         ],
-                        "maxLength": 255
+                        "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                        "maxLength": 2048
                     },
-                    "login_background_path": {
+                    "login_background_url": {
                         "type": [
                             "string",
                             "null"
                         ],
-                        "maxLength": 255
+                        "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                        "maxLength": 2048
                     },
-                    "favicon_path": {
+                    "favicon_url": {
                         "type": [
                             "string",
                             "null"
                         ],
-                        "maxLength": 255
+                        "format": "uri",
+                        "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                        "maxLength": 2048
                     }
                 },
                 "required": [
-                    "navigation_logo_path",
-                    "login_logo_path",
-                    "login_background_path",
-                    "favicon_path"
+                    "navigation_logo_url",
+                    "login_logo_url",
+                    "login_background_url",
+                    "favicon_url"
                 ],
                 "title": "UpdateBrandingSystemSettingsRequest"
             },

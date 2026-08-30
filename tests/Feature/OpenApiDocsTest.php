@@ -674,16 +674,7 @@ class OpenApiDocsTest extends TestCase
             $settings['properties']['basic']['required'],
         );
         $this->assertSame(
-            [
-                'navigation_logo_path',
-                'navigation_logo_url',
-                'login_logo_path',
-                'login_logo_url',
-                'login_background_path',
-                'login_background_url',
-                'favicon_path',
-                'favicon_url',
-            ],
+            ['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url'],
             $settings['properties']['branding']['required'],
         );
         $this->assertSame(
@@ -699,12 +690,9 @@ class OpenApiDocsTest extends TestCase
         }
         foreach ($settings['properties']['branding']['required'] as $field) {
             $this->assertSame(['string', 'null'], $settings['properties']['branding']['properties'][$field]['type']);
-        }
-        foreach (['navigation_logo_path', 'login_logo_path', 'login_background_path', 'favicon_path'] as $field) {
-            $this->assertArrayNotHasKey('format', $settings['properties']['branding']['properties'][$field]);
-        }
-        foreach (['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url'] as $field) {
             $this->assertSame('uri', $settings['properties']['branding']['properties'][$field]['format']);
+            $this->assertSame('^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)', $settings['properties']['branding']['properties'][$field]['pattern']);
+            $this->assertSame(2048, $settings['properties']['branding']['properties'][$field]['maxLength']);
         }
 
         $basicRequest = $document['components']['schemas']['UpdateBasicSystemSettingsRequest'];
@@ -716,15 +704,17 @@ class OpenApiDocsTest extends TestCase
 
         $brandingRequest = $document['components']['schemas']['UpdateBrandingSystemSettingsRequest'];
         $this->assertSame([
-            'navigation_logo_path',
-            'login_logo_path',
-            'login_background_path',
-            'favicon_path',
+            'navigation_logo_url',
+            'login_logo_url',
+            'login_background_url',
+            'favicon_url',
         ], $brandingRequest['required']);
         $this->assertSame($brandingRequest['required'], array_keys($brandingRequest['properties']));
         foreach ($brandingRequest['required'] as $field) {
             $this->assertSame(['string', 'null'], $brandingRequest['properties'][$field]['type']);
-            $this->assertArrayNotHasKey('format', $brandingRequest['properties'][$field]);
+            $this->assertSame('uri', $brandingRequest['properties'][$field]['format']);
+            $this->assertSame('^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)', $brandingRequest['properties'][$field]['pattern']);
+            $this->assertSame(2048, $brandingRequest['properties'][$field]['maxLength']);
         }
 
         foreach ([
@@ -781,7 +771,6 @@ class OpenApiDocsTest extends TestCase
             'mime_type',
             'extension',
             'size',
-            'path',
             'url',
             'width',
             'height',
@@ -791,7 +780,7 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame(app(FileUploadPolicy::class)->types(), $fileSchema['properties']['type']['enum']);
         $this->assertSame(['image', 'document', 'video', 'audio', 'other'], $fileSchema['properties']['type']['enum']);
         $this->assertSame(['pending', 'ready', 'failed'], $fileSchema['properties']['status']['enum']);
-        foreach (['disk', 'created_by'] as $internalProperty) {
+        foreach (['disk', 'path', 'created_by'] as $internalProperty) {
             $this->assertArrayNotHasKey($internalProperty, $fileSchema['properties']);
         }
 

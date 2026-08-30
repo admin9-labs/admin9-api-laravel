@@ -2,12 +2,9 @@
 
 namespace App\Support;
 
-use App\Models\File;
 use App\Models\SystemConfig;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\ValidationException;
 
 final class SystemSettings
 {
@@ -21,13 +18,13 @@ final class SystemSettings
 
     public const ICP_FILING_NUMBER_KEY = 'system.identity.icp_filing_number';
 
-    public const NAVIGATION_LOGO_KEY = 'system.branding.navigation_logo';
+    public const NAVIGATION_LOGO_URL_KEY = 'system.branding.navigation_logo_url';
 
-    public const LOGIN_LOGO_KEY = 'system.branding.login_logo';
+    public const LOGIN_LOGO_URL_KEY = 'system.branding.login_logo_url';
 
-    public const LOGIN_BACKGROUND_KEY = 'system.branding.login_background';
+    public const LOGIN_BACKGROUND_URL_KEY = 'system.branding.login_background_url';
 
-    public const FAVICON_KEY = 'system.branding.favicon';
+    public const FAVICON_URL_KEY = 'system.branding.favicon_url';
 
     /**
      * @var array<string, string>
@@ -42,10 +39,10 @@ final class SystemSettings
      * @var array<string, string>
      */
     private const BRANDING_FIELDS = [
-        'navigation_logo_path' => self::NAVIGATION_LOGO_KEY,
-        'login_logo_path' => self::LOGIN_LOGO_KEY,
-        'login_background_path' => self::LOGIN_BACKGROUND_KEY,
-        'favicon_path' => self::FAVICON_KEY,
+        'navigation_logo_url' => self::NAVIGATION_LOGO_URL_KEY,
+        'login_logo_url' => self::LOGIN_LOGO_URL_KEY,
+        'login_background_url' => self::LOGIN_BACKGROUND_URL_KEY,
+        'favicon_url' => self::FAVICON_URL_KEY,
     ];
 
     /**
@@ -81,38 +78,38 @@ final class SystemSettings
                 'is_active' => true,
                 'sort' => 30,
             ],
-            self::NAVIGATION_LOGO_KEY => [
-                'name' => '后台导航 Logo',
+            self::NAVIGATION_LOGO_URL_KEY => [
+                'name' => '后台导航 Logo URL',
                 'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '后台导航使用的受管图片文件',
+                'description' => '后台导航使用的 Logo URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 40,
             ],
-            self::LOGIN_LOGO_KEY => [
-                'name' => '登录页 Logo',
+            self::LOGIN_LOGO_URL_KEY => [
+                'name' => '登录页 Logo URL',
                 'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '登录页使用的受管图片文件',
+                'description' => '登录页使用的 Logo URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 50,
             ],
-            self::LOGIN_BACKGROUND_KEY => [
-                'name' => '登录页背景图',
+            self::LOGIN_BACKGROUND_URL_KEY => [
+                'name' => '登录页背景图 URL',
                 'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '登录页使用的受管背景图片文件',
+                'description' => '登录页使用的背景图片 URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 60,
             ],
-            self::FAVICON_KEY => [
-                'name' => '浏览器图标',
+            self::FAVICON_URL_KEY => [
+                'name' => '浏览器图标 URL',
                 'type' => SystemConfig::TYPE_STRING,
                 'config_group' => self::BRANDING_GROUP,
-                'description' => '浏览器 Favicon 使用的受管图片文件',
+                'description' => '浏览器 Favicon URL',
                 'is_public' => true,
                 'is_active' => true,
                 'sort' => 70,
@@ -151,31 +148,6 @@ final class SystemSettings
             ->whereIn('key', self::managedKeys())
             ->get()
             ->keyBy('key');
-        $brandingPaths = collect(self::BRANDING_FIELDS)
-            ->mapWithKeys(fn (string $key, string $pathField): array => [
-                $pathField => $this->storedPath($configs->get($key)?->value),
-            ])
-            ->all();
-        $paths = collect($brandingPaths)->filter()->unique()->values();
-        /** @var Collection<string, File> $files */
-        $files = File::query()
-            ->where('disk', 'public')
-            ->where('type', 'image')
-            ->where('status', File::STATUS_READY)
-            ->whereNull('deletion_token')
-            ->whereIn('path', $paths)
-            ->get()
-            ->keyBy('path');
-        $branding = [];
-
-        foreach ($brandingPaths as $pathField => $path) {
-            $assetName = str($pathField)->beforeLast('_path')->toString();
-            $file = $path === null ? null : $files->get($path);
-            $branding[$pathField] = $path;
-            $branding["{$assetName}_url"] = $file === null
-                ? null
-                : Storage::disk($file->disk)->url($file->path);
-        }
 
         return [
             'basic' => [
@@ -183,7 +155,11 @@ final class SystemSettings
                 'copyright' => $configs->get(self::COPYRIGHT_KEY)?->value,
                 'icp_filing_number' => $configs->get(self::ICP_FILING_NUMBER_KEY)?->value,
             ],
-            'branding' => $branding,
+            'branding' => collect(self::BRANDING_FIELDS)
+                ->mapWithKeys(fn (string $key, string $field): array => [
+                    $field => $configs->get($key)?->value,
+                ])
+                ->all(),
         ];
     }
 
@@ -202,12 +178,11 @@ final class SystemSettings
     }
 
     /**
-     * @param  array{navigation_logo_path: ?string, login_logo_path: ?string, login_background_path: ?string, favicon_path: ?string}  $values
+     * @param  array{navigation_logo_url: ?string, login_logo_url: ?string, login_background_url: ?string, favicon_url: ?string}  $values
      */
     public function updateBranding(array $values): void
     {
         DB::transaction(function () use ($values): void {
-            $values = $this->canonicalBrandingPaths($values);
             $configs = $this->lockedConfigs(array_values(self::BRANDING_FIELDS));
 
             foreach (self::BRANDING_FIELDS as $field => $key) {
@@ -237,55 +212,5 @@ final class SystemSettings
         }
 
         return $configs;
-    }
-
-    /**
-     * @param  array<string, ?string>  $values
-     * @return array<string, ?string>
-     */
-    private function canonicalBrandingPaths(array $values): array
-    {
-        $paths = collect($values)->filter()->unique()->values();
-        /** @var Collection<int, File> $files */
-        $files = File::query()
-            ->where('disk', 'public')
-            ->where('type', 'image')
-            ->where('status', File::STATUS_READY)
-            ->whereNull('deletion_token')
-            ->whereIn('path', $paths)
-            ->orderBy('id')
-            ->lockForUpdate()
-            ->get();
-        $canonical = [];
-        $errors = [];
-
-        foreach ($values as $field => $path) {
-            if ($path === null) {
-                $canonical[$field] = null;
-
-                continue;
-            }
-
-            $file = $files->first(fn (File $file): bool => strcasecmp($file->path, $path) === 0);
-
-            if ($file === null) {
-                $errors[$field][] = 'The selected file must be a ready public image.';
-
-                continue;
-            }
-
-            $canonical[$field] = $file->path;
-        }
-
-        if ($errors !== []) {
-            throw ValidationException::withMessages($errors);
-        }
-
-        return $canonical;
-    }
-
-    private function storedPath(?string $value): ?string
-    {
-        return is_string($value) && $value !== '' ? $value : null;
     }
 }
