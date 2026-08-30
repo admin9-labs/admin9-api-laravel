@@ -151,32 +151,18 @@ class AdminApiOpenApiContract
 
     private function normalizeSystemSettingsSchemas(OpenApi $document): void
     {
-        $brandPath = (new StringType)->setMax(255)->nullable(true);
-        $brandUrl = (new StringType)->format('uri')->nullable(true);
+        $brandUrl = (new StringType)->format('uri')->setMax(2048)->nullable(true);
         $basic = (new ObjectType)
             ->addProperty('system_name', (new StringType)->nullable(true))
             ->addProperty('copyright', (new StringType)->nullable(true))
             ->addProperty('icp_filing_number', (new StringType)->nullable(true))
             ->addRequired(['system_name', 'copyright', 'icp_filing_number']);
         $branding = (new ObjectType)
-            ->addProperty('navigation_logo_path', $brandPath)
             ->addProperty('navigation_logo_url', $brandUrl)
-            ->addProperty('login_logo_path', $brandPath)
             ->addProperty('login_logo_url', $brandUrl)
-            ->addProperty('login_background_path', $brandPath)
             ->addProperty('login_background_url', $brandUrl)
-            ->addProperty('favicon_path', $brandPath)
             ->addProperty('favicon_url', $brandUrl)
-            ->addRequired([
-                'navigation_logo_path',
-                'navigation_logo_url',
-                'login_logo_path',
-                'login_logo_url',
-                'login_background_path',
-                'login_background_url',
-                'favicon_path',
-                'favicon_url',
-            ]);
+            ->addRequired(['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url']);
 
         $this->objectSchema($document, SystemSettingsResource::class)
             ->addProperty('basic', $basic)
@@ -184,16 +170,11 @@ class AdminApiOpenApiContract
             ->setRequired(['basic', 'branding']);
 
         $this->objectSchema($document, UpdateBrandingSystemSettingsRequest::class)
-            ->addProperty('navigation_logo_path', $brandPath)
-            ->addProperty('login_logo_path', $brandPath)
-            ->addProperty('login_background_path', $brandPath)
-            ->addProperty('favicon_path', $brandPath)
-            ->setRequired([
-                'navigation_logo_path',
-                'login_logo_path',
-                'login_background_path',
-                'favicon_path',
-            ]);
+            ->addProperty('navigation_logo_url', $brandUrl)
+            ->addProperty('login_logo_url', $brandUrl)
+            ->addProperty('login_background_url', $brandUrl)
+            ->addProperty('favicon_url', $brandUrl)
+            ->setRequired(['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url']);
     }
 
     private function normalizeMenuSchemas(OpenApi $document): void
@@ -290,7 +271,6 @@ class AdminApiOpenApiContract
             ->addProperty('mime_type', new StringType)
             ->addProperty('extension', new StringType)
             ->addProperty('size', (new IntegerType)->format('int64'))
-            ->addProperty('path', new StringType)
             ->addProperty('url', (new StringType)->format('uri')->nullable(true))
             ->addProperty('width', (new IntegerType)->nullable(true))
             ->addProperty('height', (new IntegerType)->nullable(true))
@@ -303,7 +283,6 @@ class AdminApiOpenApiContract
                 'mime_type',
                 'extension',
                 'size',
-                'path',
                 'url',
                 'width',
                 'height',

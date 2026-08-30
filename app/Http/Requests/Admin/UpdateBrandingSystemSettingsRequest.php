@@ -2,11 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
-use App\Models\File;
-use Illuminate\Database\Query\Builder;
+use Closure;
 use Illuminate\Foundation\Http\Attributes\FailOnUnknownFields;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 #[FailOnUnknownFields]
 class UpdateBrandingSystemSettingsRequest extends FormRequest
@@ -22,30 +20,35 @@ class UpdateBrandingSystemSettingsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'navigation_logo_path' => $this->filePathRules(),
-            'login_logo_path' => $this->filePathRules(),
-            'login_background_path' => $this->filePathRules(),
-            'favicon_path' => $this->filePathRules(),
+            'navigation_logo_url' => $this->brandingUrlRules(),
+            'login_logo_url' => $this->brandingUrlRules(),
+            'login_background_url' => $this->brandingUrlRules(),
+            'favicon_url' => $this->brandingUrlRules(),
         ];
     }
 
     /**
      * @return array<int, mixed>
      */
-    private function filePathRules(): array
+    private function brandingUrlRules(): array
     {
         return [
             'present',
             'nullable',
             'string',
-            'max:255',
-            Rule::exists(File::class, 'path')->where(static function (Builder $query): void {
-                $query
-                    ->where('disk', 'public')
-                    ->where('type', 'image')
-                    ->where('status', File::STATUS_READY)
-                    ->whereNull('deletion_token');
-            }),
+            'max:2048',
+            'url:http,https',
+            static function (string $attribute, mixed $value, Closure $fail): void {
+                if (! is_string($value)) {
+                    return;
+                }
+
+                $parts = parse_url($value);
+
+                if (is_array($parts) && (isset($parts['user']) || isset($parts['pass']))) {
+                    $fail("The {$attribute} field must not contain credentials.");
+                }
+            },
         ];
     }
 }
