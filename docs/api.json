@@ -74,15 +74,12 @@
                         }
                     },
                     {
-                        "name": "sort",
+                        "name": "sorts",
                         "in": "query",
-                        "description": "Sort field. Prefix with - for descending order.",
+                        "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, created_at.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "id",
-                                "created_at"
-                            ]
+                            "pattern": "^-?(?:id|created_at)(?:,-?(?:id|created_at))*$"
                         }
                     },
                     {
@@ -1088,7 +1085,7 @@
                         }
                     },
                     {
-                        "name": "type_code:type$code",
+                        "name": "type_code",
                         "in": "query",
                         "schema": {
                             "type": "string"
@@ -1130,20 +1127,12 @@
                         }
                     },
                     {
-                        "name": "sort",
+                        "name": "sorts",
                         "in": "query",
-                        "description": "Sort field. Prefix with - for descending order.",
+                        "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, name, code, value, sort, created_at, updated_at.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "id",
-                                "name",
-                                "code",
-                                "value",
-                                "sort",
-                                "created_at",
-                                "updated_at"
-                            ]
+                            "pattern": "^-?(?:id|name|code|value|sort|created_at|updated_at)(?:,-?(?:id|name|code|value|sort|created_at|updated_at))*$"
                         }
                     },
                     {
@@ -1538,6 +1527,106 @@
                     }
                 }
             },
+            "patch": {
+                "summary": "Update the specified resource in storage",
+                "tags": [
+                    "DictionaryItem"
+                ],
+                "parameters": [
+                    {
+                        "name": "dictionaryItem",
+                        "in": "path",
+                        "required": true,
+                        "description": "The dictionary item ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateDictionaryItemRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "dictionary_item": {
+                                                    "$ref": "#/components/schemas/DictionaryItemResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "dictionary_item"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
             "delete": {
                 "operationId": "admin.dictionary-items.destroy",
                 "summary": "Remove the specified resource from storage",
@@ -1654,19 +1743,12 @@
                         }
                     },
                     {
-                        "name": "sort",
+                        "name": "sorts",
                         "in": "query",
-                        "description": "Sort field. Prefix with - for descending order.",
+                        "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, name, code, sort, created_at, updated_at.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "id",
-                                "name",
-                                "code",
-                                "sort",
-                                "created_at",
-                                "updated_at"
-                            ]
+                            "pattern": "^-?(?:id|name|code|sort|created_at|updated_at)(?:,-?(?:id|name|code|sort|created_at|updated_at))*$"
                         }
                     },
                     {
@@ -1962,6 +2044,106 @@
             },
             "put": {
                 "operationId": "admin.dictionary-types.update",
+                "summary": "Update the specified resource in storage",
+                "tags": [
+                    "DictionaryType"
+                ],
+                "parameters": [
+                    {
+                        "name": "dictionaryType",
+                        "in": "path",
+                        "required": true,
+                        "description": "The dictionary type ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateDictionaryTypeRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "dictionary_type": {
+                                                    "$ref": "#/components/schemas/DictionaryTypeResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "dictionary_type"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
+            "patch": {
                 "summary": "Update the specified resource in storage",
                 "tags": [
                     "DictionaryType"
@@ -2530,15 +2712,12 @@
                         }
                     },
                     {
-                        "name": "sort",
+                        "name": "sorts",
                         "in": "query",
-                        "description": "Sort field. Prefix with - for descending order.",
+                        "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, created_at.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "id",
-                                "created_at"
-                            ]
+                            "pattern": "^-?(?:id|created_at)(?:,-?(?:id|created_at))*$"
                         }
                     },
                     {
@@ -3785,6 +3964,106 @@
                     }
                 }
             },
+            "patch": {
+                "summary": "Update the specified resource in storage",
+                "tags": [
+                    "Menu"
+                ],
+                "parameters": [
+                    {
+                        "name": "menu",
+                        "in": "path",
+                        "required": true,
+                        "description": "The menu ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateMenuRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "menu": {
+                                                    "$ref": "#/components/schemas/MenuResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "menu"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
             "delete": {
                 "operationId": "admin.menus.destroy",
                 "summary": "Remove the specified resource from storage",
@@ -4113,6 +4392,106 @@
             },
             "put": {
                 "operationId": "admin.permissions.update",
+                "summary": "Update the specified resource in storage",
+                "tags": [
+                    "Permission"
+                ],
+                "parameters": [
+                    {
+                        "name": "permission",
+                        "in": "path",
+                        "required": true,
+                        "description": "The permission ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdatePermissionRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "permission": {
+                                                    "$ref": "#/components/schemas/PermissionResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "permission"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
+            "patch": {
                 "summary": "Update the specified resource in storage",
                 "tags": [
                     "Permission"
@@ -4639,6 +5018,106 @@
                     }
                 }
             },
+            "patch": {
+                "summary": "Update the specified resource in storage",
+                "tags": [
+                    "Role"
+                ],
+                "parameters": [
+                    {
+                        "name": "role",
+                        "in": "path",
+                        "required": true,
+                        "description": "The role ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateRoleRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "role": {
+                                                    "$ref": "#/components/schemas/RoleResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "role"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
             "delete": {
                 "operationId": "admin.roles.destroy",
                 "summary": "Remove the specified resource from storage",
@@ -4714,6 +5193,9 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             }
@@ -4879,21 +5361,12 @@
                         }
                     },
                     {
-                        "name": "sort",
+                        "name": "sorts",
                         "in": "query",
-                        "description": "Sort field. Prefix with - for descending order.",
+                        "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, name, key, type, config_group, sort, created_at, updated_at.",
                         "schema": {
                             "type": "string",
-                            "enum": [
-                                "id",
-                                "name",
-                                "key",
-                                "type",
-                                "config_group",
-                                "sort",
-                                "created_at",
-                                "updated_at"
-                            ]
+                            "pattern": "^-?(?:id|name|key|type|config_group|sort|created_at|updated_at)(?:,-?(?:id|name|key|type|config_group|sort|created_at|updated_at))*$"
                         }
                     },
                     {
@@ -5192,6 +5665,109 @@
             },
             "put": {
                 "operationId": "admin.system-configs.update",
+                "summary": "Update the specified resource in storage",
+                "tags": [
+                    "SystemConfig"
+                ],
+                "parameters": [
+                    {
+                        "name": "systemConfig",
+                        "in": "path",
+                        "required": true,
+                        "description": "The system config ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateSystemConfigRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "system_config": {
+                                                    "$ref": "#/components/schemas/SystemConfigResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "system_config"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ApiManagedSystemSettingConflictResponse"
+                    }
+                }
+            },
+            "patch": {
                 "summary": "Update the specified resource in storage",
                 "tags": [
                     "SystemConfig"
@@ -5673,6 +6249,28 @@
                 "tags": [
                     "User"
                 ],
+                "parameters": [
+                    {
+                        "name": "page_size",
+                        "in": "query",
+                        "description": "Items per page.",
+                        "schema": {
+                            "type": "integer",
+                            "default": 15,
+                            "minimum": 1,
+                            "maximum": 100
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Paginated list",
@@ -6044,6 +6642,106 @@
                     }
                 }
             },
+            "patch": {
+                "summary": "Update the specified resource in storage",
+                "tags": [
+                    "User"
+                ],
+                "parameters": [
+                    {
+                        "name": "user",
+                        "in": "path",
+                        "required": true,
+                        "description": "The user ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateUserRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "user": {
+                                                    "$ref": "#/components/schemas/UserResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "user"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
             "delete": {
                 "operationId": "admin.users.destroy",
                 "summary": "Remove the specified resource from storage",
@@ -6119,6 +6817,9 @@
                     },
                     "404": {
                         "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             }
@@ -7098,7 +7799,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "string"
+                        "type": "integer",
+                        "format": "int64"
                     },
                     "name": {
                         "type": "string"

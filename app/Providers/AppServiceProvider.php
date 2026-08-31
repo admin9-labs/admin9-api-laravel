@@ -100,6 +100,7 @@ class AppServiceProvider extends ServiceProvider
                 static function (OpenApi $document) use ($openApiContract, $apiErrorOpenApiContract): void {
                     $openApiContract->transformDocument($document);
                     $apiErrorOpenApiContract->transformDocument($document);
+                    $openApiContract->addPatchAliases($document);
                 },
             );
         }

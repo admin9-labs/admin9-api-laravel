@@ -73,7 +73,7 @@ class OpenApiDocsTest extends TestCase
             ->pluck('name')
             ->all();
 
-        foreach (['key', 'name', 'config_group', 'type', 'is_public', 'is_active', 'keyword', 'sort', 'page_size', 'page'] as $parameter) {
+        foreach (['key', 'name', 'config_group', 'type', 'is_public', 'is_active', 'keyword', 'sorts', 'page_size', 'page'] as $parameter) {
             $this->assertContains($parameter, $systemConfigParameters);
         }
 
@@ -84,15 +84,112 @@ class OpenApiDocsTest extends TestCase
             ->pluck('name')
             ->all();
 
-        foreach (['log_name', 'event', 'subject_type', 'subject_id', 'causer_id', 'created_at', 'sort', 'page_size', 'page'] as $parameter) {
+        foreach (['log_name', 'event', 'subject_type', 'subject_id', 'causer_id', 'created_at', 'sorts', 'page_size', 'page'] as $parameter) {
             $this->assertContains($parameter, $activityLogParameters);
         }
 
-        foreach (['guard', 'event', 'successful', 'account', 'subject_id', 'ip_address', 'created_at', 'sort', 'page_size', 'page'] as $parameter) {
+        foreach (['guard', 'event', 'successful', 'account', 'subject_id', 'ip_address', 'created_at', 'sorts', 'page_size', 'page'] as $parameter) {
             $this->assertContains($parameter, $loginLogParameters);
         }
 
+        foreach ([$systemConfigParameters, $activityLogParameters, $loginLogParameters] as $parameters) {
+            $this->assertNotContains('sort', $parameters);
+        }
+
         $this->assertSame('bearer', $document['components']['securitySchemes']['http']['scheme'] ?? null);
+    }
+
+    public function test_generated_openapi_document_uses_runtime_query_parameter_names_and_user_pagination(): void
+    {
+        $document = $this->openApiDocument();
+        $parameters = fn (string $path): array => collect($document['paths'][ApiRouting::path($path)]['get']['parameters'] ?? [])
+            ->keyBy('name')
+            ->all();
+
+        foreach ([
+            '/admin/activity-logs',
+            '/admin/login-logs',
+            '/admin/dictionary-types',
+            '/admin/dictionary-items',
+            '/admin/system-configs',
+        ] as $path) {
+            $pathParameters = $parameters($path);
+            $names = array_keys($pathParameters);
+            $this->assertContains('sorts', $names, "{$path} must document the runtime sorts parameter.");
+            $this->assertNotContains('sort', $names, "{$path} must not document the unused sort parameter.");
+            $this->assertArrayNotHasKey('enum', $pathParameters['sorts']['schema']);
+            $this->assertNotNull($pathParameters['sorts']['schema']['pattern'] ?? null);
+            $this->assertMatchesRegularExpression(
+                '/'.$pathParameters['sorts']['schema']['pattern'].'/',
+                '-created_at,id',
+            );
+        }
+
+        $dictionaryItemParameters = $parameters('/admin/dictionary-items');
+        $this->assertArrayHasKey('type_code', $dictionaryItemParameters);
+        $this->assertArrayNotHasKey('type_code:type$code', $dictionaryItemParameters);
+
+        $userParameters = $parameters('/admin/users');
+        $this->assertSame('integer', $userParameters['page']['schema']['type'] ?? null);
+        $this->assertSame(1, $userParameters['page']['schema']['minimum'] ?? null);
+        $this->assertSame('integer', $userParameters['page_size']['schema']['type'] ?? null);
+        $this->assertSame(15, $userParameters['page_size']['schema']['default'] ?? null);
+        $this->assertSame(1, $userParameters['page_size']['schema']['minimum'] ?? null);
+        $this->assertSame(100, $userParameters['page_size']['schema']['maximum'] ?? null);
+    }
+
+    public function test_generated_openapi_document_uses_runtime_role_id_type(): void
+    {
+        $role = $this->openApiDocument()['components']['schemas']['RoleResource'];
+
+        $this->assertSame('integer', $role['properties']['id']['type'] ?? null);
+        $this->assertSame('int64', $role['properties']['id']['format'] ?? null);
+    }
+
+    public function test_generated_openapi_document_declares_safety_validation_for_user_and_role_deletion(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach (['/admin/users/{user}', '/admin/roles/{role}'] as $path) {
+            $this->assertSame(
+                '#/components/responses/ApiValidationErrorResponse',
+                $document['paths'][ApiRouting::path($path)]['delete']['responses']['422']['$ref'] ?? null,
+            );
+        }
+    }
+
+    public function test_generated_openapi_document_declares_patch_aliases_without_new_operation_ids(): void
+    {
+        $document = $this->openApiDocument();
+        $updatePaths = [
+            '/admin/menus/{menu}',
+            '/admin/roles/{role}',
+            '/admin/permissions/{permission}',
+            '/admin/users/{user}',
+            '/admin/dictionary-types/{dictionaryType}',
+            '/admin/dictionary-items/{dictionaryItem}',
+            '/admin/system-configs/{systemConfig}',
+        ];
+
+        foreach ($updatePaths as $path) {
+            $pathItem = $document['paths'][ApiRouting::path($path)];
+            $put = $pathItem['put'];
+            unset($put['operationId']);
+
+            $this->assertArrayHasKey('patch', $pathItem, "{$path} must document the runtime PATCH method.");
+            $this->assertArrayNotHasKey('operationId', $pathItem['patch'], 'PATCH aliases must not invent operationIds.');
+            $this->assertSame($put, $pathItem['patch']);
+        }
+
+        $httpMethods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace'];
+        $operations = collect($document['paths'])->flatMap(
+            fn (array $pathItem): array => array_values(array_intersect_key($pathItem, array_flip($httpMethods))),
+        );
+        $operationIds = $operations->pluck('operationId')->filter()->values();
+
+        $this->assertCount(72, $operations);
+        $this->assertCount(65, $operationIds);
+        $this->assertCount(65, $operationIds->unique());
     }
 
     public function test_generated_openapi_document_uses_precise_auth_token_schema(): void

@@ -18,6 +18,7 @@ use App\Http\Resources\Admin\LoginLogResource;
 use App\Http\Resources\Admin\MemberResource;
 use App\Http\Resources\Admin\MenuResource;
 use App\Http\Resources\Admin\PermissionResource;
+use App\Http\Resources\Admin\RoleResource;
 use App\Http\Resources\Admin\SystemConfigResource;
 use App\Http\Resources\SystemSettingsResource;
 use Dedoc\Scramble\Support\Generator\Combined\AllOf;
@@ -39,11 +40,41 @@ use LogicException;
 
 class AdminApiOpenApiContract
 {
+    /**
+     * @var array<int, string>
+     */
+    private const PATCH_ALIAS_OPERATION_IDS = [
+        'admin.menus.update',
+        'admin.roles.update',
+        'admin.permissions.update',
+        'admin.users.update',
+        'admin.dictionary-types.update',
+        'admin.dictionary-items.update',
+        'admin.system-configs.update',
+    ];
+
     public function __construct(private FileUploadPolicy $fileUploadPolicy) {}
 
     public function transformOperation(Operation $operation, RouteInfo $routeInfo): void
     {
         $routeName = $routeInfo->route->getName();
+
+        $queryParameterRenames = match ($routeName) {
+            'admin.activity-logs.index',
+            'admin.login-logs.index',
+            'admin.dictionary-types.index',
+            'admin.system-configs.index' => ['sort' => 'sorts'],
+            'admin.dictionary-items.index' => [
+                'type_code:type$code' => 'type_code',
+                'sort' => 'sorts',
+            ],
+            default => [],
+        };
+        $this->normalizeQueryParameterNames($operation, $queryParameterRenames);
+
+        if ($routeName === 'admin.users.index') {
+            $this->addUserPaginationParameters($operation);
+        }
 
         if ($routeName === 'admin.activity-logs.index') {
             $this->normalizeLogFilterParameters($operation, ['subject_id', 'causer_id']);
@@ -73,6 +104,83 @@ class AdminApiOpenApiContract
         $this->normalizeMenuSchemas($document);
         $this->normalizeMemberSchemas($document);
         $this->normalizeFileSchemas($document);
+        $this->objectSchema($document, RoleResource::class)
+            ->addProperty('id', (new IntegerType)->format('int64'));
+    }
+
+    public function addPatchAliases(OpenApi $document): void
+    {
+        foreach ($document->paths as $path) {
+            $put = $path->operations['put'] ?? null;
+
+            if (! $put instanceof Operation || ! in_array($put->operationId, self::PATCH_ALIAS_OPERATION_IDS, true)) {
+                continue;
+            }
+
+            $path->addOperation(
+                (clone $put)
+                    ->setMethod('patch')
+                    ->setOperationId(null),
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, string>  $renames
+     */
+    private function normalizeQueryParameterNames(Operation $operation, array $renames): void
+    {
+        foreach ($operation->parameters as $parameter) {
+            if (! $parameter instanceof Parameter || ! isset($renames[$parameter->name])) {
+                continue;
+            }
+
+            $parameter->setName($renames[$parameter->name]);
+
+            if ($parameter->name !== 'sorts') {
+                continue;
+            }
+
+            $allowedSorts = $parameter->schema?->type instanceof StringType
+                ? $parameter->schema->type->enum
+                : [];
+            $sortType = new StringType;
+
+            if ($allowedSorts !== []) {
+                $fields = implode('|', array_map(
+                    static fn (string $field): string => preg_quote($field, '/'),
+                    $allowedSorts,
+                ));
+                $sortType->pattern("^-?(?:{$fields})(?:,-?(?:{$fields}))*$");
+                $parameter->description(
+                    'Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: '
+                    .implode(', ', $allowedSorts).'.',
+                );
+            }
+
+            $parameter->setSchema(Schema::fromType($sortType));
+        }
+    }
+
+    private function addUserPaginationParameters(Operation $operation): void
+    {
+        $parameterNames = collect($operation->parameters)
+            ->filter(fn (mixed $parameter): bool => $parameter instanceof Parameter)
+            ->pluck('name');
+
+        if (! $parameterNames->contains('page_size')) {
+            $operation->parameters[] = Parameter::make('page_size', 'query')
+                ->description('Items per page.')
+                ->setSchema(Schema::fromType(
+                    (new IntegerType)->setMin(1)->setMax(100)->default(15),
+                ));
+        }
+
+        if (! $parameterNames->contains('page')) {
+            $operation->parameters[] = Parameter::make('page', 'query')
+                ->description('Page number.')
+                ->setSchema(Schema::fromType((new IntegerType)->setMin(1)));
+        }
     }
 
     /**
