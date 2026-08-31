@@ -82,6 +82,10 @@ final class ApiErrorOpenApiContract
                     $responseCodes[] = Response::HTTP_UNPROCESSABLE_ENTITY;
                 }
 
+                if (in_array($route->getName(), ['admin.users.destroy', 'admin.roles.destroy'], true)) {
+                    $responseCodes[] = Response::HTTP_UNPROCESSABLE_ENTITY;
+                }
+
                 if (in_array(strtoupper($operation->method), ['POST', 'PUT', 'PATCH'], true)) {
                     $responseCodes[] = Response::HTTP_REQUEST_ENTITY_TOO_LARGE;
                 }
