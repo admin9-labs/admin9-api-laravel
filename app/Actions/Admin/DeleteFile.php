@@ -16,8 +16,6 @@ use Throwable;
 
 class DeleteFile
 {
-    private const CLAIM_TTL_MINUTES = 5;
-
     public function __construct(
         private FilesystemFactory $filesystems,
         private SecurityActivityRecorder $activityRecorder,
@@ -82,7 +80,7 @@ class DeleteFile
             $lockedFile = File::query()->lockForUpdate()->findOrFail($file->getKey());
 
             $claimIsActive = $lockedFile->deletion_token !== null
-                && $lockedFile->deletion_started_at?->isAfter(now()->subMinutes(self::CLAIM_TTL_MINUTES));
+                && $lockedFile->deletion_started_at?->isAfter(now()->subMinutes(File::DELETION_CLAIM_TTL_MINUTES));
 
             if ($this->pendingUploadLeaseIsActive($lockedFile)) {
                 return null;

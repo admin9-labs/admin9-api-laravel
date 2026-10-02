@@ -23,7 +23,7 @@ class FileResource extends PaginationAwareJsonResource
             'mime_type' => $this->mime_type,
             'extension' => $this->extension,
             'size' => $this->size,
-            'url' => $this->status === File::STATUS_READY
+            'url' => $this->status === File::STATUS_READY && $this->deletion_token === null
                 ? Storage::disk($this->disk)->url($this->path)
                 : null,
             'width' => $this->width,

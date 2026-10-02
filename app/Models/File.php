@@ -22,6 +22,8 @@ class File extends Model
 
     public const PENDING_UPLOAD_LEASE_MINUTES = 5;
 
+    public const DELETION_CLAIM_TTL_MINUTES = 5;
+
     /**
      * @return array<string, string>
      */

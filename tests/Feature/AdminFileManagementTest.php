@@ -10,6 +10,7 @@ use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -130,6 +131,7 @@ class AdminFileManagementTest extends TestCase
             $this->uploadedFile('corrupt.pdf', '%PDF-1.4 broken'),
             $this->uploadedFile('vector.svg', '<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
             $this->uploadedFile('program.php', '<?php echo 1;'),
+            $this->uploadedFile('empty.txt', ''),
             UploadedFile::fake()->image('large.png')->size(5121),
         ] as $file) {
             $response = $this->post(ApiRouting::path('/admin/files'), ['file' => $file], $headers);
@@ -227,6 +229,50 @@ class AdminFileManagementTest extends TestCase
             ->assertJsonPath('data.0.url', null);
         $this->deleteJson(ApiRouting::path('/admin/files/').$file->id, [], $headers)->assertOk();
         $this->assertModelMissing($file);
+    }
+
+    public function test_partial_storage_failure_retains_metadata_until_the_remaining_bytes_can_be_removed(): void
+    {
+        $disk = Storage::fake('public');
+        $originalFactory = $this->app->make(FilesystemFactory::class);
+        $filesystem = Mockery::mock(Filesystem::class);
+        $filesystem->shouldReceive('writeStream')->once()->andReturnUsing(
+            static function (string $path) use ($disk): bool {
+                $disk->put($path, 'partial bytes');
+
+                return false;
+            },
+        );
+        $filesystem->shouldReceive('delete')->once()->andReturn(false);
+        $filesystem->shouldReceive('exists')->once()->andReturn(true);
+        $factory = Mockery::mock(FilesystemFactory::class);
+        $factory->shouldReceive('disk')->once()->with('public')->andReturn($filesystem);
+        $this->app->instance(FilesystemFactory::class, $factory);
+
+        try {
+            $this->app->make(StoreFile::class)->handle(
+                UploadedFile::fake()->image('partial.png'),
+                User::factory()->create(),
+            );
+            $this->fail('A partial write must not finalize the file.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('File could not be stored.', $exception->getMessage());
+        } finally {
+            $this->app->instance(FilesystemFactory::class, $originalFactory);
+        }
+
+        $file = File::query()->firstOrFail();
+        $this->assertSame(File::STATUS_FAILED, $file->status);
+        $disk->assertExists($file->path);
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+        $this->getJson(ApiRouting::path('/admin/files'), $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.status', File::STATUS_FAILED)
+            ->assertJsonPath('data.0.url', null);
+        $this->deleteJson(ApiRouting::path('/admin/files/').$file->id, [], $headers)->assertOk();
+        $disk->assertMissing($file->path);
+        $this->assertModelMissing($file);
+        $this->assertSame(0, Activity::query()->where('event', 'file_uploaded')->count());
     }
 
     public function test_metadata_finalization_failure_keeps_file_and_failed_record_recoverable(): void
@@ -353,6 +399,87 @@ class AdminFileManagementTest extends TestCase
         Storage::disk('public')->assertExists($claimed->path);
     }
 
+    public function test_interrupted_deletion_is_visible_after_lease_expiry_and_can_be_retried(): void
+    {
+        Storage::fake('public');
+        $this->travelTo(now()->startOfSecond());
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+        $file = File::factory()->create();
+        Storage::disk('public')->put($file->path, 'bytes');
+        Event::listen('eloquent.deleting: '.File::class, static function (): void {
+            throw new RuntimeException('forced metadata deletion failure');
+        });
+
+        try {
+            $this->deleteJson(ApiRouting::path('/admin/files/').$file->id, [], $headers)
+                ->assertInternalServerError();
+        } finally {
+            Event::forget('eloquent.deleting: '.File::class);
+        }
+
+        Storage::disk('public')->assertMissing($file->path);
+        $this->assertNotNull($file->refresh()->deletion_token);
+        $this->assertSame(0, Activity::query()->where('event', 'file_deleted')->count());
+        $this->getJson(ApiRouting::path('/admin/files'), $headers)
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->travel(5)->minutes();
+
+        $this->getJson(ApiRouting::path('/admin/files'), $headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $file->id)
+            ->assertJsonPath('data.0.url', null);
+        $this->deleteJson(ApiRouting::path('/admin/files/').$file->id, [], $headers)->assertOk();
+        $this->assertModelMissing($file);
+        $this->assertSame(1, Activity::query()->where('event', 'file_deleted')->count());
+    }
+
+    public function test_expired_deletion_claims_remain_filtered_and_can_remove_remaining_bytes(): void
+    {
+        Storage::fake('public');
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+        $claim = [
+            'deletion_token' => (string) Str::uuid(),
+            'deletion_started_at' => now()->subMinutes(6),
+        ];
+        $matching = File::factory()->create(['name' => 'needle.pdf', 'type' => 'document', ...$claim]);
+        File::factory()->create(['name' => 'other.pdf', 'type' => 'document', ...$claim]);
+        File::factory()->create(['name' => 'needle.png', 'type' => 'image', ...$claim]);
+        File::factory()->create([
+            'name' => 'needle-active.pdf',
+            'type' => 'document',
+            ...$claim,
+            'deletion_started_at' => now(),
+        ]);
+        Storage::disk('public')->put($matching->path, 'bytes');
+
+        $this->getJson(ApiRouting::path('/admin/files?search=needle&type=document'), $headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matching->id)
+            ->assertJsonPath('data.0.url', null);
+
+        $this->deleteJson(ApiRouting::path('/admin/files/').$matching->id, [], $headers)->assertOk();
+        Storage::disk('public')->assertMissing($matching->path);
+        $this->assertModelMissing($matching);
+    }
+
+    public function test_deletion_claim_without_timestamp_is_visible_and_recoverable(): void
+    {
+        Storage::fake('public');
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+        $file = File::factory()->create(['deletion_token' => (string) Str::uuid()]);
+
+        $this->getJson(ApiRouting::path('/admin/files'), $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $file->id)
+            ->assertJsonPath('data.0.url', null);
+        $this->deleteJson(ApiRouting::path('/admin/files/').$file->id, [], $headers)->assertOk();
+        $this->assertModelMissing($file);
+    }
+
     public function test_old_delete_attempt_cannot_finalize_a_new_owner_token(): void
     {
         $file = File::factory()->create(['disk' => 'public']);
@@ -376,6 +503,84 @@ class AdminFileManagementTest extends TestCase
             ->assertJsonPath('error_code', 'file_delete_failed');
         $this->assertModelExists($file);
         $this->assertSame($newOwnerToken, $file->refresh()->deletion_token);
+    }
+
+    public function test_delete_finishes_when_storage_throws_after_removing_the_file(): void
+    {
+        $disk = Storage::fake('public');
+        $file = File::factory()->create();
+        $disk->put($file->path, 'bytes');
+        $filesystem = Mockery::mock(Filesystem::class);
+        $filesystem->shouldReceive('exists')->twice()->with($file->path)->andReturnUsing(
+            static fn (): bool => $disk->exists($file->path),
+        );
+        $filesystem->shouldReceive('delete')->once()->with($file->path)->andReturnUsing(
+            static function () use ($disk, $file): never {
+                $disk->delete($file->path);
+
+                throw new RuntimeException('lost storage acknowledgement');
+            },
+        );
+        $factory = Mockery::mock(FilesystemFactory::class);
+        $factory->shouldReceive('disk')->once()->with('public')->andReturn($filesystem);
+        $this->app->instance(FilesystemFactory::class, $factory);
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $this->deleteJson(ApiRouting::path('/admin/files/').$file->id, [], $headers)->assertOk();
+        $disk->assertMissing($file->path);
+        $this->assertModelMissing($file);
+        $this->assertSame(1, Activity::query()->where('event', 'file_deleted')->count());
+    }
+
+    public function test_expired_pending_upload_can_be_removed_without_an_upload_audit_event(): void
+    {
+        Storage::fake('public');
+        $file = File::factory()->create([
+            'status' => File::STATUS_PENDING,
+            'created_at' => now()->subMinutes(File::PENDING_UPLOAD_LEASE_MINUTES),
+        ]);
+        Storage::disk('public')->put($file->path, 'interrupted upload');
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+
+        $this->getJson(ApiRouting::path('/admin/files'), $headers)
+            ->assertOk()
+            ->assertJsonPath('data.0.status', File::STATUS_PENDING)
+            ->assertJsonPath('data.0.url', null);
+        $this->deleteJson(ApiRouting::path('/admin/files/').$file->id, [], $headers)->assertOk();
+        Storage::disk('public')->assertMissing($file->path);
+        $this->assertModelMissing($file);
+        $this->assertSame(0, Activity::query()->where('event', 'file_uploaded')->count());
+        $this->assertSame(1, Activity::query()->where('event', 'file_deleted')->count());
+    }
+
+    public function test_file_list_query_count_does_not_grow_with_page_size(): void
+    {
+        Storage::fake('public');
+        File::factory()->count(100)->create(['created_by' => User::factory()->create()->id]);
+        $headers = $this->authorizationHeader($this->managerTokenFor(self::PERMISSIONS));
+        $this->getJson(ApiRouting::path('/admin/files?per_page=1'), $headers)->assertOk();
+        $queryCounts = [];
+        DB::enableQueryLog();
+
+        try {
+            foreach ([1, 25, 100] as $pageSize) {
+                DB::flushQueryLog();
+                $this->getJson(ApiRouting::path('/admin/files?per_page=').$pageSize, $headers)
+                    ->assertOk()
+                    ->assertJsonCount($pageSize, 'data');
+                $queryCounts[] = count(DB::getQueryLog());
+            }
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $this->assertGreaterThan(0, $queryCounts[0]);
+        $this->assertSame($queryCounts[0], $queryCounts[1]);
+        $this->assertSame($queryCounts[0], $queryCounts[2]);
+        $this->getJson(ApiRouting::path('/admin/files?per_page=101'), $headers)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('per_page');
     }
 
     public function test_each_file_operation_requires_its_exact_permission(): void

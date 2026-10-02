@@ -28,7 +28,10 @@ class FileController extends Controller
         $search = $validated['search'] ?? null;
         $type = $validated['type'] ?? null;
         $files = File::query()
-            ->whereNull('deletion_token')
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('deletion_token')
+                ->orWhereNull('deletion_started_at')
+                ->orWhere('deletion_started_at', '<=', now()->subMinutes(File::DELETION_CLAIM_TTL_MINUTES)))
             ->when(is_string($search) && $search !== '', fn (Builder $query): Builder => $query->where('name', 'like', "%{$search}%"))
             ->when(is_string($type) && $type !== '', fn (Builder $query): Builder => $query->where('type', $type))
             ->orderByDesc('id')
