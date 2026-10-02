@@ -43,6 +43,10 @@ New member logins issue a JWT with a persisted `sid`. The current logout revokes
 
 Upgrade compatibility: previously issued JWTs without `sid` retain the existing signature, guard/provider, authentication-version, expiry, and blacklist checks. Their first successful refresh creates a session; new logins always use sessions. A malformed or explicit null `sid` is rejected rather than treated as a legacy token. Session refresh follows `JWT_REFRESH_IAT`; account-level credential and session invalidation still apply through `auth_version`.
 
+Member refresh supports a fixed 30-second recovery window from the first committed result. A retry returns the same replacement JWT, with `expires_in` calculated from its actual remaining lifetime. Retrying does not extend the recovery window, JWT expiry, or session expiry. Logout, password/admin invalidation, revoked/expired sessions, and successor rotation stop recovery. Admin refresh remains single-use. Cache revocation failures return retryable `503` responses; a prepared result survives for recovery within the window.
+
+Security tradeoff: anyone holding the old bearer, including someone who stole it, can retrieve the same successor during this window. This improves lost-response reliability; it does not detect bearer theft or bind refresh to a separate secret. Protected endpoints still reject the revoked source JWT. Recovery tokens are encrypted at rest, omitted from model serialization, and can be removed after expiry with `model:prune --model='App\Models\MemberTokenRefresh'`. Keep the shared persistent blacklist cache and revocation checks enabled; pruning recovery rows does not clear the source blacklist entry.
+
 ## Production run checklist
 
 This checklist is intentionally command/process oriented and does not contain secrets. Inject production secrets through the hosting platform or encrypted environment workflow, not through committed files.
@@ -55,7 +59,7 @@ This checklist is intentionally command/process oriented and does not contain se
    - Inject `APP_KEY`, database credentials, and other environment-specific values through the hosting platform or encrypted environment workflow.
    - Inject `JWT_SECRET` through the hosting platform or encrypted environment workflow before running API traffic.
    - Generate a JWT secret with `php artisan jwt:secret` when preparing a new environment.
-   - Keep `JWT_BLACKLIST_ENABLED=true` and `JWT_SHOW_BLACKLIST_EXCEPTION=true`. Disabling either bypasses token revocation checks; the latter is not merely a logging option. Use a shared persistent cache supporting atomic locks for revocation and refresh coordination across processes. Keep `JWT_BLACKLIST_GRACE_PERIOD=0` for single-use refresh tokens.
+   - Keep `JWT_BLACKLIST_ENABLED=true` and `JWT_SHOW_BLACKLIST_EXCEPTION=true`. Disabling either bypasses token revocation checks; the latter is not merely a logging option. Use a shared persistent cache supporting atomic locks for revocation and refresh coordination across processes. Keep `JWT_BLACKLIST_GRACE_PERIOD=0` for immediate source-token revocation.
 3. **Initialize the database and administrator**
    - Run `php artisan migrate --force` during deployment.
    - Run `php artisan db:seed --force` after migrations to create the required roles, permissions, and menus. This does not create an administrator outside local or testing environments.

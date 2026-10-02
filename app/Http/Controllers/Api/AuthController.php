@@ -10,13 +10,16 @@ use App\Models\Member;
 use App\Support\Auth\ChangePassword;
 use App\Support\Auth\LoginLogRecorder;
 use App\Support\Auth\MemberSessionManager;
+use App\Support\Auth\MemberTokenRefreshManager;
 use App\Support\Auth\RefreshJwtToken;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use PHPOpenSourceSaver\JWTAuth\JWT;
 use PHPOpenSourceSaver\JWTAuth\JWTGuard;
+use PHPOpenSourceSaver\JWTAuth\Token;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthController extends Controller
@@ -26,6 +29,8 @@ class AuthController extends Controller
         private RefreshJwtToken $refreshJwtToken,
         private ChangePassword $changePasswordAction,
         private MemberSessionManager $sessions,
+        private JWT $jwt,
+        private MemberTokenRefreshManager $refreshes,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -81,6 +86,12 @@ class AuthController extends Controller
     }
 
     /**
+     * Refresh a member token or recover its committed replacement within 30 seconds.
+     *
+     * Retries return the same replacement with its remaining expires_in and do not
+     * extend the replacement or session lifetime. Recovery ends on revocation or
+     * when the replacement is rotated.
+     *
      * @throws AuthenticationException
      */
     public function refresh(Request $request): JsonResponse
@@ -96,7 +107,7 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $member = $this->guard()->user();
-        $this->sessions->logout($member, $this->sessions->sessionId($this->guard()->getPayload()));
+        $this->sessions->logout($member, $this->refreshes->sessionId($this->guard()->getPayload()));
         $this->loginLogRecorder->record($request, 'member', 'logout', true, $member?->email ?? $member?->mobile, $member);
 
         return $this->success(message: 'logged out');
@@ -125,14 +136,14 @@ class AuthController extends Controller
         return [
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => $this->tokenTtlSeconds(),
+            'expires_in' => $this->tokenRemainingSeconds($token),
             'member' => MemberResource::make($member),
         ];
     }
 
-    private function tokenTtlSeconds(): int
+    private function tokenRemainingSeconds(string $token): int
     {
-        return (int) $this->guard()->factory()->getTTL() * 60;
+        return max(0, (int) $this->jwt->manager()->setRefreshFlow(false)->decode(new Token($token))->get('exp') - now()->timestamp);
     }
 
     private function recordLogin(Request $request, ?Member $member): void

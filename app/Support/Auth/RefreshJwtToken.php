@@ -3,7 +3,6 @@
 namespace App\Support\Auth;
 
 use App\Models\Member;
-use App\Models\MemberAuthSession;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -21,7 +20,7 @@ final class RefreshJwtToken
     public function __construct(
         private AuthManager $auth,
         private JWT $jwt,
-        private MemberSessionManager $sessions,
+        private MemberTokenRefreshManager $memberRefreshes,
     ) {}
 
     /**
@@ -46,7 +45,7 @@ final class RefreshJwtToken
                 throw new JWTException('Token could not be parsed from the request.');
             }
 
-            $payload = $manager->setRefreshFlow()->decode($token);
+            $payload = $manager->setRefreshFlow()->decode($token, checkBlacklist: $guardName !== 'member');
             $provider = $guard->getProvider();
 
             if (! method_exists($provider, 'getModel')) {
@@ -82,13 +81,7 @@ final class RefreshJwtToken
             $refreshedToken = (string) Cache::lock('jwt:refresh:'.hash('sha256', $token->get()), 30)
                 ->block(5, function () use ($guardName, $subject, $payload, $manager, $token, $claims): string {
                     if ($guardName === 'member' && $subject instanceof Member) {
-                        return $this->sessions->withSession($subject, $this->sessions->sessionId($payload), function (Member $member, MemberAuthSession $session) use ($manager, $token, $claims): string {
-                            $refreshed = $manager->customClaims([...$claims, 'sid' => $session->id])
-                                ->refresh($token, resetClaims: true)->get();
-                            $this->sessions->refreshed($session);
-
-                            return $refreshed;
-                        }, (int) $payload->get('iat'));
+                        return $this->memberRefreshes->handle($subject, $payload, $token);
                     }
 
                     return $manager->customClaims($claims)->refresh($token, resetClaims: true)->get();

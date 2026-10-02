@@ -307,6 +307,8 @@
         "/api/auth/refresh": {
             "post": {
                 "operationId": "member.auth.refresh",
+                "description": "Retries return the same replacement with its remaining expires_in and do not\nextend the replacement or session lifetime. Recovery ends on revocation or\nwhen the replacement is rotated.",
+                "summary": "Refresh a member token or recover its committed replacement within 30 seconds",
                 "tags": [
                     "Auth"
                 ],
