@@ -245,7 +245,7 @@ class OperationsConfigurationTest extends TestCase
         $this->assertSame('@docs:api:check', $composer['scripts']['check'][0]);
         $this->assertSame([
             '@docs:api',
-            'git diff --exit-code -- docs/api.json',
+            'git diff --exit-code -- docs/api.json docs/admin-api.json docs/client-api.json',
         ], $composer['scripts']['docs:api:check']);
     }
 

@@ -37,7 +37,7 @@ vendor/bin/pint --dirty --format agent
 php artisan route:list --except-vendor
 ```
 
-`composer docs:api` exports the generated OpenAPI document to `docs/api.json`; `composer docs:api:check` also fails if the committed document is stale.
+`composer docs:api` exports the generated OpenAPI document to `docs/api.json`; `composer docs:api:check` also fails if the committed document is stale. The same export additionally writes `docs/admin-api.json` and `docs/client-api.json`, retaining the combined document for existing consumers. Public system settings are included in both partitions; routes, operation IDs, and authentication rules are unchanged.
 
 ## Production run checklist
 
