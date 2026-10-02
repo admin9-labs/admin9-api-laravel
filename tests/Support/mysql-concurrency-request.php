@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Models\MemberAuthSession;
 use App\Models\Permission;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
@@ -48,9 +49,7 @@ try {
     $connectionId = (int) $connection->selectOne('select connection_id() as connection_id')->connection_id;
     $readyPayload = json_encode(['connection_id' => $connectionId], JSON_THROW_ON_ERROR);
 
-    if (file_put_contents($readyFile, $readyPayload, LOCK_EX) === false) {
-        throw new RuntimeException("Unable to write worker barrier file [{$readyFile}].");
-    }
+    (new Filesystem)->replace($readyFile, $readyPayload);
 
     if (optionalEnvironmentVariable('MYSQL_CONCURRENCY_PRUNE_SESSIONS') === '1') {
         $exitCode = Artisan::call('model:prune', ['--model' => [MemberAuthSession::class]]);
