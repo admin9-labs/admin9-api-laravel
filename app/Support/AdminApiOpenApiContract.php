@@ -49,6 +49,7 @@ class AdminApiOpenApiContract
      * @var array<int, string>
      */
     private const PATCH_ALIAS_OPERATION_IDS = [
+        'admin.files.update',
         'admin.menus.update',
         'admin.roles.update',
         'admin.permissions.update',
@@ -418,6 +419,7 @@ class AdminApiOpenApiContract
     {
         $this->objectSchema($document, FileResource::class)
             ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('directory_id', (new IntegerType)->format('int64')->nullable(true))
             ->addProperty('name', new StringType)
             ->addProperty('type', (new StringType)->enum($this->fileUploadPolicy->types()))
             ->addProperty('mime_type', new StringType)
@@ -432,6 +434,7 @@ class AdminApiOpenApiContract
                 'id',
                 'name',
                 'type',
+                'directory_id',
                 'mime_type',
                 'extension',
                 'size',

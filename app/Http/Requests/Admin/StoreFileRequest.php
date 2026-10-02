@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\FileDirectory;
 use App\Support\FileUploadPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
 
@@ -28,6 +30,9 @@ class StoreFileRequest extends FormRequest
         return [
             'file' => ['required', 'file'],
             'type' => ['prohibited'],
+            'allowed_types' => ['sometimes', 'array', 'min:1', 'max:5'],
+            'allowed_types.*' => ['required', Rule::in(app(FileUploadPolicy::class)->types())],
+            'directory_id' => ['sometimes', 'nullable', 'integer', Rule::exists(FileDirectory::class, 'id')],
         ];
     }
 
@@ -45,7 +50,11 @@ class StoreFileRequest extends FormRequest
                 }
 
                 try {
-                    app(FileUploadPolicy::class)->inspect($file);
+                    $metadata = app(FileUploadPolicy::class)->inspect($file);
+                    $allowedTypes = $this->input('allowed_types');
+                    if (is_array($allowedTypes) && ! in_array($metadata['type'], $allowedTypes, true)) {
+                        $validator->errors()->add('file', 'The file type is not allowed for this field.');
+                    }
                 } catch (ValidationException $exception) {
                     foreach ($exception->errors()['file'] ?? [] as $message) {
                         $validator->errors()->add('file', $message);

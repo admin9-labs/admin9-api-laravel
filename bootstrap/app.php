@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\FileDeleteFailedException;
+use App\Exceptions\FileDirectoryNotEmptyException;
 use App\Exceptions\ManagedSystemSettingException;
 use App\Exceptions\MediaDeleteFailedException;
 use App\Exceptions\MediaInUseBySystemSettingsException;
@@ -92,6 +93,8 @@ return Application::configure(basePath: dirname(__DIR__))
                     $payload->error_code = AccountInactiveException::ERROR_CODE;
                 } elseif ($exception instanceof MediaDeleteFailedException) {
                     $payload->error_code = MediaDeleteFailedException::ERROR_CODE;
+                } elseif ($exception instanceof FileDirectoryNotEmptyException) {
+                    $payload->error_code = FileDirectoryNotEmptyException::ERROR_CODE;
                 } elseif ($exception instanceof FileDeleteFailedException) {
                     $payload->error_code = FileDeleteFailedException::ERROR_CODE;
                 } elseif ($exception instanceof MediaInUseBySystemSettingsException) {

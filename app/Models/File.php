@@ -30,6 +30,7 @@ class File extends Model
     protected function casts(): array
     {
         return [
+            'directory_id' => 'integer',
             'size' => 'integer',
             'width' => 'integer',
             'height' => 'integer',
@@ -38,8 +39,14 @@ class File extends Model
     }
 
     /**
-     * @return BelongsTo<User, $this>
+     * @return BelongsTo<FileDirectory, $this>
      */
+    public function directory(): BelongsTo
+    {
+        return $this->belongsTo(FileDirectory::class, 'directory_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

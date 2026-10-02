@@ -207,6 +207,7 @@ class OpenApiDocsTest extends TestCase
     {
         $document = $this->openApiDocument();
         $updatePaths = [
+            '/admin/files/{file}',
             '/admin/menus/{menu}',
             '/admin/roles/{role}',
             '/admin/permissions/{permission}',
@@ -232,9 +233,9 @@ class OpenApiDocsTest extends TestCase
         );
         $operationIds = $operations->pluck('operationId')->filter()->values();
 
-        $this->assertCount(72, $operations);
-        $this->assertCount(65, $operationIds);
-        $this->assertCount(65, $operationIds->unique());
+        $this->assertCount(79, $operations);
+        $this->assertCount(71, $operationIds);
+        $this->assertCount(71, $operationIds->unique());
     }
 
     public function test_generated_openapi_document_uses_precise_auth_token_schema(): void
@@ -354,6 +355,7 @@ class OpenApiDocsTest extends TestCase
         $expectedComponentNames = [
             ...array_values($expectedComponents),
             'ApiFileDeleteFailedResponse',
+            'ApiFileDirectoryConflictResponse',
             'ApiManagedSystemSettingConflictResponse',
         ];
 
@@ -898,7 +900,7 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
         $operations = $this->operationsById($document);
 
-        foreach (['admin.files.index', 'admin.files.store', 'admin.files.destroy'] as $operationId) {
+        foreach (['admin.files.index', 'admin.files.store', 'admin.files.update', 'admin.files.destroy', 'admin.files.by-url.update', 'admin.files.by-url.destroy', 'admin.file-directories.index', 'admin.file-directories.store', 'admin.file-directories.destroy'] as $operationId) {
             $this->assertArrayHasKey($operationId, $operations);
         }
 
@@ -908,6 +910,8 @@ class OpenApiDocsTest extends TestCase
         $requestReference = $requestBody['content']['multipart/form-data']['schema']['$ref'];
         $requestSchema = $document['components']['schemas'][str($requestReference)->afterLast('/')->toString()];
         $this->assertSame(['file'], $requestSchema['required']);
+        $this->assertArrayHasKey('directory_id', $requestSchema['properties']);
+        $this->assertArrayHasKey('allowed_types', $requestSchema['properties']);
         $this->assertSame('binary', $requestSchema['properties']['file']['format']);
         $this->assertArrayNotHasKey('type', $requestSchema['properties']);
         $this->assertSame(
@@ -923,6 +927,7 @@ class OpenApiDocsTest extends TestCase
         $fileSchema = $document['components']['schemas'][str($fileReference)->afterLast('/')->toString()];
         $this->assertSame([
             'id',
+            'directory_id',
             'name',
             'type',
             'mime_type',

@@ -134,6 +134,7 @@ class AdminRbacSeeder extends Seeder
             ['name' => 'system.member.invalidate_sessions', 'display_name' => '会员会话失效', 'group' => 'system.member', 'description' => '强制会员会话失效', 'sort' => 860],
             ['name' => 'system.file.view', 'display_name' => '文件查看', 'group' => 'system.file', 'description' => '查看文件', 'sort' => 940],
             ['name' => 'system.file.create', 'display_name' => '文件上传', 'group' => 'system.file', 'description' => '上传文件', 'sort' => 950],
+            ['name' => 'system.file.update', 'display_name' => '文件分组移动', 'group' => 'system.file', 'description' => '移动文件至其他分组或未分组', 'sort' => 955],
             ['name' => 'system.file.delete', 'display_name' => '文件删除', 'group' => 'system.file', 'description' => '删除文件', 'sort' => 960],
             ['name' => 'system.role.view', 'display_name' => '角色查看', 'group' => 'system.role', 'description' => '查看后台角色', 'sort' => 210],
             ['name' => 'system.role.create', 'display_name' => '角色创建', 'group' => 'system.role', 'description' => '创建后台角色', 'sort' => 220],
