@@ -59,6 +59,7 @@ This checklist is intentionally command/process oriented and does not contain se
    - The file API stores public assets on the `public` disk. Run `php artisan storage:link --force` and configure `FILES_URL` for the served storage URL. Changing `FILESYSTEM_DISK` does not change the file API's disk.
    - Re-running `AdminRbacSeeder` restores built-in permission definitions and enabled states, and replaces the reserved `system-admin` role's permissions with the built-in set. Use a separate role for project-specific grants.
    - Treat deployed migrations as immutable; add forward migrations for schema changes.
+   - Before upgrading an existing installation, back up the database and uploaded files and rehearse restoration in an isolated environment. Historical media migrations remove the old table; rolling back its schema does not restore its records. Some other migrations deliberately refuse a lossy rollback.
 4. **Cache framework metadata**
    - Run `php artisan config:cache` after production environment variables are present.
    - Run `php artisan route:cache` during deployment and refresh it whenever routes change.

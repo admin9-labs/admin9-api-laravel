@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use RuntimeException;
+use Spatie\Permission\Events\RoleAttachedEvent;
 use Spatie\Permission\Models\Role;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -145,6 +146,28 @@ class CreateAdminCommandTest extends TestCase
         $this->assertStringNotContainsString('Simulated database write failure.', $output);
         $this->assertStringNotContainsString(RuntimeException::class, $output);
         $this->assertStringNotContainsString(basename(__FILE__), $output);
+        Exceptions::assertReported(fn (RuntimeException $reported): bool => $reported === $exception);
+        Exceptions::assertReportedCount(1);
+    }
+
+    public function test_role_assignment_failure_rolls_back_the_created_administrator_and_binding(): void
+    {
+        $this->createSuperAdminRole();
+        config(['permission.events_enabled' => true]);
+        Exceptions::fake();
+        $exception = new RuntimeException('Simulated role assignment side effect failure.');
+
+        Event::listen(RoleAttachedEvent::class, function () use ($exception): never {
+            throw $exception;
+        });
+
+        [$exitCode, $output] = $this->runInteractiveCommand('Root Admin', 'root@example.com');
+
+        $this->assertSame(Command::FAILURE, $exitCode);
+        $this->assertDatabaseCount('users', 0);
+        $this->assertDatabaseCount('model_has_roles', 0);
+        $this->assertStringContainsString('Unable to create the super administrator.', $output);
+        $this->assertStringNotContainsString('Temporary password:', $output);
         Exceptions::assertReported(fn (RuntimeException $reported): bool => $reported === $exception);
         Exceptions::assertReportedCount(1);
     }
