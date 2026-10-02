@@ -1,12 +1,14 @@
 <?php
 
 use App\Exceptions\FileDeleteFailedException;
+use App\Exceptions\FileDirectoryNotEmptyException;
 use App\Exceptions\ManagedSystemSettingException;
 use App\Exceptions\MediaDeleteFailedException;
 use App\Exceptions\MediaInUseBySystemSettingsException;
 use App\Http\Middleware\AddContext;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureJwtAuthenticationVersion;
+use App\Http\Middleware\EnsureMemberSession;
 use App\Http\Middleware\RefreshJwtGuards;
 use App\Http\Responses\ApiResponseGenerator;
 use App\Support\ApiRouting;
@@ -46,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'account.active' => EnsureAccountIsActive::class,
             'jwt.version' => EnsureJwtAuthenticationVersion::class,
+            'member.session' => EnsureMemberSession::class,
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
@@ -92,6 +95,8 @@ return Application::configure(basePath: dirname(__DIR__))
                     $payload->error_code = AccountInactiveException::ERROR_CODE;
                 } elseif ($exception instanceof MediaDeleteFailedException) {
                     $payload->error_code = MediaDeleteFailedException::ERROR_CODE;
+                } elseif ($exception instanceof FileDirectoryNotEmptyException) {
+                    $payload->error_code = FileDirectoryNotEmptyException::ERROR_CODE;
                 } elseif ($exception instanceof FileDeleteFailedException) {
                     $payload->error_code = FileDeleteFailedException::ERROR_CODE;
                 } elseif ($exception instanceof MediaInUseBySystemSettingsException) {

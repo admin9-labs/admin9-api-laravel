@@ -2,6 +2,7 @@
 
 namespace App\Support\Auth;
 
+use App\Models\Member;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -19,6 +20,7 @@ final class RefreshJwtToken
     public function __construct(
         private AuthManager $auth,
         private JWT $jwt,
+        private MemberTokenRefreshManager $memberRefreshes,
     ) {}
 
     /**
@@ -43,7 +45,7 @@ final class RefreshJwtToken
                 throw new JWTException('Token could not be parsed from the request.');
             }
 
-            $payload = $manager->setRefreshFlow()->decode($token);
+            $payload = $manager->setRefreshFlow()->decode($token, checkBlacklist: $guardName !== 'member');
             $provider = $guard->getProvider();
 
             if (! method_exists($provider, 'getModel')) {
@@ -73,15 +75,17 @@ final class RefreshJwtToken
                 throw new AccountInactiveException;
             }
 
+            $claims = [
+                'guard' => $guardName, 'prv' => $providerClaim, 'auth_version' => $authenticationVersion,
+            ];
             $refreshedToken = (string) Cache::lock('jwt:refresh:'.hash('sha256', $token->get()), 30)
-                ->block(5, fn (): string => $manager
-                    ->customClaims([
-                        'guard' => $guardName,
-                        'prv' => $providerClaim,
-                        'auth_version' => $authenticationVersion,
-                    ])
-                    ->refresh($token, resetClaims: true)
-                    ->get());
+                ->block(5, function () use ($guardName, $subject, $payload, $manager, $token, $claims): string {
+                    if ($guardName === 'member' && $subject instanceof Member) {
+                        return $this->memberRefreshes->handle($subject, $payload, $token);
+                    }
+
+                    return $manager->customClaims($claims)->refresh($token, resetClaims: true)->get();
+                });
 
             $guard->setUser($subject);
 

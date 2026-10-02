@@ -1,0 +1,1217 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Admin9 API Laravel",
+        "version": "0.1.0",
+        "description": "Laravel 13 backend API for the Admin9 middle/back-office application."
+    },
+    "servers": [
+        {
+            "url": "http://localhost"
+        }
+    ],
+    "security": [
+        {
+            "http": []
+        }
+    ],
+    "paths": {
+        "/api/auth/login": {
+            "post": {
+                "operationId": "member.auth.login",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "access_token": {
+                                                    "type": "string"
+                                                },
+                                                "token_type": {
+                                                    "type": "string",
+                                                    "const": "bearer"
+                                                },
+                                                "expires_in": {
+                                                    "type": "integer"
+                                                },
+                                                "member": {
+                                                    "$ref": "#/components/schemas/MemberResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "access_token",
+                                                "token_type",
+                                                "expires_in",
+                                                "member"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/auth/refresh": {
+            "post": {
+                "operationId": "member.auth.refresh",
+                "description": "Retries return the same replacement with its remaining expires_in and do not\nextend the replacement or session lifetime. Recovery ends on revocation or\nwhen the replacement is rotated.",
+                "summary": "Refresh a member token or recover its committed replacement within 30 seconds",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "access_token": {
+                                                    "type": "string"
+                                                },
+                                                "token_type": {
+                                                    "type": "string",
+                                                    "const": "bearer"
+                                                },
+                                                "expires_in": {
+                                                    "type": "integer"
+                                                },
+                                                "member": {
+                                                    "$ref": "#/components/schemas/MemberResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "access_token",
+                                                "token_type",
+                                                "expires_in",
+                                                "member"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ApiServiceUnavailableResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "http": []
+                    }
+                ]
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "operationId": "member.auth.me",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "member": {
+                                                    "$ref": "#/components/schemas/MemberResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "member"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    }
+                }
+            }
+        },
+        "/api/auth/password": {
+            "put": {
+                "operationId": "member.auth.password.update",
+                "tags": [
+                    "Auth"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ChangePasswordRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    }
+                }
+            }
+        },
+        "/api/auth/logout": {
+            "post": {
+                "operationId": "member.auth.logout",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    }
+                }
+            }
+        },
+        "/api/auth/sessions": {
+            "delete": {
+                "operationId": "member.auth.sessions.destroy",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    }
+                }
+            }
+        },
+        "/api/system-settings/public": {
+            "get": {
+                "operationId": "system-settings.public",
+                "tags": [
+                    "SystemSettings"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "`SystemSettingsResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/SystemSettingsResource"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    }
+                },
+                "security": []
+            }
+        }
+    },
+    "tags": [],
+    "components": {
+        "securitySchemes": {
+            "http": {
+                "type": "http",
+                "scheme": "bearer"
+            }
+        },
+        "schemas": {
+            "ChangePasswordRequest": {
+                "type": "object",
+                "properties": {
+                    "current_password": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string",
+                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "minLength": 8,
+                        "maxLength": 255
+                    },
+                    "password_confirmation": {
+                        "type": "string",
+                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "minLength": 8,
+                        "maxLength": 255
+                    }
+                },
+                "required": [
+                    "current_password",
+                    "password",
+                    "password_confirmation"
+                ],
+                "title": "ChangePasswordRequest"
+            },
+            "LoginRequest": {
+                "type": "object",
+                "properties": {
+                    "account": {
+                        "type": "string",
+                        "maxLength": 255
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "account",
+                    "password"
+                ],
+                "title": "LoginRequest"
+            },
+            "MemberResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "email": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "mobile": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "is_active": {
+                        "type": "boolean"
+                    },
+                    "last_login_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "mobile",
+                    "is_active",
+                    "last_login_at"
+                ],
+                "title": "MemberResource"
+            },
+            "SystemSettingsResource": {
+                "type": "object",
+                "properties": {
+                    "basic": {
+                        "type": "object",
+                        "properties": {
+                            "system_name": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "copyright": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "icp_filing_number": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            }
+                        },
+                        "required": [
+                            "system_name",
+                            "copyright",
+                            "icp_filing_number"
+                        ]
+                    },
+                    "branding": {
+                        "type": "object",
+                        "properties": {
+                            "navigation_logo_url": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
+                            },
+                            "login_logo_url": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
+                            },
+                            "login_background_url": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
+                            },
+                            "favicon_url": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "uri",
+                                "pattern": "^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)",
+                                "maxLength": 2048
+                            }
+                        },
+                        "required": [
+                            "navigation_logo_url",
+                            "login_logo_url",
+                            "login_background_url",
+                            "favicon_url"
+                        ]
+                    }
+                },
+                "required": [
+                    "basic",
+                    "branding"
+                ],
+                "title": "SystemSettingsResource"
+            }
+        },
+        "responses": {
+            "ApiUnauthorizedResponse": {
+                "description": "Unauthorized",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 401
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiForbiddenResponse": {
+                "description": "Forbidden",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 403
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "error_code": {
+                                    "type": "string",
+                                    "enum": [
+                                        "account_inactive"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiContentTooLargeResponse": {
+                "description": "Content Too Large",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 413
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiValidationErrorResponse": {
+                "description": "Unprocessable Content",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 422
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiRateLimitResponse": {
+                "description": "Too Many Requests",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 429
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    "Retry-After": {
+                        "description": "Seconds until the client may retry.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "X-RateLimit-Limit": {
+                        "description": "Maximum requests allowed in the current window.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "X-RateLimit-Remaining": {
+                        "description": "Requests remaining in the current window.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    "X-RateLimit-Reset": {
+                        "description": "Unix timestamp when the current window resets.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            },
+            "ApiServerErrorResponse": {
+                "description": "Internal Server Error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 500
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiServiceUnavailableResponse": {
+                "description": "Service Unavailable",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 503
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    "Retry-After": {
+                        "description": "Seconds until the client may retry.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

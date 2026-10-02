@@ -61,4 +61,30 @@ class SensitiveDataSanitizerTest extends TestCase
             ],
         ], SensitiveDataSanitizer::removeSensitiveKeys($payload));
     }
+
+    public function test_url_credentials_are_removed_without_changing_safe_parameters_or_other_strings(): void
+    {
+        $this->assertSame([
+            'url' => 'https://example.test/file?id=1&id=2#state=visible',
+            'nested' => ['https://cdn.example.test/cover.jpg?width=1200#preview'],
+            'relative' => '/storage/file?token=routing-value',
+            'plain' => 'visible',
+            'safe_url' => 'https://example.test/file?note=a;b&id=1&id=2#signature-section',
+        ], SensitiveDataSanitizer::removeSensitiveKeys([
+            'url' => 'https://user:password@example.test/file?id=1&%74oken=credential&id=2#access_token=credential&state=visible',
+            'nested' => ['https://cdn.example.test/cover.jpg?width=1200&X-Amz-Signature=credential#preview'],
+            'relative' => '/storage/file?token=routing-value',
+            'plain' => 'visible',
+            'safe_url' => 'https://example.test/file?note=a;b&id=1&id=2#signature-section',
+        ]));
+    }
+
+    public function test_signed_url_parameter_variants_are_removed(): void
+    {
+        $this->assertSame([
+            'url' => 'https://example.test/file?id=1',
+        ], SensitiveDataSanitizer::removeSensitiveKeys([
+            'url' => 'https://example.test/file?id=1&sig=a&api_key=b&AWSAccessKeyId=c&Key-Pair-Id=d&Policy=e',
+        ]));
+    }
 }

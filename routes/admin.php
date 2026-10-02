@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\AuthController;
 use App\Http\Controllers\Api\Admin\DictionaryItemController;
 use App\Http\Controllers\Api\Admin\DictionaryTypeController;
 use App\Http\Controllers\Api\Admin\FileController;
+use App\Http\Controllers\Api\Admin\FileDirectoryController;
 use App\Http\Controllers\Api\Admin\LoginLogController;
 use App\Http\Controllers\Api\Admin\MemberController;
 use App\Http\Controllers\Api\Admin\MenuController;
@@ -80,8 +81,19 @@ Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission
             ->middleware($adminPermission('system.member.invalidate_sessions'))
             ->name('members.invalidate-sessions');
 
-        Route::apiResource('files', FileController::class)
+        Route::put('/files/by-url', [FileController::class, 'updateByUrl'])
+            ->middleware($adminPermission('system.file.update'))->name('files.by-url.update');
+        Route::delete('/files/by-url', [FileController::class, 'destroyByUrl'])
+            ->middleware($adminPermission('system.file.delete'))->name('files.by-url.destroy');
+        Route::apiResource('file-directories', FileDirectoryController::class)
             ->only(['index', 'store', 'destroy'])
+            ->middlewareFor('index', $adminPermission('system.file.view'))
+            ->middlewareFor('store', $adminPermission('system.file.create'))
+            ->middlewareFor('destroy', $adminPermission('system.file.delete'))
+            ->parameters(['file-directories' => 'fileDirectory']);
+        Route::apiResource('files', FileController::class)
+            ->only(['index', 'store', 'update', 'destroy'])
+            ->middlewareFor('update', $adminPermission('system.file.update'))
             ->middlewareFor('index', $adminPermission('system.file.view'))
             ->middlewareFor('store', [
                 $adminPermission('system.file.create'),

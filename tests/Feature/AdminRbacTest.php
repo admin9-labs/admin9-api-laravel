@@ -135,7 +135,7 @@ class AdminRbacTest extends TestCase
         $this->assertSame(1, Menu::query()->count());
         $this->assertModelExists($conflictingMenu);
         $this->assertFalse(Menu::query()->whereNotNull('seed_key')->exists());
-        $this->assertFalse(Permission::query()->where('guard_name', 'admin')->exists());
+        $this->assertSame(['system.file.update'], Permission::query()->where('guard_name', 'admin')->pluck('name')->all());
         $this->assertFalse(Role::query()->where('guard_name', 'admin')->exists());
         $this->assertFalse(User::query()->where('email', 'admin@admin9.dev')->exists());
         $this->assertDatabaseCount('menu_permission', 0);
@@ -274,7 +274,7 @@ class AdminRbacTest extends TestCase
             ->where('is_system', true)
             ->get();
 
-        $this->assertCount(36, $permissions);
+        $this->assertCount(37, $permissions);
         $this->assertContains('system.activity-log.view', $permissions->pluck('name'));
         $this->assertContains('system.login-log.view', $permissions->pluck('name'));
         $this->assertContains('system.member.invalidate_sessions', $permissions->pluck('name'));
@@ -326,6 +326,7 @@ class AdminRbacTest extends TestCase
         $this->assertSame(['system.file.view'], $filePage->permissions()->pluck('name')->all());
         $this->assertEqualsCanonicalizing([
             'system.file.create',
+            'system.file.update',
             'system.file.delete',
         ], $filePage->children()->with('permissions')->get()->flatMap->permissions->pluck('name')->all());
         $this->assertSame('系统设置', $systemSettingsPage->name);

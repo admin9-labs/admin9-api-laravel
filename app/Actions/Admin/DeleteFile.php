@@ -31,12 +31,67 @@ class DeleteFile
         }
 
         $deletionToken = (string) Str::uuid();
-        [$lockedFile, $activeDeletionToken] = $this->claimDeletion($file, $deletionToken);
+        [$lockedFile, $activeDeletionToken] = $this->claimDeletion($file, $actor, $deletionToken);
 
+        $this->completeDeletion($filesystem, $lockedFile, $actor, $deletionToken, $activeDeletionToken);
+    }
+
+    /** Resume the persisted authorized request even when its requester no longer has an active account. */
+    public function recover(File $file): bool
+    {
+        $deletionToken = (string) Str::uuid();
+        $lockedFile = DB::transaction(function () use ($file, $deletionToken): ?File {
+            $lockedFile = File::query()->pendingDeletionRecovery()->lockForUpdate()->find($file->getKey());
+
+            if ($lockedFile === null || $lockedFile->deletion_requested_by === null
+                || $this->pendingUploadLeaseIsActive($lockedFile)) {
+                return null;
+            }
+
+            $lockedFile->forceFill([
+                'deletion_token' => $deletionToken,
+                'deletion_started_at' => now(),
+            ])->save();
+
+            return $lockedFile;
+        }, attempts: 3);
+
+        if ($lockedFile === null) {
+            return false;
+        }
+
+        try {
+            $filesystem = $this->filesystems->disk($lockedFile->disk);
+        } catch (Throwable $exception) {
+            $this->logFailure($lockedFile, $exception::class, 'filesystem_resolution');
+            throw new FileDeleteFailedException;
+        }
+
+        $this->completeDeletion(
+            $filesystem,
+            $lockedFile,
+            User::query()->find($lockedFile->deletion_requested_by),
+            $deletionToken,
+            recovered: true,
+        );
+
+        return true;
+    }
+
+    private function completeDeletion(
+        Filesystem $filesystem,
+        File $lockedFile,
+        ?User $actor,
+        string $deletionToken,
+        ?string $activeDeletionToken = null,
+        bool $recovered = false,
+    ): void {
         try {
             $fileExists = $filesystem->exists($lockedFile->path);
         } catch (Throwable $exception) {
-            $this->restoreVisibleMetadata($lockedFile, $deletionToken);
+            if (! $recovered) {
+                $this->restoreVisibleMetadata($lockedFile, $deletionToken);
+            }
             $this->logFailure($lockedFile, $exception::class, 'filesystem_inspection');
             throw new FileDeleteFailedException;
         }
@@ -49,17 +104,18 @@ class DeleteFile
 
             $lockedFile = $this->claimMissingFileDeletion(
                 $lockedFile,
+                $actor,
                 $activeDeletionToken,
                 $deletionToken,
             );
         }
 
-        if ($fileExists && ! $this->deletePhysicalFile($filesystem, $lockedFile, $deletionToken)) {
+        if ($fileExists && ! $this->deletePhysicalFile($filesystem, $lockedFile, $deletionToken, $recovered)) {
             throw new FileDeleteFailedException;
         }
 
         try {
-            $finalized = $this->finalizeDeletion($lockedFile, $actor, $deletionToken);
+            $finalized = $this->finalizeDeletion($lockedFile, $actor, $deletionToken, $recovered);
         } catch (Throwable $exception) {
             $this->logFailure($lockedFile, $exception::class, 'metadata_delete');
             throw $exception;
@@ -74,9 +130,9 @@ class DeleteFile
     /**
      * @return array{File, ?string}
      */
-    private function claimDeletion(File $file, string $deletionToken): array
+    private function claimDeletion(File $file, User $actor, string $deletionToken): array
     {
-        $claim = DB::transaction(function () use ($deletionToken, $file): ?array {
+        $claim = DB::transaction(function () use ($actor, $deletionToken, $file): ?array {
             $lockedFile = File::query()->lockForUpdate()->findOrFail($file->getKey());
 
             $claimIsActive = $lockedFile->deletion_token !== null
@@ -93,6 +149,8 @@ class DeleteFile
             $lockedFile->forceFill([
                 'deletion_token' => $deletionToken,
                 'deletion_started_at' => now(),
+                'deletion_requested_by' => $actor->getKey(),
+                'deletion_requested_at' => now(),
             ])->save();
 
             return [$lockedFile, null];
@@ -108,10 +166,11 @@ class DeleteFile
 
     private function claimMissingFileDeletion(
         File $file,
+        ?User $actor,
         string $activeDeletionToken,
         string $deletionToken,
     ): File {
-        $lockedFile = DB::transaction(function () use ($activeDeletionToken, $deletionToken, $file): ?File {
+        $lockedFile = DB::transaction(function () use ($actor, $activeDeletionToken, $deletionToken, $file): ?File {
             $lockedFile = File::query()->lockForUpdate()->find($file->getKey());
 
             if (
@@ -125,6 +184,8 @@ class DeleteFile
             $lockedFile->forceFill([
                 'deletion_token' => $deletionToken,
                 'deletion_started_at' => now(),
+                'deletion_requested_by' => $actor?->getKey(),
+                'deletion_requested_at' => now(),
             ])->save();
 
             return $lockedFile;
@@ -144,7 +205,7 @@ class DeleteFile
             && $file->created_at?->isAfter(now()->subMinutes(File::PENDING_UPLOAD_LEASE_MINUTES));
     }
 
-    private function deletePhysicalFile(Filesystem $filesystem, File $file, string $deletionToken): bool
+    private function deletePhysicalFile(Filesystem $filesystem, File $file, string $deletionToken, bool $recovered): bool
     {
         try {
             $deleted = $filesystem->delete($file->path);
@@ -160,7 +221,9 @@ class DeleteFile
             }
 
             if (! $deleted) {
-                $this->restoreVisibleMetadata($file, $deletionToken);
+                if (! $recovered) {
+                    $this->restoreVisibleMetadata($file, $deletionToken);
+                }
                 $this->logFailure($file, $exception::class, 'physical_delete');
 
                 return false;
@@ -168,16 +231,18 @@ class DeleteFile
         }
 
         if (! $deleted) {
-            $this->restoreVisibleMetadata($file, $deletionToken);
+            if (! $recovered) {
+                $this->restoreVisibleMetadata($file, $deletionToken);
+            }
             $this->logFailure($file, 'delete_returned_false', 'physical_delete');
         }
 
         return $deleted;
     }
 
-    private function finalizeDeletion(File $file, User $actor, string $deletionToken): bool
+    private function finalizeDeletion(File $file, ?User $actor, string $deletionToken, bool $recovered): bool
     {
-        return DB::transaction(function () use ($actor, $deletionToken, $file): bool {
+        return DB::transaction(function () use ($actor, $deletionToken, $file, $recovered): bool {
             $lockedFile = File::query()->lockForUpdate()->find($file->getKey());
 
             if ($lockedFile === null) {
@@ -188,7 +253,10 @@ class DeleteFile
                 return false;
             }
 
-            $this->activityRecorder->record($lockedFile, $actor, 'admin', 'file_deleted');
+            $this->activityRecorder->record($lockedFile, $actor, 'admin', 'file_deleted', [
+                'deletion_requested_by' => $lockedFile->deletion_requested_by,
+                'recovered' => $recovered,
+            ]);
             $lockedFile->delete();
 
             return true;
@@ -205,6 +273,8 @@ class DeleteFile
                     $lockedFile->forceFill([
                         'deletion_token' => null,
                         'deletion_started_at' => null,
+                        'deletion_requested_by' => null,
+                        'deletion_requested_at' => null,
                     ])->save();
                 }
             }, attempts: 3);

@@ -74,11 +74,12 @@
         ],
         "docs:api": [
             "@php -r \"is_dir('docs') || mkdir('docs', 0777, true);\"",
-            "APP_URL=http://localhost php artisan scramble:export --env=local --no-interaction"
+            "APP_URL=http://localhost php artisan scramble:export --env=local --no-interaction",
+            "@php artisan docs:api:partition --env=local --no-interaction"
         ],
         "docs:api:check": [
             "@docs:api",
-            "git diff --exit-code -- docs/api.json"
+            "git diff --exit-code -- docs/api.json docs/admin-api.json docs/client-api.json"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

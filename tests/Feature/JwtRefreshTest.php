@@ -178,14 +178,17 @@ class JwtRefreshTest extends TestCase
     }
 
     #[DataProvider('guardProvider')]
-    public function test_old_token_cannot_be_refreshed_twice(string $guard): void
+    public function test_duplicate_refresh_recovers_only_member_results(string $guard): void
     {
         [, $token] = $this->login($guard);
 
-        $this->postJson($this->refreshUri($guard), headers: $this->authorizationHeader($token))
-            ->assertOk();
-
-        $this->assertUnauthenticatedRefresh($guard, $token);
+        $first = $this->postJson($this->refreshUri($guard), headers: $this->authorizationHeader($token))->assertOk();
+        if ($guard === 'member') {
+            $this->postJson($this->refreshUri($guard), headers: $this->authorizationHeader($token))
+                ->assertOk()->assertJsonPath('data.access_token', $first->json('data.access_token'));
+        } else {
+            $this->assertUnauthenticatedRefresh($guard, $token);
+        }
     }
 
     #[DataProvider('guardProvider')]
@@ -245,7 +248,10 @@ class JwtRefreshTest extends TestCase
             ->assertJsonPath('message', 'Unauthenticated')
             ->assertHeader('X-Request-Id');
 
-        $this->assertUnauthenticatedRefresh($guard, $token);
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($token))->assertUnauthorized();
+        if ($guard === 'admin') {
+            $this->assertUnauthenticatedRefresh($guard, $token);
+        }
     }
 
     #[DataProvider('guardProvider')]
