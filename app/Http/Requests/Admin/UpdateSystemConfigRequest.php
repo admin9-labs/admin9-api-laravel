@@ -30,7 +30,7 @@ class UpdateSystemConfigRequest extends SystemConfigRequest
             'description' => ['nullable', 'string', 'max:1000'],
             'is_public' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
-            'sort' => ['sometimes', 'integer', 'min:0'],
+            'sort' => ['sometimes', 'integer', 'min:0', 'max:4294967295'],
         ];
     }
 }

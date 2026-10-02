@@ -82,7 +82,11 @@ final class ApiErrorOpenApiContract
                     $responseCodes[] = Response::HTTP_UNPROCESSABLE_ENTITY;
                 }
 
-                if (in_array($route->getName(), ['admin.users.destroy', 'admin.roles.destroy'], true)) {
+                if (in_array($route->getName(), [
+                    'admin.users.destroy',
+                    'admin.roles.destroy',
+                    'admin.dictionary-types.destroy',
+                ], true)) {
                     $responseCodes[] = Response::HTTP_UNPROCESSABLE_ENTITY;
                 }
 

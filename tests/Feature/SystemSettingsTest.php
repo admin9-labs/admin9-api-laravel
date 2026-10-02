@@ -43,6 +43,20 @@ class SystemSettingsTest extends TestCase
             ->assertHeader('X-Request-Id');
     }
 
+    public function test_public_settings_only_expose_the_managed_field_allowlist(): void
+    {
+        SystemConfig::factory()->public()->create(['key' => 'custom.public_value', 'value' => 'ordinary-public-marker']);
+        SystemConfig::factory()->create(['key' => 'custom.private_value', 'value' => 'ordinary-private-marker']);
+
+        $response = $this->getJson(ApiRouting::path('/system-settings/public'))->assertOk();
+
+        $this->assertSame(['basic', 'branding'], array_keys($response->json('data')));
+        $this->assertSame(['system_name', 'copyright', 'icp_filing_number'], array_keys($response->json('data.basic')));
+        $this->assertSame(['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url'], array_keys($response->json('data.branding')));
+        $this->assertStringNotContainsString('ordinary-public-marker', $response->getContent());
+        $this->assertStringNotContainsString('ordinary-private-marker', $response->getContent());
+    }
+
     public function test_admin_read_and_each_tab_update_require_the_exact_existing_permissions(): void
     {
         $this->createPermission('system.config.view');

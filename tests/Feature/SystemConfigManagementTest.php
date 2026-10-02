@@ -2,10 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Api\Admin\SystemConfigController;
+use App\Http\Requests\Admin\StoreSystemConfigRequest;
+use App\Http\Requests\Admin\SystemConfigRequest;
+use App\Http\Requests\Admin\UpdateSystemConfigRequest;
 use App\Models\SystemConfig;
 use App\Models\User;
 use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Routing\Redirector;
+use Illuminate\Routing\Route;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
 use Tests\TestCase;
@@ -202,6 +209,125 @@ class SystemConfigManagementTest extends TestCase
             ->assertJsonPath('data.system_config.value.enabled', true);
     }
 
+    public function test_system_config_rejects_array_types_without_server_errors(): void
+    {
+        $token = $this->managerTokenFor(['system.config.create', 'system.config.update']);
+        $headers = ['Authorization' => 'Bearer '.$token];
+        $config = SystemConfig::factory()->create();
+
+        foreach ([[], ['integer'], ['nested' => ['json']]] as $type) {
+            $this->postJson(ApiRouting::path('/admin/system-configs'), [
+                'name' => 'Invalid type',
+                'key' => 'invalid.array_type',
+                'type' => $type,
+            ], $headers)->assertUnprocessable()->assertJsonValidationErrors('type');
+
+            $this->patchJson(ApiRouting::path('/admin/system-configs/').$config->id, [
+                'type' => $type,
+            ], $headers)->assertUnprocessable()->assertJsonValidationErrors('type');
+        }
+    }
+
+    public function test_system_config_update_rechecks_type_and_value_after_locking_the_current_row(): void
+    {
+        foreach ([
+            ['payload' => ['type' => SystemConfig::TYPE_INTEGER], 'concurrent' => ['value' => 'not-an-integer']],
+            ['payload' => ['value' => 'not-an-integer'], 'concurrent' => ['type' => SystemConfig::TYPE_INTEGER]],
+        ] as $case) {
+            $config = SystemConfig::factory()->create([
+                'type' => SystemConfig::TYPE_STRING,
+                'value' => '123',
+            ]);
+            $request = $this->validatedConfigRequest(UpdateSystemConfigRequest::class, $case['payload'], $config);
+
+            SystemConfig::query()->whereKey($config->id)->update($case['concurrent']);
+
+            try {
+                $this->app->make(SystemConfigController::class)->update($request, $config);
+                $this->fail('A stale request must not write an invalid type/value combination.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('value', $exception->errors());
+            }
+
+            $current = $config->fresh();
+            $this->assertSame($case['concurrent']['type'] ?? SystemConfig::TYPE_STRING, $current->type);
+            $this->assertSame($case['concurrent']['value'] ?? '123', $current->value);
+        }
+    }
+
+    public function test_system_config_database_key_conflicts_return_validation_errors(): void
+    {
+        foreach ([false, true] as $updating) {
+            $key = 'conflict.'.($updating ? 'update' : 'create');
+            $config = $updating ? SystemConfig::factory()->create() : null;
+            $request = $this->validatedConfigRequest(
+                $updating ? UpdateSystemConfigRequest::class : StoreSystemConfigRequest::class,
+                ['key' => $key, 'name' => 'Concurrent config'],
+                $config,
+            );
+            SystemConfig::factory()->create(['key' => $key]);
+
+            try {
+                $controller = $this->app->make(SystemConfigController::class);
+                $updating ? $controller->update($request, $config) : $controller->store($request);
+                $this->fail('A database key collision must produce a field validation error.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('key', $exception->errors());
+            }
+
+            $this->assertSame(1, SystemConfig::query()->where('key', $key)->count());
+        }
+    }
+
+    public function test_system_config_json_values_preserve_object_array_and_scalar_shapes(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->managerTokenFor(['system.config.create'])];
+
+        foreach (['{}', '[]', '{"options":{},"values":[]}', '"text"', '42', 'false', 'null'] as $index => $value) {
+            $response = $this->postJson(ApiRouting::path('/admin/system-configs'), [
+                'name' => 'JSON shape',
+                'key' => 'shape.'.$index,
+                'type' => SystemConfig::TYPE_JSON,
+                'value' => $value,
+            ], $headers)->assertOk();
+
+            $actual = json_decode($response->getContent())->data->system_config->value;
+            $this->assertEquals(json_decode($value), $actual);
+            $this->assertSame(get_debug_type(json_decode($value)), get_debug_type($actual));
+        }
+    }
+
+    public function test_system_config_sort_must_fit_its_database_column(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->managerTokenFor(['system.config.create', 'system.config.update'])];
+        $config = SystemConfig::factory()->create();
+
+        $this->postJson(ApiRouting::path('/admin/system-configs'), [
+            'name' => 'Invalid sort', 'key' => 'invalid.sort', 'sort' => 4294967296,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+        $this->patchJson(ApiRouting::path('/admin/system-configs/').$config->id, [
+            'sort' => 4294967296,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+    }
+
+    public function test_all_system_config_types_allow_null_and_can_clear_an_existing_value(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->managerTokenFor(['system.config.create', 'system.config.update'])];
+
+        foreach (SystemConfig::allowedTypes() as $type) {
+            $response = $this->postJson(ApiRouting::path('/admin/system-configs'), [
+                'name' => 'Nullable config', 'key' => 'nullable.'.$type, 'type' => $type, 'value' => null,
+            ], $headers)->assertOk()->assertJsonPath('data.system_config.value', null);
+            $id = $response->json('data.system_config.id');
+            $value = $type === SystemConfig::TYPE_BOOLEAN ? 'true' : '123';
+
+            $this->patchJson(ApiRouting::path('/admin/system-configs/').$id, ['value' => $value], $headers)->assertOk();
+            $this->patchJson(ApiRouting::path('/admin/system-configs/').$id, ['value' => null], $headers)
+                ->assertOk()->assertJsonPath('data.system_config.value', null);
+            $this->assertNull(SystemConfig::query()->findOrFail($id)->value);
+        }
+    }
+
     public function test_system_config_rejects_sensitive_keys_and_values(): void
     {
         $this->createPermission('system.config.create');
@@ -319,5 +445,22 @@ class SystemConfigManagementTest extends TestCase
         $this->createPermission('system.config.create');
         $this->createPermission('system.config.update');
         $this->createPermission('system.config.delete');
+    }
+
+    /**
+     * @param  class-string<SystemConfigRequest>  $requestClass
+     * @param  array<string, mixed>  $payload
+     */
+    private function validatedConfigRequest(string $requestClass, array $payload, ?SystemConfig $config = null): SystemConfigRequest
+    {
+        $method = $config === null ? 'POST' : 'PATCH';
+        $request = $requestClass::create('/system-configs/'.($config?->id ?? ''), $method, $payload);
+        $route = (new Route($method, '/system-configs/{system_config?}', fn () => null))->bind($request);
+        $route->setParameter('system_config', $config);
+        $request->setRouteResolver(fn (): Route => $route);
+        $request->setContainer($this->app)->setRedirector($this->app->make(Redirector::class));
+        $request->validateResolved();
+
+        return $request;
     }
 }

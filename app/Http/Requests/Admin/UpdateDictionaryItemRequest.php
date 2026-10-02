@@ -40,7 +40,7 @@ class UpdateDictionaryItemRequest extends FormRequest
             'value' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:1000'],
             'meta' => ['nullable', 'array'],
-            'sort' => ['sometimes', 'integer', 'min:0'],
+            'sort' => ['sometimes', 'integer', 'min:0', 'max:4294967295'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

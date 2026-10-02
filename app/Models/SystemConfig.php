@@ -74,7 +74,7 @@ class SystemConfig extends Model
         return match ($this->type) {
             self::TYPE_INTEGER => (int) $this->value,
             self::TYPE_BOOLEAN => filter_var($this->value, FILTER_VALIDATE_BOOLEAN),
-            self::TYPE_JSON => json_decode($this->value, true),
+            self::TYPE_JSON => json_decode($this->value),
             default => $this->value,
         };
     }

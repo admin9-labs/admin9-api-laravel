@@ -8,8 +8,10 @@ use App\Http\Requests\Admin\StoreDictionaryTypeRequest;
 use App\Http\Requests\Admin\UpdateDictionaryTypeRequest;
 use App\Http\Resources\Admin\DictionaryTypeResource;
 use App\Models\DictionaryType;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class DictionaryTypeController extends Controller
 {
@@ -32,7 +34,11 @@ class DictionaryTypeController extends Controller
      */
     public function store(StoreDictionaryTypeRequest $request): JsonResponse
     {
-        $dictionaryType = DB::transaction(fn (): DictionaryType => DictionaryType::query()->create($request->validated()));
+        try {
+            $dictionaryType = DB::transaction(fn (): DictionaryType => DictionaryType::query()->create($request->validated()));
+        } catch (UniqueConstraintViolationException $exception) {
+            $this->throwCodeConflict($exception, $request->validated('code'));
+        }
 
         return $this->success([
             'dictionary_type' => DictionaryTypeResource::make($dictionaryType->load('items')->loadCount('items')),
@@ -54,9 +60,16 @@ class DictionaryTypeController extends Controller
      */
     public function update(UpdateDictionaryTypeRequest $request, DictionaryType $dictionaryType): JsonResponse
     {
-        DB::transaction(function () use ($request, $dictionaryType): void {
-            $dictionaryType->update($request->validated());
-        });
+        try {
+            $dictionaryType = DB::transaction(function () use ($request, $dictionaryType): DictionaryType {
+                $dictionaryType = DictionaryType::query()->lockForUpdate()->findOrFail($dictionaryType->getKey());
+                $dictionaryType->update($request->validated());
+
+                return $dictionaryType;
+            }, attempts: 3);
+        } catch (UniqueConstraintViolationException $exception) {
+            $this->throwCodeConflict($exception, $request->validated('code', $dictionaryType->code), $dictionaryType);
+        }
 
         return $this->success([
             'dictionary_type' => DictionaryTypeResource::make($dictionaryType->refresh()->load('items')->loadCount('items')),
@@ -68,14 +81,31 @@ class DictionaryTypeController extends Controller
      */
     public function destroy(DictionaryType $dictionaryType): JsonResponse
     {
-        if ($dictionaryType->items()->exists()) {
-            return $this->error('Dictionary types with items cannot be deleted.', 422);
-        }
-
         DB::transaction(function () use ($dictionaryType): void {
+            $dictionaryType = DictionaryType::query()->lockForUpdate()->findOrFail($dictionaryType->getKey());
+
+            if ($dictionaryType->items()->exists()) {
+                throw ValidationException::withMessages([
+                    'dictionary_type' => ['Dictionary types with items cannot be deleted.'],
+                ]);
+            }
+
             $dictionaryType->delete();
-        });
+        }, attempts: 3);
 
         return $this->success(message: 'deleted');
+    }
+
+    private function throwCodeConflict(UniqueConstraintViolationException $exception, string $code, ?DictionaryType $dictionaryType = null): never
+    {
+        if (DictionaryType::query()->where('code', $code)
+            ->when($dictionaryType !== null, fn ($query) => $query->whereKeyNot($dictionaryType->getKey()))
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'code' => [__('validation.unique', ['attribute' => 'code'])],
+            ]);
+        }
+
+        throw $exception;
     }
 }

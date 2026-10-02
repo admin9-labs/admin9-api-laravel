@@ -10,8 +10,10 @@ use App\Http\Requests\Admin\UpdateSystemConfigRequest;
 use App\Http\Resources\Admin\SystemConfigResource;
 use App\Models\SystemConfig;
 use App\Support\SystemSettings;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SystemConfigController extends Controller
 {
@@ -37,7 +39,11 @@ class SystemConfigController extends Controller
             throw new ManagedSystemSettingException;
         }
 
-        $systemConfig = DB::transaction(fn (): SystemConfig => SystemConfig::query()->create($request->validated()));
+        try {
+            $systemConfig = DB::transaction(fn (): SystemConfig => SystemConfig::query()->create($request->validated()));
+        } catch (UniqueConstraintViolationException $exception) {
+            $this->throwKeyConflict($exception, $request->validated('key'));
+        }
 
         return $this->success([
             'system_config' => SystemConfigResource::make($systemConfig),
@@ -66,9 +72,22 @@ class SystemConfigController extends Controller
             throw new ManagedSystemSettingException;
         }
 
-        DB::transaction(function () use ($request, $systemConfig): void {
-            $systemConfig->update($request->validated());
-        });
+        try {
+            $systemConfig = DB::transaction(function () use ($request, $systemConfig): SystemConfig {
+                $systemConfig = SystemConfig::query()->lockForUpdate()->findOrFail($systemConfig->getKey());
+
+                if (SystemSettings::isManagedKey($systemConfig->key)) {
+                    throw new ManagedSystemSettingException;
+                }
+
+                $request->validateCurrentValue($systemConfig);
+                $systemConfig->update($request->validated());
+
+                return $systemConfig;
+            }, attempts: 3);
+        } catch (UniqueConstraintViolationException $exception) {
+            $this->throwKeyConflict($exception, $request->validated('key', $systemConfig->key), $systemConfig);
+        }
 
         return $this->success([
             'system_config' => SystemConfigResource::make($systemConfig->refresh()),
@@ -85,9 +104,28 @@ class SystemConfigController extends Controller
         }
 
         DB::transaction(function () use ($systemConfig): void {
+            $systemConfig = SystemConfig::query()->lockForUpdate()->findOrFail($systemConfig->getKey());
+
+            if (SystemSettings::isManagedKey($systemConfig->key)) {
+                throw new ManagedSystemSettingException;
+            }
+
             $systemConfig->delete();
         });
 
         return $this->success(message: 'deleted');
+    }
+
+    private function throwKeyConflict(UniqueConstraintViolationException $exception, string $key, ?SystemConfig $systemConfig = null): never
+    {
+        if (SystemConfig::query()->where('key', $key)
+            ->when($systemConfig !== null, fn ($query) => $query->whereKeyNot($systemConfig->getKey()))
+            ->exists()) {
+            throw ValidationException::withMessages([
+                'key' => [__('validation.unique', ['attribute' => 'key'])],
+            ]);
+        }
+
+        throw $exception;
     }
 }

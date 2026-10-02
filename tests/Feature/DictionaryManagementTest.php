@@ -2,13 +2,29 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Api\Admin\DictionaryItemController;
+use App\Http\Controllers\Api\Admin\DictionaryTypeController;
+use App\Http\Requests\Admin\StoreDictionaryItemRequest;
+use App\Http\Requests\Admin\StoreDictionaryTypeRequest;
+use App\Http\Requests\Admin\UpdateDictionaryItemRequest;
+use App\Http\Requests\Admin\UpdateDictionaryTypeRequest;
 use App\Models\DictionaryItem;
 use App\Models\DictionaryType;
 use App\Models\User;
 use App\Support\ApiRouting;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Routing\Redirector;
+use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
+use Tests\Support\FailingActivity;
 use Tests\TestCase;
 
 class DictionaryManagementTest extends TestCase
@@ -169,7 +185,8 @@ class DictionaryManagementTest extends TestCase
         $this->deleteJson(ApiRouting::path('/admin/dictionary-types/').$type->id, [], ['Authorization' => 'Bearer '.$token])
             ->assertStatus(422)
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 422);
+            ->assertJsonPath('code', 422)
+            ->assertJsonValidationErrors('dictionary_type');
 
         $this->assertModelExists($type);
         $this->assertModelExists($item);
@@ -234,6 +251,151 @@ class DictionaryManagementTest extends TestCase
             ->assertJsonMissing(['code' => 'ordinary_item']);
     }
 
+    public function test_dictionary_type_deletion_rechecks_items_inside_its_transaction(): void
+    {
+        $token = $this->managerTokenFor(['system.dictionary.delete']);
+        $type = DictionaryType::factory()->create();
+        $inserted = false;
+
+        Event::listen(TransactionBeginning::class, function () use ($type, &$inserted): void {
+            if ($inserted) {
+                return;
+            }
+
+            $inserted = true;
+            DictionaryItem::factory()->create(['dictionary_type_id' => $type->id]);
+        });
+
+        $this->deleteJson(ApiRouting::path('/admin/dictionary-types/').$type->id, [], [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertUnprocessable();
+
+        $this->assertTrue($inserted);
+        $this->assertModelExists($type);
+    }
+
+    public function test_dictionary_item_rejects_nested_type_ids_without_server_errors(): void
+    {
+        $token = $this->managerTokenFor(['system.dictionary.create', 'system.dictionary.update']);
+        $headers = ['Authorization' => 'Bearer '.$token];
+        $item = DictionaryItem::factory()->create();
+        $payload = [
+            'dictionary_type_id' => [['id' => $item->dictionary_type_id]],
+            'name' => 'Invalid dictionary type',
+            'code' => 'invalid_type',
+        ];
+
+        $this->postJson(ApiRouting::path('/admin/dictionary-items'), $payload, $headers)
+            ->assertUnprocessable()->assertJsonValidationErrors('dictionary_type_id');
+        $this->patchJson(ApiRouting::path('/admin/dictionary-items/').$item->id, $payload, $headers)
+            ->assertUnprocessable()->assertJsonValidationErrors('dictionary_type_id');
+    }
+
+    public function test_dictionary_code_conflicts_after_request_validation_return_field_errors(): void
+    {
+        foreach ([false, true] as $updating) {
+            foreach ([false, true] as $isItem) {
+                $parent = DictionaryType::factory()->create();
+                $model = $updating
+                    ? ($isItem ? DictionaryItem::factory()->create() : DictionaryType::factory()->create())
+                    : null;
+                $code = 'concurrent_'.($updating ? 'update' : 'create').'_'.($isItem ? 'item' : 'type');
+                $payload = ['name' => 'Concurrent dictionary', 'code' => $code];
+
+                if ($isItem) {
+                    $payload['dictionary_type_id'] = $parent->id;
+                }
+
+                $requestClass = $isItem
+                    ? ($updating ? UpdateDictionaryItemRequest::class : StoreDictionaryItemRequest::class)
+                    : ($updating ? UpdateDictionaryTypeRequest::class : StoreDictionaryTypeRequest::class);
+                $request = $this->validatedDictionaryRequest($requestClass, $payload, $model);
+                $isItem
+                    ? DictionaryItem::factory()->create(['dictionary_type_id' => $parent->id, 'code' => $code])
+                    : DictionaryType::factory()->create(['code' => $code]);
+
+                try {
+                    $controller = $this->app->make($isItem ? DictionaryItemController::class : DictionaryTypeController::class);
+                    $updating ? $controller->update($request, $model) : $controller->store($request);
+                    $this->fail('A concurrent dictionary code collision must produce a field validation error.');
+                } catch (ValidationException $exception) {
+                    $this->assertArrayHasKey('code', $exception->errors());
+                }
+            }
+        }
+    }
+
+    public function test_dictionary_item_writes_reject_a_parent_deleted_after_request_validation(): void
+    {
+        foreach ([false, true] as $updating) {
+            $parent = DictionaryType::factory()->create();
+            $item = $updating ? DictionaryItem::factory()->create() : null;
+            $request = $this->validatedDictionaryRequest(
+                $updating ? UpdateDictionaryItemRequest::class : StoreDictionaryItemRequest::class,
+                ['dictionary_type_id' => $parent->id, 'name' => 'New item', 'code' => 'new_item'],
+                $item,
+            );
+            $parent->delete();
+
+            try {
+                $controller = $this->app->make(DictionaryItemController::class);
+                $updating ? $controller->update($request, $item) : $controller->store($request);
+                $this->fail('A deleted parent must be rejected before the dictionary item is written.');
+            } catch (ValidationException $exception) {
+                $this->assertArrayHasKey('dictionary_type_id', $exception->errors());
+            }
+
+            $this->assertDatabaseMissing('dictionary_items', ['dictionary_type_id' => $parent->id]);
+        }
+    }
+
+    public function test_dictionary_sorts_must_fit_their_database_columns(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->managerTokenFor(['system.dictionary.create', 'system.dictionary.update'])];
+        $type = DictionaryType::factory()->create();
+        $item = DictionaryItem::factory()->create(['dictionary_type_id' => $type->id]);
+
+        foreach (['dictionary-types' => $type, 'dictionary-items' => $item] as $resource => $model) {
+            $this->postJson(ApiRouting::path('/admin/'.$resource), [
+                'name' => 'Invalid sort', 'code' => 'invalid_sort', 'sort' => 4294967296, 'dictionary_type_id' => $type->id,
+            ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+            $this->patchJson(ApiRouting::path('/admin/'.$resource.'/').$model->id, [
+                'sort' => 4294967296,
+            ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+        }
+    }
+
+    public function test_dictionary_mutations_roll_back_when_the_audit_write_fails(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->managerTokenFor([
+            'system.dictionary.create', 'system.dictionary.update', 'system.dictionary.delete',
+        ])];
+        $type = DictionaryType::factory()->create();
+        $item = DictionaryItem::factory()->create();
+        $activityCount = Activity::query()->count();
+        config(['activitylog.activity_model' => FailingActivity::class]);
+        Exceptions::fake([RuntimeException::class]);
+
+        foreach (['dictionary-types' => $type, 'dictionary-items' => $item] as $resource => $model) {
+            $originalName = $model->name;
+            $this->postJson(ApiRouting::path('/admin/'.$resource), [
+                'name' => 'Rollback create', 'code' => 'rollback_create', 'dictionary_type_id' => $type->id,
+            ], $headers)->assertStatus(500);
+            $this->assertDatabaseMissing($model->getTable(), ['code' => 'rollback_create']);
+
+            $this->patchJson(ApiRouting::path('/admin/'.$resource.'/').$model->id, [
+                'name' => 'Rollback update',
+            ], $headers)->assertStatus(500);
+            $this->assertSame($originalName, $model->fresh()->name);
+
+            $this->deleteJson(ApiRouting::path('/admin/'.$resource.'/').$model->id, [], $headers)->assertStatus(500);
+            $this->assertModelExists($model);
+        }
+
+        $this->assertSame($activityCount, Activity::query()->count());
+        Exceptions::assertReported(RuntimeException::class);
+    }
+
     public function test_dictionary_write_operations_reject_users_without_required_permission(): void
     {
         $this->createPermission('system.dictionary.view');
@@ -263,5 +425,23 @@ class DictionaryManagementTest extends TestCase
         $this->createPermission('system.dictionary.create');
         $this->createPermission('system.dictionary.update');
         $this->createPermission('system.dictionary.delete');
+    }
+
+    /**
+     * @param  class-string<FormRequest>  $requestClass
+     * @param  array<string, mixed>  $payload
+     */
+    private function validatedDictionaryRequest(string $requestClass, array $payload, ?Model $model = null): FormRequest
+    {
+        $method = $model === null ? 'POST' : 'PATCH';
+        $parameter = $model instanceof DictionaryType ? 'dictionary_type' : 'dictionary_item';
+        $request = $requestClass::create('/dictionary/'.($model?->id ?? ''), $method, $payload);
+        $route = (new Route($method, '/dictionary/{'.$parameter.'?}', fn () => null))->bind($request);
+        $route->setParameter($parameter, $model);
+        $request->setRouteResolver(fn (): Route => $route);
+        $request->setContainer($this->app)->setRedirector($this->app->make(Redirector::class));
+        $request->validateResolved();
+
+        return $request;
     }
 }

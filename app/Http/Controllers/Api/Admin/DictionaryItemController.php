@@ -8,8 +8,12 @@ use App\Http\Requests\Admin\StoreDictionaryItemRequest;
 use App\Http\Requests\Admin\UpdateDictionaryItemRequest;
 use App\Http\Resources\Admin\DictionaryItemResource;
 use App\Models\DictionaryItem;
+use App\Models\DictionaryType;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DictionaryItemController extends Controller
 {
@@ -32,7 +36,12 @@ class DictionaryItemController extends Controller
      */
     public function store(StoreDictionaryItemRequest $request): JsonResponse
     {
-        $dictionaryItem = DB::transaction(fn (): DictionaryItem => DictionaryItem::query()->create($request->validated()));
+        $dictionaryItem = DB::transaction(function () use ($request): DictionaryItem {
+            $this->lockDictionaryType((int) $request->validated('dictionary_type_id'));
+            $this->validateUniqueCode($request->validated('dictionary_type_id'), $request->validated('code'));
+
+            return DictionaryItem::query()->create($request->validated());
+        }, attempts: 3);
 
         return $this->success([
             'dictionary_item' => DictionaryItemResource::make($dictionaryItem->load('type')),
@@ -54,9 +63,15 @@ class DictionaryItemController extends Controller
      */
     public function update(UpdateDictionaryItemRequest $request, DictionaryItem $dictionaryItem): JsonResponse
     {
-        DB::transaction(function () use ($request, $dictionaryItem): void {
+        $dictionaryItem = DB::transaction(function () use ($request, $dictionaryItem): DictionaryItem {
+            $dictionaryItem = DictionaryItem::query()->lockForUpdate()->findOrFail($dictionaryItem->getKey());
+            $typeId = (int) $request->validated('dictionary_type_id', $dictionaryItem->dictionary_type_id);
+            $this->lockDictionaryType($typeId);
+            $this->validateUniqueCode($typeId, $request->validated('code', $dictionaryItem->code), $dictionaryItem);
             $dictionaryItem->update($request->validated());
-        });
+
+            return $dictionaryItem;
+        }, attempts: 3);
 
         return $this->success([
             'dictionary_item' => DictionaryItemResource::make($dictionaryItem->refresh()->load('type')),
@@ -73,5 +88,21 @@ class DictionaryItemController extends Controller
         });
 
         return $this->success(message: 'deleted');
+    }
+
+    private function lockDictionaryType(int $id): void
+    {
+        if (! DictionaryType::query()->lockForUpdate()->find($id)) {
+            throw ValidationException::withMessages([
+                'dictionary_type_id' => [__('validation.exists', ['attribute' => 'dictionary type id'])],
+            ]);
+        }
+    }
+
+    private function validateUniqueCode(int $typeId, string $code, ?DictionaryItem $item = null): void
+    {
+        Validator::make(['code' => $code], [
+            'code' => [Rule::unique(DictionaryItem::class, 'code')->where('dictionary_type_id', $typeId)->ignore($item)],
+        ])->validate();
     }
 }

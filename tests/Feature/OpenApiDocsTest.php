@@ -146,11 +146,55 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame('int64', $role['properties']['id']['format'] ?? null);
     }
 
-    public function test_generated_openapi_document_declares_safety_validation_for_user_and_role_deletion(): void
+    public function test_generated_openapi_document_preserves_resource_scalar_types(): void
+    {
+        $schemas = $this->openApiDocument()['components']['schemas'];
+
+        foreach ([
+            'UserResource' => ['id' => 'integer', 'is_active' => 'boolean'],
+            'MemberResource' => ['id' => 'integer', 'is_active' => 'boolean'],
+            'DictionaryItemResource' => ['id' => 'integer', 'dictionary_type_id' => 'integer', 'sort' => 'integer', 'is_active' => 'boolean'],
+            'DictionaryTypeResource' => ['id' => 'integer', 'sort' => 'integer', 'is_active' => 'boolean'],
+            'PermissionResource' => ['id' => 'integer', 'sort' => 'integer', 'is_system' => 'boolean', 'is_active' => 'boolean'],
+            'SystemConfigResource' => ['id' => 'integer', 'sort' => 'integer', 'is_public' => 'boolean', 'is_active' => 'boolean'],
+            'LoginLogResource' => ['successful' => 'boolean'],
+            'MenuResource' => ['sort' => 'integer', 'is_visible' => 'boolean', 'is_active' => 'boolean'],
+        ] as $resource => $properties) {
+            foreach ($properties as $property => $type) {
+                $this->assertSame($type, $schemas[$resource]['properties'][$property]['type'], "{$resource}.{$property} must match its runtime scalar type.");
+            }
+        }
+    }
+
+    public function test_generated_openapi_document_preserves_nullable_resource_strings(): void
+    {
+        $schemas = $this->openApiDocument()['components']['schemas'];
+
+        foreach ([
+            'UserResource' => ['last_login_ip'],
+            'MemberResource' => ['name', 'email', 'mobile'],
+            'DictionaryItemResource' => ['value', 'description'],
+            'DictionaryTypeResource' => ['description'],
+            'PermissionResource' => ['display_name', 'group', 'description'],
+            'SystemConfigResource' => ['description'],
+            'LoginLogResource' => ['account', 'subject_type', 'failure_reason', 'ip_address', 'user_agent', 'request_id'],
+            'MenuResource' => ['path', 'component', 'icon'],
+        ] as $resource => $properties) {
+            foreach ($properties as $property) {
+                $this->assertEqualsCanonicalizing(
+                    ['string', 'null'],
+                    (array) $schemas[$resource]['properties'][$property]['type'],
+                    "{$resource}.{$property} must allow its runtime null value.",
+                );
+            }
+        }
+    }
+
+    public function test_generated_openapi_document_declares_safety_validation_for_resource_deletion(): void
     {
         $document = $this->openApiDocument();
 
-        foreach (['/admin/users/{user}', '/admin/roles/{role}'] as $path) {
+        foreach (['/admin/users/{user}', '/admin/roles/{role}', '/admin/dictionary-types/{dictionaryType}'] as $path) {
             $this->assertSame(
                 '#/components/responses/ApiValidationErrorResponse',
                 $document['paths'][ApiRouting::path($path)]['delete']['responses']['422']['$ref'] ?? null,

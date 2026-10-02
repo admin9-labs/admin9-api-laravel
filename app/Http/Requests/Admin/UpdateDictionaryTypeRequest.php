@@ -27,7 +27,7 @@ class UpdateDictionaryTypeRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:100'],
             'code' => ['sometimes', 'required', 'string', 'max:100', 'regex:/^[a-z][a-z0-9_\.\-]*$/', Rule::unique(DictionaryType::class, 'code')->ignore($this->route('dictionary_type'))],
             'description' => ['nullable', 'string', 'max:1000'],
-            'sort' => ['sometimes', 'integer', 'min:0'],
+            'sort' => ['sometimes', 'integer', 'min:0', 'max:4294967295'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

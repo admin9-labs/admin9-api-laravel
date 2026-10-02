@@ -27,7 +27,7 @@ class StoreDictionaryTypeRequest extends FormRequest
             'name' => ['required', 'string', 'max:100'],
             'code' => ['required', 'string', 'max:100', 'regex:/^[a-z][a-z0-9_\.\-]*$/', Rule::unique(DictionaryType::class, 'code')],
             'description' => ['nullable', 'string', 'max:1000'],
-            'sort' => ['sometimes', 'integer', 'min:0'],
+            'sort' => ['sometimes', 'integer', 'min:0', 'max:4294967295'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

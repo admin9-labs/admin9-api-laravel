@@ -6,6 +6,7 @@ use App\Exceptions\ManagedSystemSettingException;
 use App\Models\SystemConfig;
 use App\Support\SystemSettings;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -53,27 +54,44 @@ abstract class SystemConfigRequest extends FormRequest
                     return;
                 }
 
-                $systemConfig = $this->systemConfig();
-                $type = $this->configurationType($systemConfig);
-                $value = $this->configurationValue($systemConfig);
+                $this->validateTypedValue($validator, $this->systemConfig());
 
-                if ($type === SystemConfig::TYPE_INTEGER && ! $this->hasIntegerValue($value)) {
-                    $validator->errors()->add('value', self::TYPE_VALUE_MESSAGES[SystemConfig::TYPE_INTEGER]);
-                }
-
-                if ($type === SystemConfig::TYPE_BOOLEAN && ! $this->hasBooleanValue($value)) {
-                    $validator->errors()->add('value', self::TYPE_VALUE_MESSAGES[SystemConfig::TYPE_BOOLEAN]);
-                }
-
-                if ($type === SystemConfig::TYPE_JSON && ! $this->hasJsonValue($value)) {
-                    $validator->errors()->add('value', self::TYPE_VALUE_MESSAGES[SystemConfig::TYPE_JSON]);
-                }
-
-                if ($this->has('value') && SystemConfig::containsSensitiveConfiguration($value)) {
+                if ($this->has('value') && SystemConfig::containsSensitiveConfiguration($this->input('value'))) {
                     $validator->errors()->add('value', 'Sensitive configuration values are not allowed.');
                 }
             },
         ];
+    }
+
+    public function validateCurrentValue(SystemConfig $systemConfig): void
+    {
+        ValidatorFacade::make(
+            ['value' => $this->configurationValue($systemConfig)],
+            ['value' => $this->valueRules($systemConfig)],
+        )->after(fn (Validator $validator) => $this->validateTypedValue($validator, $systemConfig))
+            ->validate();
+    }
+
+    private function validateTypedValue(Validator $validator, ?SystemConfig $systemConfig): void
+    {
+        if ($validator->errors()->has('value')) {
+            return;
+        }
+
+        $type = $this->configurationType($systemConfig);
+        $value = $this->configurationValue($systemConfig);
+
+        if ($type === SystemConfig::TYPE_INTEGER && ! $this->hasIntegerValue($value)) {
+            $validator->errors()->add('value', self::TYPE_VALUE_MESSAGES[SystemConfig::TYPE_INTEGER]);
+        }
+
+        if ($type === SystemConfig::TYPE_BOOLEAN && ! $this->hasBooleanValue($value)) {
+            $validator->errors()->add('value', self::TYPE_VALUE_MESSAGES[SystemConfig::TYPE_BOOLEAN]);
+        }
+
+        if ($type === SystemConfig::TYPE_JSON && ! $this->hasJsonValue($value)) {
+            $validator->errors()->add('value', self::TYPE_VALUE_MESSAGES[SystemConfig::TYPE_JSON]);
+        }
     }
 
     protected function systemConfig(): ?SystemConfig
@@ -95,9 +113,11 @@ abstract class SystemConfigRequest extends FormRequest
         }
     }
 
-    private function configurationType(?SystemConfig $systemConfig): string
+    private function configurationType(?SystemConfig $systemConfig): ?string
     {
-        return (string) $this->input('type', $systemConfig?->type ?? SystemConfig::TYPE_STRING);
+        $type = $this->input('type', $systemConfig?->type ?? SystemConfig::TYPE_STRING);
+
+        return is_string($type) ? $type : null;
     }
 
     private function configurationValue(?SystemConfig $systemConfig): mixed
