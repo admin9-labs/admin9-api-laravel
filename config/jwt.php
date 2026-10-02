@@ -240,10 +240,12 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Show blacklisted token option
+    | Blacklisted Token Rejection
     |--------------------------------------------------------------------------
     |
-    | Specify if you want to show black listed token exception on the laravel logs.
+    | Keep this enabled. In jwt-auth, disabling this option also skips blacklist
+    | rejection, allowing logged-out or already-refreshed tokens to be reused.
+    | This is not a logging-only option.
     |
     */
 

@@ -5,11 +5,14 @@ namespace App\Support\Auth;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use PHPOpenSourceSaver\JWTAuth\JWT;
 use PHPOpenSourceSaver\JWTAuth\JWTGuard;
 use PHPOpenSourceSaver\JWTAuth\Token;
+use Symfony\Component\HttpKernel\Exception\ServiceUnavailableHttpException;
 
 final class RefreshJwtToken
 {
@@ -70,14 +73,15 @@ final class RefreshJwtToken
                 throw new AccountInactiveException;
             }
 
-            $refreshedToken = $manager
-                ->customClaims([
-                    'guard' => $guardName,
-                    'prv' => $providerClaim,
-                    'auth_version' => $authenticationVersion,
-                ])
-                ->refresh($token, resetClaims: true)
-                ->get();
+            $refreshedToken = (string) Cache::lock('jwt:refresh:'.hash('sha256', $token->get()), 30)
+                ->block(5, fn (): string => $manager
+                    ->customClaims([
+                        'guard' => $guardName,
+                        'prv' => $providerClaim,
+                        'auth_version' => $authenticationVersion,
+                    ])
+                    ->refresh($token, resetClaims: true)
+                    ->get());
 
             $guard->setUser($subject);
 
@@ -85,6 +89,8 @@ final class RefreshJwtToken
                 'token' => $refreshedToken,
                 'subject' => $subject,
             ];
+        } catch (LockTimeoutException) {
+            throw new ServiceUnavailableHttpException(1, 'Token refresh is busy. Please retry.');
         } catch (JWTException) {
             throw new AuthenticationException(guards: [$guardName]);
         } finally {

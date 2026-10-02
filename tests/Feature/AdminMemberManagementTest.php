@@ -6,10 +6,12 @@ use App\Actions\Admin\ManageMember;
 use App\Models\Member;
 use App\Models\User;
 use App\Support\ApiRouting;
+use App\Support\Audit\SecurityActivityRecorder;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
 use Tests\TestCase;
@@ -95,6 +97,32 @@ class AdminMemberManagementTest extends TestCase
         $this->getJson(ApiRouting::path('/admin/members?is_active=yes'), $headers)
             ->assertUnprocessable()
             ->assertJsonValidationErrors('is_active');
+    }
+
+    public function test_created_international_email_identities_can_log_in_and_cannot_be_used_as_mobile(): void
+    {
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.create']));
+
+        foreach (['member@例子.中国', '用户@example.com'] as $email) {
+            $this->postJson(ApiRouting::path('/admin/members'), [
+                'name' => 'International Member',
+                'email' => $email,
+                'password' => 'member-password',
+                'password_confirmation' => 'member-password',
+            ], $headers)->assertOk();
+
+            $this->postJson(ApiRouting::path('/auth/login'), [
+                'account' => $email,
+                'password' => 'member-password',
+            ])->assertOk()->assertJsonPath('data.member.email', $email);
+
+            $this->postJson(ApiRouting::path('/admin/members'), [
+                'name' => 'Invalid Mobile',
+                'mobile' => 'mobile-'.$email,
+                'password' => 'member-password',
+                'password_confirmation' => 'member-password',
+            ], $headers)->assertUnprocessable()->assertJsonValidationErrors('mobile');
+        }
     }
 
     public function test_member_create_and_update_require_unique_retained_identity(): void
@@ -309,6 +337,40 @@ class AdminMemberManagementTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('mobile', $exception->errors());
         }
+    }
+
+    public function test_member_creation_and_status_changes_roll_back_when_audit_fails(): void
+    {
+        $member = Member::factory()->create();
+        $actor = User::factory()->create();
+        $this->mock(SecurityActivityRecorder::class)
+            ->shouldReceive('record')
+            ->twice()
+            ->andThrow(new RuntimeException('Audit storage unavailable'));
+        $manageMember = $this->app->make(ManageMember::class);
+
+        try {
+            $manageMember->create([
+                'name' => 'Rolled Back Member',
+                'email' => 'audit-rollback@example.com',
+                'password' => 'member-password',
+            ], $actor);
+            $this->fail('An audit failure must abort member creation.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Audit storage unavailable', $exception->getMessage());
+        }
+
+        $this->assertDatabaseMissing('members', ['email' => 'audit-rollback@example.com']);
+
+        try {
+            $manageMember->updateStatus($member, false, $actor);
+            $this->fail('An audit failure must abort the member status change.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Audit storage unavailable', $exception->getMessage());
+        }
+
+        $this->assertTrue($member->refresh()->is_active);
+        $this->assertSame(1, $member->auth_version);
     }
 
     public function test_each_member_operation_requires_its_exact_permission_and_destroy_is_absent(): void

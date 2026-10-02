@@ -4,8 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Member;
 use App\Support\ApiRouting;
+use App\Support\Audit\SecurityActivityRecorder;
+use App\Support\Auth\ChangePassword;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -105,6 +109,43 @@ class MemberPasswordManagementTest extends TestCase
         ], $this->authorizationHeader($token))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('password');
+
+        $this->assertSame(1, $member->refresh()->auth_version);
+        $this->assertTrue(Hash::check('password', $member->password));
+    }
+
+    public function test_password_change_rechecks_the_current_password_after_loading_the_latest_account(): void
+    {
+        $member = Member::factory()->create();
+        $staleMember = Member::query()->findOrFail($member->id);
+        $changePassword = $this->app->make(ChangePassword::class);
+        $changePassword->handle($member, 'password', 'first-new-password', 'member');
+
+        try {
+            $changePassword->handle($staleMember, 'password', 'second-new-password', 'member');
+            $this->fail('A stale current password must not overwrite a newer password.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('current_password', $exception->errors());
+        }
+
+        $this->assertSame(2, $member->refresh()->auth_version);
+        $this->assertTrue(Hash::check('first-new-password', $member->password));
+    }
+
+    public function test_password_change_rolls_back_password_and_authentication_version_when_audit_fails(): void
+    {
+        $member = Member::factory()->create();
+        $this->mock(SecurityActivityRecorder::class)
+            ->shouldReceive('record')
+            ->once()
+            ->andThrow(new RuntimeException('Audit storage unavailable'));
+
+        try {
+            $this->app->make(ChangePassword::class)->handle($member, 'password', 'new-password', 'member');
+            $this->fail('An audit failure must abort the password change.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Audit storage unavailable', $exception->getMessage());
+        }
 
         $this->assertSame(1, $member->refresh()->auth_version);
         $this->assertTrue(Hash::check('password', $member->password));

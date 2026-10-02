@@ -2,15 +2,20 @@
 
 namespace App\Support;
 
+use App\Http\Requests\Admin\Auth\ChangePasswordRequest as AdminChangePasswordRequest;
+use App\Http\Requests\Admin\ResetMemberPasswordRequest;
+use App\Http\Requests\Admin\ResetUserPasswordRequest;
 use App\Http\Requests\Admin\StoreDictionaryItemRequest;
 use App\Http\Requests\Admin\StoreFileRequest;
 use App\Http\Requests\Admin\StoreMemberRequest;
 use App\Http\Requests\Admin\StoreMenuRequest;
+use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateBrandingSystemSettingsRequest;
 use App\Http\Requests\Admin\UpdateDictionaryItemRequest;
 use App\Http\Requests\Admin\UpdateMemberRequest;
 use App\Http\Requests\Admin\UpdateMemberStatusRequest;
 use App\Http\Requests\Admin\UpdateMenuRequest;
+use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Resources\Admin\ActivityLogResource;
 use App\Http\Resources\Admin\DictionaryItemResource;
 use App\Http\Resources\Admin\FileResource;
@@ -102,10 +107,35 @@ class AdminApiOpenApiContract
         $this->normalizeSystemConfigSchemas($document);
         $this->normalizeSystemSettingsSchemas($document);
         $this->normalizeMenuSchemas($document);
+        $this->describePasswordPolicy($document);
         $this->normalizeMemberSchemas($document);
         $this->normalizeFileSchemas($document);
         $this->objectSchema($document, RoleResource::class)
             ->addProperty('id', (new IntegerType)->format('int64'));
+    }
+
+    private function describePasswordPolicy(OpenApi $document): void
+    {
+        foreach ([
+            AdminChangePasswordRequest::class,
+            ChangePasswordRequest::class,
+            StoreUserRequest::class,
+            StoreMemberRequest::class,
+            ResetUserPasswordRequest::class,
+            ResetMemberPasswordRequest::class,
+        ] as $requestClass) {
+            $schema = $this->objectSchema($document, $requestClass);
+
+            foreach (['password', 'password_confirmation'] as $field) {
+                if (isset($schema->properties[$field])) {
+                    $schema->properties[$field]->setDescription(
+                        '8–255 characters. With bcrypt, the password must not exceed 72 bytes '
+                        .'(or a stricter configured byte limit) and must not contain NUL bytes. '
+                        .'Other hash drivers retain the character-length limit.',
+                    );
+                }
+            }
+        }
     }
 
     public function addPatchAliases(OpenApi $document): void

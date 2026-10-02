@@ -94,6 +94,10 @@ final class ApiErrorOpenApiContract
                     $responseCodes[] = Response::HTTP_TOO_MANY_REQUESTS;
                 }
 
+                if (in_array($route->getName(), ['member.auth.refresh', 'admin.auth.refresh'], true)) {
+                    $responseCodes[] = Response::HTTP_SERVICE_UNAVAILABLE;
+                }
+
                 foreach (array_unique($responseCodes) as $responseCode) {
                     $this->replaceResponse($operation, $responseCode, $responseReferences[$responseCode]);
                 }
@@ -178,11 +182,11 @@ final class ApiErrorOpenApiContract
             );
         }
 
-        if ($errorCode !== null || $status === Response::HTTP_SERVICE_UNAVAILABLE) {
+        if ($errorCode !== null) {
             $envelope
                 ->addProperty(
                     'error_code',
-                    (new StringType)->enum([$errorCode ?? FileDeleteFailedException::ERROR_CODE]),
+                    (new StringType)->enum([$errorCode]),
                 )
                 ->setRequired(['success', 'code', 'message', 'data', 'errors', 'request_id', 'error_code']);
         }
@@ -200,6 +204,10 @@ final class ApiErrorOpenApiContract
                 'X-RateLimit-Remaining' => $this->integerHeader('Requests remaining in the current window.'),
                 'X-RateLimit-Reset' => $this->integerHeader('Unix timestamp when the current window resets.'),
             ]);
+        }
+
+        if ($status === Response::HTTP_SERVICE_UNAVAILABLE && $errorCode === null) {
+            $response->addHeader('Retry-After', $this->integerHeader('Seconds until the client may retry.'));
         }
 
         return $response;

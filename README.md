@@ -51,6 +51,7 @@ This checklist is intentionally command/process oriented and does not contain se
    - Inject `APP_KEY`, database credentials, and other environment-specific values through the hosting platform or encrypted environment workflow.
    - Inject `JWT_SECRET` through the hosting platform or encrypted environment workflow before running API traffic.
    - Generate a JWT secret with `php artisan jwt:secret` when preparing a new environment.
+   - Keep `JWT_BLACKLIST_ENABLED=true` and `JWT_SHOW_BLACKLIST_EXCEPTION=true`. Disabling either bypasses token revocation checks; the latter is not merely a logging option. Use a shared persistent cache supporting atomic locks for revocation and refresh coordination across processes. Keep `JWT_BLACKLIST_GRACE_PERIOD=0` for single-use refresh tokens.
 3. **Initialize the database and administrator**
    - Run `php artisan migrate --force` during deployment.
    - Run `php artisan db:seed --force` after migrations to create the required roles, permissions, and menus. This does not create an administrator outside local or testing environments.

@@ -157,6 +157,16 @@ class AdminAuthTest extends TestCase
             ->assertHeader('X-Request-Id');
     }
 
+    public function test_admin_login_rejects_accounts_longer_than_the_login_log_column(): void
+    {
+        $email = str_repeat('a', 64).'@'.implode('.', array_fill(0, 4, str_repeat('b', 60))).'.com';
+
+        $this->postJson(ApiRouting::path('/admin/auth/login'), [
+            'email' => $email,
+            'password' => 'password',
+        ])->assertUnprocessable()->assertJsonValidationErrors('email');
+    }
+
     public function test_admin_login_and_existing_tokens_reject_disabled_accounts(): void
     {
         $user = User::factory()->create([

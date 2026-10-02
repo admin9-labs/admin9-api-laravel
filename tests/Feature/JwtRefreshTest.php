@@ -6,9 +6,13 @@ use App\Models\LoginLog;
 use App\Models\Member;
 use App\Models\User;
 use App\Support\ApiRouting;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Mockery;
 use PHPOpenSourceSaver\JWTAuth\Factory;
 use PHPOpenSourceSaver\JWTAuth\JWT;
 use PHPOpenSourceSaver\JWTAuth\Manager;
@@ -182,6 +186,27 @@ class JwtRefreshTest extends TestCase
             ->assertOk();
 
         $this->assertUnauthenticatedRefresh($guard, $token);
+    }
+
+    #[DataProvider('guardProvider')]
+    public function test_refresh_lock_timeout_is_retryable_and_does_not_consume_the_token(string $guard): void
+    {
+        [, $token] = $this->login($guard);
+        $cache = Cache::getFacadeRoot();
+        $lock = Mockery::mock(Lock::class);
+        $lock->shouldReceive('block')->once()->andThrow(new LockTimeoutException);
+        Cache::partialMock()->shouldReceive('lock')->once()->andReturn($lock);
+
+        try {
+            $this->postJson($this->refreshUri($guard), headers: $this->authorizationHeader($token))
+                ->assertServiceUnavailable()
+                ->assertHeader('Retry-After', '1');
+        } finally {
+            Cache::swap($cache);
+        }
+
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($token))->assertOk();
+        $this->postJson($this->refreshUri($guard), headers: $this->authorizationHeader($token))->assertOk();
     }
 
     #[DataProvider('guardProvider')]

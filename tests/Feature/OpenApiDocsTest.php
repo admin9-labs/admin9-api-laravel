@@ -322,10 +322,6 @@ class OpenApiDocsTest extends TestCase
             $schema = $response['content']['application/json']['schema'];
             $required = ['success', 'code', 'message', 'data', 'errors', 'request_id'];
 
-            if ($status === 503) {
-                $required[] = 'error_code';
-            }
-
             $this->assertSame($required, $schema['required']);
             $this->assertSame([false], $schema['properties']['success']['enum']);
             $this->assertSame($status, $schema['properties']['code']['const']);
@@ -474,12 +470,31 @@ class OpenApiDocsTest extends TestCase
             $this->assertSame($required, $schemas[$schemaName]['required']);
             $this->assertSame(8, $schemas[$schemaName]['properties']['password']['minLength']);
             $this->assertSame(255, $schemas[$schemaName]['properties']['password']['maxLength']);
+            $this->assertStringContainsString('72 bytes', $schemas[$schemaName]['properties']['password']['description'] ?? '');
+            $this->assertStringContainsString('NUL', $schemas[$schemaName]['properties']['password']['description'] ?? '');
             $this->assertSame(8, $schemas[$schemaName]['properties']['password_confirmation']['minLength']);
             $this->assertSame(255, $schemas[$schemaName]['properties']['password_confirmation']['maxLength']);
         }
 
         $this->assertSame(8, $schemas['StoreUserRequest']['properties']['password']['minLength']);
         $this->assertSame(255, $schemas['StoreUserRequest']['properties']['password']['maxLength']);
+    }
+
+    public function test_refresh_lock_contention_has_a_generic_retryable_service_unavailable_contract(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach (['/auth/refresh', '/admin/auth/refresh'] as $path) {
+            $this->assertSame(
+                '#/components/responses/ApiServiceUnavailableResponse',
+                $document['paths'][ApiRouting::path($path)]['post']['responses']['503']['$ref'] ?? null,
+            );
+        }
+
+        $response = $document['components']['responses']['ApiServiceUnavailableResponse'];
+        $schema = $response['content']['application/json']['schema'];
+        $this->assertArrayNotHasKey('error_code', $schema['properties']);
+        $this->assertSame('integer', $response['headers']['Retry-After']['schema']['type']);
     }
 
     public function test_generated_openapi_document_keeps_bounded_admin_catalogs_unpaginated(): void

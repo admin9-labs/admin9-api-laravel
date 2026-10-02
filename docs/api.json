@@ -389,6 +389,9 @@
                     },
                     "429": {
                         "$ref": "#/components/responses/ApiRateLimitResponse"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ApiServiceUnavailableResponse"
                     }
                 },
                 "security": [
@@ -831,6 +834,9 @@
                     },
                     "413": {
                         "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ApiServiceUnavailableResponse"
                     }
                 },
                 "security": [
@@ -7112,11 +7118,13 @@
                     },
                     "password": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
@@ -7133,7 +7141,8 @@
                 "properties": {
                     "email": {
                         "type": "string",
-                        "format": "email"
+                        "format": "email",
+                        "maxLength": 255
                     },
                     "password": {
                         "type": "string"
@@ -7211,11 +7220,13 @@
                     },
                     "password": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
@@ -7760,11 +7771,13 @@
                 "properties": {
                     "password": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
@@ -7780,11 +7793,13 @@
                 "properties": {
                     "password": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
@@ -7962,6 +7977,7 @@
                             },
                             "password": {
                                 "type": "string",
+                                "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                                 "minLength": 8,
                                 "maxLength": 255
                             },
@@ -7970,6 +7986,7 @@
                             },
                             "password_confirmation": {
                                 "type": "string",
+                                "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                                 "minLength": 8,
                                 "maxLength": 255
                             }
@@ -8218,6 +8235,7 @@
                     },
                     "password": {
                         "type": "string",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
@@ -9354,12 +9372,6 @@
                                 "request_id": {
                                     "type": "string",
                                     "format": "uuid"
-                                },
-                                "error_code": {
-                                    "type": "string",
-                                    "enum": [
-                                        "file_delete_failed"
-                                    ]
                                 }
                             },
                             "required": [
@@ -9368,8 +9380,7 @@
                                 "message",
                                 "data",
                                 "errors",
-                                "request_id",
-                                "error_code"
+                                "request_id"
                             ]
                         }
                     }
@@ -9380,6 +9391,12 @@
                         "schema": {
                             "type": "string",
                             "format": "uuid"
+                        }
+                    },
+                    "Retry-After": {
+                        "description": "Seconds until the client may retry.",
+                        "schema": {
+                            "type": "integer"
                         }
                     }
                 }

@@ -30,10 +30,20 @@ class EnsureJwtAuthenticationVersion
         }
 
         try {
-            $authenticationVersion = $jwtGuard->getPayload()->get('auth_version');
+            $payload = $jwtGuard->getPayload();
         } catch (JWTException) {
             throw new AuthenticationException(guards: [$guard]);
         }
+
+        $provider = $jwtGuard->getProvider();
+
+        if (! method_exists($provider, 'getModel')
+            || $payload->get('guard') !== $guard
+            || $payload->get('prv') !== sha1($provider->getModel())) {
+            throw new AuthenticationException(guards: [$guard]);
+        }
+
+        $authenticationVersion = $payload->get('auth_version');
 
         if (! is_int($authenticationVersion)
             || $authenticationVersion !== (int) $account->getAttribute('auth_version')) {

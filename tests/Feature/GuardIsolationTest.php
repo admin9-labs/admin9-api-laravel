@@ -6,6 +6,9 @@ use App\Models\Member;
 use App\Models\User;
 use App\Support\ApiRouting;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use PHPOpenSourceSaver\JWTAuth\Factory;
+use PHPOpenSourceSaver\JWTAuth\Manager;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -111,5 +114,45 @@ class GuardIsolationTest extends TestCase
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403)
             ->assertHeader('X-Request-Id');
+    }
+
+    #[DataProvider('invalidIsolationClaimProvider')]
+    public function test_protected_routes_reject_signed_tokens_without_matching_isolation_claims(string $guard, string $claim, mixed $value): void
+    {
+        $account = $guard === 'admin' ? User::factory()->create() : Member::factory()->create();
+        $claims = [
+            'sub' => $account->getKey(),
+            'guard' => $guard,
+            'prv' => sha1($account::class),
+            'auth_version' => $account->auth_version,
+        ];
+
+        if ($value === null) {
+            unset($claims[$claim]);
+        } else {
+            $claims[$claim] = $value;
+        }
+
+        $payload = app(Factory::class)->customClaims($claims)->make(true);
+        $token = app(Manager::class)->encode($payload)->get();
+        $path = $guard === 'admin' ? '/admin/auth/me' : '/auth/me';
+
+        $this->getJson(ApiRouting::path($path), ['Authorization' => 'Bearer '.$token])
+            ->assertUnauthorized();
+    }
+
+    /**
+     * @return array<string, array{string, string, mixed}>
+     */
+    public static function invalidIsolationClaimProvider(): array
+    {
+        return [
+            'admin missing guard' => ['admin', 'guard', null],
+            'member missing guard' => ['member', 'guard', null],
+            'admin missing provider' => ['admin', 'prv', null],
+            'member missing provider' => ['member', 'prv', null],
+            'admin incorrect guard' => ['admin', 'guard', 'member'],
+            'member incorrect guard' => ['member', 'guard', 'admin'],
+        ];
     }
 }
