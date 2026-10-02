@@ -9,6 +9,7 @@ use App\Http\Resources\MemberResource;
 use App\Models\Member;
 use App\Support\Auth\ChangePassword;
 use App\Support\Auth\LoginLogRecorder;
+use App\Support\Auth\MemberSessionManager;
 use App\Support\Auth\RefreshJwtToken;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +25,7 @@ class AuthController extends Controller
         private LoginLogRecorder $loginLogRecorder,
         private RefreshJwtToken $refreshJwtToken,
         private ChangePassword $changePasswordAction,
+        private MemberSessionManager $sessions,
     ) {}
 
     public function login(LoginRequest $request): JsonResponse
@@ -43,16 +45,15 @@ class AuthController extends Controller
 
         $credentials = [$identifierField => $account, 'password' => $validated['password']];
 
-        $token = $this->guard()->attempt($credentials);
-        if ($token === false) {
+        $started = $member === null ? null : $this->sessions->login($member, $credentials);
+        if ($started === null) {
             $this->loginLogRecorder->record($request, 'member', 'login', false, $account, $member, 'Invalid credentials');
 
             return $this->error('Invalid credentials', Response::HTTP_UNAUTHORIZED);
         }
 
-        $token = (string) $token;
-        /** @var Member $member */
-        $member = $this->guard()->user();
+        $token = $started['token'];
+        $member = $started['member'];
 
         $this->recordLogin($request, $member);
         $this->loginLogRecorder->record($request, 'member', 'login', true, $account, $member);
@@ -95,10 +96,17 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         $member = $this->guard()->user();
-        $this->guard()->logout();
+        $this->sessions->logout($member, $this->sessions->sessionId($this->guard()->getPayload()));
         $this->loginLogRecorder->record($request, 'member', 'logout', true, $member?->email ?? $member?->mobile, $member);
 
         return $this->success(message: 'logged out');
+    }
+
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $this->sessions->logoutAll($request->user('member'));
+
+        return $this->success(message: 'all sessions logged out');
     }
 
     private function guard(): JWTGuard

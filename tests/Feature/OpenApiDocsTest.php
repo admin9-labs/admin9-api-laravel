@@ -232,9 +232,9 @@ class OpenApiDocsTest extends TestCase
         );
         $operationIds = $operations->pluck('operationId')->filter()->values();
 
-        $this->assertCount(72, $operations);
-        $this->assertCount(65, $operationIds);
-        $this->assertCount(65, $operationIds->unique());
+        $this->assertCount(73, $operations);
+        $this->assertCount(66, $operationIds);
+        $this->assertCount(66, $operationIds->unique());
     }
 
     public function test_generated_openapi_document_uses_precise_auth_token_schema(): void

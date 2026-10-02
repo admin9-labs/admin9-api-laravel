@@ -7,6 +7,7 @@ use App\Exceptions\MediaInUseBySystemSettingsException;
 use App\Http\Middleware\AddContext;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureJwtAuthenticationVersion;
+use App\Http\Middleware\EnsureMemberSession;
 use App\Http\Middleware\RefreshJwtGuards;
 use App\Http\Responses\ApiResponseGenerator;
 use App\Support\ApiRouting;
@@ -46,6 +47,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'account.active' => EnsureAccountIsActive::class,
             'jwt.version' => EnsureJwtAuthenticationVersion::class,
+            'member.session' => EnsureMemberSession::class,
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,

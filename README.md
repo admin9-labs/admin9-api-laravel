@@ -39,6 +39,10 @@ php artisan route:list --except-vendor
 
 `composer docs:api` exports the generated OpenAPI document to `docs/api.json`; `composer docs:api:check` also fails if the committed document is stale.
 
+New member logins issue a JWT with a persisted `sid`. The current logout revokes that session and its refreshed tokens; `DELETE /api/auth/sessions` invalidates every session and legacy JWT for the member. Revoked, expired, foreign, or malformed sessions are rejected on protected requests and refresh. Administrator JWT behavior is unchanged. Revoked and expired session rows can be removed with Laravel's `model:prune --model='App\Models\MemberAuthSession'` command.
+
+Upgrade compatibility: previously issued JWTs without `sid` retain the existing signature, guard/provider, authentication-version, expiry, and blacklist checks. Their first successful refresh creates a session; new logins always use sessions. A malformed or explicit null `sid` is rejected rather than treated as a legacy token. Session refresh follows `JWT_REFRESH_IAT`; account-level credential and session invalidation still apply through `auth_version`.
+
 ## Production run checklist
 
 This checklist is intentionally command/process oriented and does not contain secrets. Inject production secrets through the hosting platform or encrypted environment workflow, not through committed files.

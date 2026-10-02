@@ -2,6 +2,8 @@
 
 namespace App\Support\Auth;
 
+use App\Models\Member;
+use App\Models\MemberAuthSession;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\AuthManager;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -19,6 +21,7 @@ final class RefreshJwtToken
     public function __construct(
         private AuthManager $auth,
         private JWT $jwt,
+        private MemberSessionManager $sessions,
     ) {}
 
     /**
@@ -73,15 +76,23 @@ final class RefreshJwtToken
                 throw new AccountInactiveException;
             }
 
+            $claims = [
+                'guard' => $guardName, 'prv' => $providerClaim, 'auth_version' => $authenticationVersion,
+            ];
             $refreshedToken = (string) Cache::lock('jwt:refresh:'.hash('sha256', $token->get()), 30)
-                ->block(5, fn (): string => $manager
-                    ->customClaims([
-                        'guard' => $guardName,
-                        'prv' => $providerClaim,
-                        'auth_version' => $authenticationVersion,
-                    ])
-                    ->refresh($token, resetClaims: true)
-                    ->get());
+                ->block(5, function () use ($guardName, $subject, $payload, $manager, $token, $claims): string {
+                    if ($guardName === 'member' && $subject instanceof Member) {
+                        return $this->sessions->withSession($subject, $this->sessions->sessionId($payload), function (Member $member, MemberAuthSession $session) use ($manager, $token, $claims): string {
+                            $refreshed = $manager->customClaims([...$claims, 'sid' => $session->id])
+                                ->refresh($token, resetClaims: true)->get();
+                            $this->sessions->refreshed($session);
+
+                            return $refreshed;
+                        }, (int) $payload->get('iat'));
+                    }
+
+                    return $manager->customClaims($claims)->refresh($token, resetClaims: true)->get();
+                });
 
             $guard->setUser($subject);
 
