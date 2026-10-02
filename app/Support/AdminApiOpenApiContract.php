@@ -89,6 +89,15 @@ class AdminApiOpenApiContract
             $this->normalizeLogFilterParameters($operation, ['subject_id']);
         }
 
+        if ($queryParameterRenames !== []) {
+            $operation->parameters = collect($operation->parameters)
+                ->unique(fn ($parameter): string => $parameter instanceof Parameter
+                    ? $parameter->in.':'.$parameter->name
+                    : spl_object_hash($parameter))
+                ->values()
+                ->all();
+        }
+
         if ($routeName === 'admin.files.store' && $operation->requestBodyObject !== null) {
             $schema = $operation->requestBodyObject->content['application/json'] ?? null;
 
@@ -223,7 +232,8 @@ class AdminApiOpenApiContract
                 continue;
             }
 
-            if ($parameter->name === 'created_at') {
+            if (in_array($parameter->name, ['created_at', 'created_at[]'], true)) {
+                $parameter->setName('created_at')->required(false);
                 $parameter->setSchema(Schema::fromType(
                     (new ArrayType)
                         ->setMin(2)

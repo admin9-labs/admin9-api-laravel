@@ -61,19 +61,6 @@
                         }
                     },
                     {
-                        "name": "created_at",
-                        "in": "query",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "format": "date"
-                            },
-                            "minItems": 2,
-                            "maxItems": 2
-                        }
-                    },
-                    {
                         "name": "sorts",
                         "in": "query",
                         "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, created_at.",
@@ -100,6 +87,19 @@
                         "schema": {
                             "type": "integer",
                             "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "created_at",
+                        "in": "query",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
                         }
                     }
                 ],
@@ -194,6 +194,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             }
@@ -1253,6 +1256,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             },
@@ -1869,6 +1875,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             },
@@ -2705,19 +2714,6 @@
                         }
                     },
                     {
-                        "name": "created_at",
-                        "in": "query",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string",
-                                "format": "date"
-                            },
-                            "minItems": 2,
-                            "maxItems": 2
-                        }
-                    },
-                    {
                         "name": "sorts",
                         "in": "query",
                         "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, created_at.",
@@ -2744,6 +2740,19 @@
                         "schema": {
                             "type": "integer",
                             "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "created_at",
+                        "in": "query",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "date"
+                            },
+                            "minItems": 2,
+                            "maxItems": 2
                         }
                     }
                 ],
@@ -2838,6 +2847,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             }
@@ -5487,6 +5499,9 @@
                     },
                     "403": {
                         "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
                     }
                 }
             },

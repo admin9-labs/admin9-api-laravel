@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Filters\DictionaryTypeFilter;
+use App\Http\Requests\Admin\ListDictionaryTypesRequest;
 use App\Http\Requests\Admin\StoreDictionaryTypeRequest;
 use App\Http\Requests\Admin\UpdateDictionaryTypeRequest;
 use App\Http\Resources\Admin\DictionaryTypeResource;
@@ -18,12 +19,12 @@ class DictionaryTypeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(ListDictionaryTypesRequest $request): JsonResponse
     {
         return $this->success(DictionaryTypeResource::collection(
             DictionaryType::query()
                 ->withCount('items')
-                ->filter(DictionaryTypeFilter::class)
+                ->filter(DictionaryTypeFilter::class, $request->validated())
                 ->ordered()
                 ->paginate()
         ));

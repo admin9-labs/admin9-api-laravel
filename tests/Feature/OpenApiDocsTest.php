@@ -94,6 +94,7 @@ class OpenApiDocsTest extends TestCase
 
         foreach ([$systemConfigParameters, $activityLogParameters, $loginLogParameters] as $parameters) {
             $this->assertNotContains('sort', $parameters);
+            $this->assertCount(count(array_unique($parameters)), $parameters);
         }
 
         $this->assertSame('bearer', $document['components']['securitySchemes']['http']['scheme'] ?? null);

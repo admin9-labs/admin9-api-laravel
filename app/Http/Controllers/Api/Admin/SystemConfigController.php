@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Exceptions\ManagedSystemSettingException;
 use App\Http\Controllers\Controller;
 use App\Http\Filters\SystemConfigFilter;
+use App\Http\Requests\Admin\ListSystemConfigsRequest;
 use App\Http\Requests\Admin\StoreSystemConfigRequest;
 use App\Http\Requests\Admin\UpdateSystemConfigRequest;
 use App\Http\Resources\Admin\SystemConfigResource;
@@ -20,11 +21,11 @@ class SystemConfigController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(ListSystemConfigsRequest $request): JsonResponse
     {
         return $this->success(SystemConfigResource::collection(
             SystemConfig::query()
-                ->filter(SystemConfigFilter::class)
+                ->filter(SystemConfigFilter::class, $request->validated())
                 ->ordered()
                 ->paginate()
         ));
