@@ -75,6 +75,8 @@ try {
 
     $request = Request::create('/refresh', 'POST', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$input['token']]);
 
+    touch($input['directory'].'/'.$input['worker'].'-ready');
+
     try {
         $refreshed = app(RefreshJwtToken::class)->handle($request, $input['guard']);
         $payload = app(Manager::class)->decode(new Token($refreshed['token']));
@@ -83,6 +85,7 @@ try {
             'subject_id' => $refreshed['subject']->getAuthIdentifier(),
             'replacement_valid' => $payload->get('guard') === $input['guard'],
             'replacement_hash' => hash('sha256', $refreshed['token']),
+            'replacement_token' => $refreshed['token'],
         ];
     } catch (AuthenticationException) {
         $result = ['status' => 401];

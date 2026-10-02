@@ -71,7 +71,12 @@ class JwtRefreshConcurrencyTest extends TestCase
 
             $statuses = array_column($results, 'status');
             sort($statuses);
-            $this->assertSame([200, 401], $statuses, 'A token may only be consumed once across refresh processes.');
+            $this->assertSame($guard === 'member' ? [200, 200] : [200, 401], $statuses);
+            if ($guard === 'member') {
+                $this->assertSame($results[0]['replacement_token'], $results[1]['replacement_token']);
+                $this->assertSame(1, DB::table('member_token_refreshes')->count());
+                $this->assertSame(1, DB::table('member_auth_sessions')->count());
+            }
             $winner = collect($results)->firstWhere('status', 200);
             $this->assertSame($account->id, $winner['subject_id']);
             $this->assertTrue($winner['replacement_valid']);

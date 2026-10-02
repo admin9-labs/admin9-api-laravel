@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Models\MemberAuthSession;
 use App\Models\Permission;
 use Illuminate\Contracts\Http\Kernel as HttpKernel;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Facade;
 use Tests\Support\MySqlConcurrencyDatabaseGuard;
@@ -17,22 +20,27 @@ try {
     $readyFile = requiredEnvironmentVariable('MYSQL_CONCURRENCY_READY_FILE');
     $token = requiredEnvironmentVariable('MYSQL_CONCURRENCY_TOKEN');
     $uri = requiredEnvironmentVariable('MYSQL_CONCURRENCY_URI');
+    $upload = optionalEnvironmentVariable('MYSQL_CONCURRENCY_UPLOAD');
 
     $request = Request::create(
         uri: $uri,
         method: $method,
+        files: $upload === null ? [] : ['file' => new UploadedFile($upload, 'cover.png', test: true)],
         server: [
             'CONTENT_TYPE' => 'application/json',
             'HTTP_ACCEPT' => 'application/json',
             'HTTP_AUTHORIZATION' => 'Bearer '.$token,
         ],
-        content: $payload,
+        content: optionalEnvironmentVariable('MYSQL_CONCURRENCY_EMPTY_BODY') === '1' ? '' : $payload,
     );
     $application = require dirname(__DIR__, 2).'/bootstrap/app.php';
     $application->instance('request', $request);
     Facade::clearResolvedInstance('request');
     $kernel = $application->make(HttpKernel::class);
     $kernel->bootstrap();
+    if (($storagePath = optionalEnvironmentVariable('MYSQL_CONCURRENCY_STORAGE_PATH')) !== null) {
+        config(['filesystems.disks.public.root' => $storagePath]);
+    }
     MySqlConcurrencyDatabaseGuard::assertSafe();
     registerPermissionDeletePauseHook();
 
@@ -42,6 +50,13 @@ try {
 
     if (file_put_contents($readyFile, $readyPayload, LOCK_EX) === false) {
         throw new RuntimeException("Unable to write worker barrier file [{$readyFile}].");
+    }
+
+    if (optionalEnvironmentVariable('MYSQL_CONCURRENCY_PRUNE_SESSIONS') === '1') {
+        $exitCode = Artisan::call('model:prune', ['--model' => [MemberAuthSession::class]]);
+        fwrite(STDOUT, json_encode(['status' => $exitCode === 0 ? 200 : 500, 'body' => [], 'connection_id' => $connectionId], JSON_THROW_ON_ERROR));
+
+        exit($exitCode);
     }
 
     $response = $kernel->handle($request);

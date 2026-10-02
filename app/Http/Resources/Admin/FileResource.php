@@ -18,6 +18,7 @@ class FileResource extends PaginationAwareJsonResource
     {
         return [
             'id' => $this->id,
+            'directory_id' => $this->directory_id === null ? null : (int) $this->directory_id,
             'name' => $this->name,
             'type' => $this->type,
             'mime_type' => $this->mime_type,

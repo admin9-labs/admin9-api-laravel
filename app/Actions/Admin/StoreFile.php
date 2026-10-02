@@ -3,6 +3,7 @@
 namespace App\Actions\Admin;
 
 use App\Models\File;
+use App\Models\FileDirectory;
 use App\Models\User;
 use App\Support\Audit\SecurityActivityRecorder;
 use App\Support\FileUploadPolicy;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -26,7 +28,7 @@ class StoreFile
         private FileUploadPolicy $uploadPolicy,
     ) {}
 
-    public function handle(UploadedFile $file, User $actor): File
+    public function handle(UploadedFile $file, User $actor, ?FileDirectory $fileDirectory = null): File
     {
         $metadata = $this->uploadPolicy->inspect($file);
         $directory = 'files/'.now()->format('Y/m');
@@ -34,7 +36,7 @@ class StoreFile
         $path = $directory.'/'.$filename;
         $disk = self::DISK;
         $filesystem = $this->filesystems->disk($disk);
-        $fileRecord = $this->createPendingFile($file, $actor, $disk, $path, $metadata);
+        $fileRecord = $this->createPendingFile($file, $actor, $disk, $path, $metadata, $fileDirectory);
         $fileWasStored = false;
 
         try {
@@ -90,8 +92,14 @@ class StoreFile
         string $path,
         /** @var array{type: string, mime_type: string, extension: string, size: int, width: ?int, height: ?int} $metadata */
         array $metadata,
+        ?FileDirectory $fileDirectory,
     ): File {
-        return DB::transaction(function () use ($actor, $disk, $file, $metadata, $path): File {
+        return DB::transaction(function () use ($actor, $disk, $file, $metadata, $path, $fileDirectory): File {
+            if ($fileDirectory !== null && ! FileDirectory::query()->lockForUpdate()->find($fileDirectory->getKey())) {
+                throw ValidationException::withMessages([
+                    'directory_id' => ['The selected file directory no longer exists.'],
+                ]);
+            }
             $fileRecord = new File;
             $fileRecord->forceFill([
                 'name' => Str::limit($file->getClientOriginalName(), 255, ''),
@@ -104,6 +112,7 @@ class StoreFile
                 'width' => $metadata['width'],
                 'height' => $metadata['height'],
                 'status' => File::STATUS_PENDING,
+                'directory_id' => $fileDirectory?->getKey(),
                 'created_by' => $actor->getKey(),
             ])->save();
 

@@ -49,6 +49,7 @@ class AdminApiOpenApiContract
      * @var array<int, string>
      */
     private const PATCH_ALIAS_OPERATION_IDS = [
+        'admin.files.update',
         'admin.menus.update',
         'admin.roles.update',
         'admin.permissions.update',
@@ -76,6 +77,17 @@ class AdminApiOpenApiContract
             default => [],
         };
         $this->normalizeQueryParameterNames($operation, $queryParameterRenames);
+
+        if ($routeName === 'admin.files.index') {
+            foreach ($operation->parameters as $parameter) {
+                if ($parameter instanceof Parameter && $parameter->name === 'types[]') {
+                    $parameter->required = false;
+                    $parameter->setSchema(Schema::fromType(
+                        (new ArrayType)->setMax(5)->setItems((new StringType)->enum($this->fileUploadPolicy->types())),
+                    ));
+                }
+            }
+        }
 
         if ($routeName === 'admin.users.index') {
             $this->addUserPaginationParameters($operation);
@@ -418,6 +430,7 @@ class AdminApiOpenApiContract
     {
         $this->objectSchema($document, FileResource::class)
             ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('directory_id', (new IntegerType)->format('int64')->nullable(true))
             ->addProperty('name', new StringType)
             ->addProperty('type', (new StringType)->enum($this->fileUploadPolicy->types()))
             ->addProperty('mime_type', new StringType)
@@ -432,6 +445,7 @@ class AdminApiOpenApiContract
                 'id',
                 'name',
                 'type',
+                'directory_id',
                 'mime_type',
                 'extension',
                 'size',

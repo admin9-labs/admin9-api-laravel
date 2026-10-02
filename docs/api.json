@@ -307,6 +307,8 @@
         "/api/auth/refresh": {
             "post": {
                 "operationId": "member.auth.refresh",
+                "description": "Retries return the same replacement with its remaining expires_in and do not\nextend the replacement or session lifetime. Recovery ends on revocation or\nwhen the replacement is rotated.",
+                "summary": "Refresh a member token or recover its committed replacement within 30 seconds",
                 "tags": [
                     "Auth"
                 ],
@@ -628,6 +630,74 @@
                     },
                     "413": {
                         "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "429": {
+                        "$ref": "#/components/responses/ApiRateLimitResponse"
+                    }
+                }
+            }
+        },
+        "/api/auth/sessions": {
+            "delete": {
+                "operationId": "member.auth.sessions.destroy",
+                "tags": [
+                    "Auth"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
                     },
                     "429": {
                         "$ref": "#/components/responses/ApiRateLimitResponse"
@@ -2340,6 +2410,173 @@
                 }
             }
         },
+        "/api/admin/files/by-url": {
+            "put": {
+                "operationId": "admin.files.by-url.update",
+                "tags": [
+                    "File"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateFileByUrlRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "admin.files.by-url.destroy",
+                "tags": [
+                    "File"
+                ],
+                "parameters": [
+                    {
+                        "name": "url",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 2048
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "503": {
+                        "$ref": "#/components/responses/ApiFileDeleteFailedResponse"
+                    }
+                }
+            }
+        },
         "/api/admin/files": {
             "get": {
                 "operationId": "admin.files.index",
@@ -2390,6 +2627,38 @@
                                 "audio",
                                 "other"
                             ]
+                        }
+                    },
+                    {
+                        "name": "types[]",
+                        "in": "query",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "image",
+                                    "document",
+                                    "video",
+                                    "audio",
+                                    "other"
+                                ]
+                            },
+                            "maxItems": 5
+                        }
+                    },
+                    {
+                        "name": "ungrouped",
+                        "in": "query",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "directory_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
                         }
                     }
                 ],
@@ -2569,6 +2838,9 @@
                     "403": {
                         "$ref": "#/components/responses/ApiForbiddenResponse"
                     },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
                     "422": {
                         "$ref": "#/components/responses/ApiValidationErrorResponse"
                     },
@@ -2582,6 +2854,191 @@
             }
         },
         "/api/admin/files/{file}": {
+            "put": {
+                "operationId": "admin.files.update",
+                "tags": [
+                    "File"
+                ],
+                "parameters": [
+                    {
+                        "name": "file",
+                        "in": "path",
+                        "required": true,
+                        "description": "The file ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateFileRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "File"
+                ],
+                "parameters": [
+                    {
+                        "name": "file",
+                        "in": "path",
+                        "required": true,
+                        "description": "The file ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateFileRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            },
             "delete": {
                 "operationId": "admin.files.destroy",
                 "tags": [
@@ -2659,6 +3116,243 @@
                     },
                     "503": {
                         "$ref": "#/components/responses/ApiFileDeleteFailedResponse"
+                    }
+                }
+            }
+        },
+        "/api/admin/file-directories": {
+            "get": {
+                "operationId": "admin.file-directories.index",
+                "tags": [
+                    "FileDirectory"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Array of `FileDirectoryResource`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/FileDirectoryResource"
+                                            }
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    }
+                }
+            },
+            "post": {
+                "operationId": "admin.file-directories.store",
+                "tags": [
+                    "FileDirectory"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StoreFileDirectoryRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "directory": {
+                                                    "$ref": "#/components/schemas/FileDirectoryResource"
+                                                }
+                                            },
+                                            "required": [
+                                                "directory"
+                                            ]
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/responses/ApiValidationErrorResponse"
+                    },
+                    "413": {
+                        "$ref": "#/components/responses/ApiContentTooLargeResponse"
+                    }
+                }
+            }
+        },
+        "/api/admin/file-directories/{fileDirectory}": {
+            "delete": {
+                "operationId": "admin.file-directories.destroy",
+                "tags": [
+                    "FileDirectory"
+                ],
+                "parameters": [
+                    {
+                        "name": "fileDirectory",
+                        "in": "path",
+                        "required": true,
+                        "description": "The file directory ID",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "description": "Whether the request was successful"
+                                        },
+                                        "code": {
+                                            "type": "integer",
+                                            "description": "Business status code, 0 = success"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object"
+                                        },
+                                        "request_id": {
+                                            "type": "string",
+                                            "description": "UUID7 for request tracing"
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "code",
+                                        "message",
+                                        "data",
+                                        "request_id"
+                                    ]
+                                }
+                            }
+                        },
+                        "headers": {
+                            "X-Request-Id": {
+                                "description": "Request correlation identifier. Matches the response body request_id.",
+                                "schema": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "$ref": "#/components/responses/ApiServerErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/responses/ApiUnauthorizedResponse"
+                    },
+                    "403": {
+                        "$ref": "#/components/responses/ApiForbiddenResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/responses/ApiNotFoundResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/responses/ApiFileDirectoryConflictResponse"
                     }
                 }
             }
@@ -7382,11 +8076,55 @@
                 ],
                 "title": "DictionaryTypeResource"
             },
+            "FileDirectoryResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "parent_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "created_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "updated_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "id",
+                    "parent_id",
+                    "name",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "FileDirectoryResource"
+            },
             "FileResource": {
                 "type": "object",
                 "properties": {
                     "id": {
                         "type": "integer",
+                        "format": "int64"
+                    },
+                    "directory_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ],
                         "format": "int64"
                     },
                     "name": {
@@ -7445,6 +8183,7 @@
                 },
                 "required": [
                     "id",
+                    "directory_id",
                     "name",
                     "type",
                     "mime_type",
@@ -7952,6 +8691,25 @@
                 ],
                 "title": "StoreDictionaryTypeRequest"
             },
+            "StoreFileDirectoryRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 64
+                    },
+                    "parent_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "name"
+                ],
+                "title": "StoreFileDirectoryRequest"
+            },
             "StoreFileRequest": {
                 "type": "object",
                 "properties": {
@@ -7960,6 +8718,27 @@
                         "format": "binary",
                         "contentMediaType": "application/octet-stream",
                         "description": "Allowed formats: image (JPG, JPEG, PNG, WEBP, GIF; max 5 MiB); document (PDF, TXT, CSV; max 20 MiB); video (MP4; max 100 MiB); audio (MP3, WAV; max 20 MiB); other (ZIP; max 20 MiB). The filename extension, detected MIME type, and inspected structure must match."
+                    },
+                    "directory_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "allowed_types": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "enum": [
+                                "image",
+                                "document",
+                                "video",
+                                "audio",
+                                "other"
+                            ]
+                        },
+                        "minItems": 1,
+                        "maxItems": 5
                     }
                 },
                 "required": [
@@ -8627,6 +9406,41 @@
                     }
                 },
                 "title": "UpdateDictionaryTypeRequest"
+            },
+            "UpdateFileByUrlRequest": {
+                "type": "object",
+                "properties": {
+                    "directory_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    },
+                    "url": {
+                        "type": "string",
+                        "maxLength": 2048
+                    }
+                },
+                "required": [
+                    "directory_id",
+                    "url"
+                ],
+                "title": "UpdateFileByUrlRequest"
+            },
+            "UpdateFileRequest": {
+                "type": "object",
+                "properties": {
+                    "directory_id": {
+                        "type": [
+                            "integer",
+                            "null"
+                        ]
+                    }
+                },
+                "required": [
+                    "directory_id"
+                ],
+                "title": "UpdateFileRequest"
             },
             "UpdateMemberRequest": {
                 "type": "object",
@@ -9466,6 +10280,71 @@
                                     "type": "string",
                                     "enum": [
                                         "file_delete_failed"
+                                    ]
+                                }
+                            },
+                            "required": [
+                                "success",
+                                "code",
+                                "message",
+                                "data",
+                                "errors",
+                                "request_id",
+                                "error_code"
+                            ]
+                        }
+                    }
+                },
+                "headers": {
+                    "X-Request-Id": {
+                        "description": "Request correlation identifier. Matches the response body request_id.",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                }
+            },
+            "ApiFileDirectoryConflictResponse": {
+                "description": "Conflict",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "success": {
+                                    "type": "boolean",
+                                    "enum": [
+                                        false
+                                    ]
+                                },
+                                "code": {
+                                    "type": "integer",
+                                    "const": 409
+                                },
+                                "message": {
+                                    "type": "string"
+                                },
+                                "data": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "errors": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": false,
+                                    "maxProperties": 0
+                                },
+                                "request_id": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                },
+                                "error_code": {
+                                    "type": "string",
+                                    "enum": [
+                                        "file_directory_not_empty"
                                     ]
                                 }
                             },

@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Exceptions\FileDeleteFailedException;
+use App\Exceptions\FileDirectoryNotEmptyException;
 use App\Exceptions\ManagedSystemSettingException;
 use App\Support\Auth\AccountInactiveException;
 use App\Support\OpenApi\EmptyObjectType;
@@ -44,6 +45,7 @@ final class ApiErrorOpenApiContract
     {
         $responseReferences = $this->registerResponses($document);
         $fileDeleteFailedReference = $this->registerFileDeleteFailedResponse($document);
+        $fileDirectoryConflictReference = $this->registerConflictResponse($document, 'ApiFileDirectoryConflictResponse', FileDirectoryNotEmptyException::ERROR_CODE);
         $managedSystemSettingReference = $this->registerConflictResponse(
             $document,
             'ApiManagedSystemSettingConflictResponse',
@@ -106,7 +108,13 @@ final class ApiErrorOpenApiContract
                     $this->replaceResponse($operation, $responseCode, $responseReferences[$responseCode]);
                 }
 
-                if ($route->getName() === 'admin.files.destroy') {
+                if (in_array($route->getName(), ['admin.files.by-url.update', 'admin.files.by-url.destroy'], true)) {
+                    $this->replaceResponse($operation, Response::HTTP_NOT_FOUND, $responseReferences[Response::HTTP_NOT_FOUND]);
+                }
+                if ($route->getName() === 'admin.file-directories.destroy') {
+                    $this->replaceResponse($operation, Response::HTTP_CONFLICT, $fileDirectoryConflictReference);
+                }
+                if (in_array($route->getName(), ['admin.files.destroy', 'admin.files.by-url.destroy'], true)) {
                     $this->replaceResponse($operation, Response::HTTP_SERVICE_UNAVAILABLE, $fileDeleteFailedReference);
                 }
 

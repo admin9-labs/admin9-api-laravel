@@ -16,23 +16,28 @@ use Tests\TestCase;
 
 class OperationsConfigurationTest extends TestCase
 {
-    public function test_scheduler_registers_only_built_in_operations_commands(): void
+    public function test_scheduler_registers_framework_operations_and_file_recovery(): void
     {
         /** @var Schedule $schedule */
         $schedule = app(Schedule::class);
         $events = collect($schedule->events());
 
-        $this->assertCount(3, $events);
+        $this->assertCount(5, $events);
 
         $commands = $events->map(fn ($event) => $event->command)->all();
 
         $this->assertTrue(collect($commands)->contains(fn (string $command): bool => str_contains($command, 'queue:prune-failed --hours=168')));
         $this->assertTrue(collect($commands)->contains(fn (string $command): bool => str_contains($command, 'queue:prune-batches --hours=48 --unfinished=72 --cancelled=72')));
         $this->assertTrue(collect($commands)->contains(fn (string $command): bool => str_contains($command, "queue:monitor 'sync:default' --max=1000")));
+        $this->assertTrue(collect($commands)->contains(fn (string $command): bool => str_contains($command, 'files:recover-deletions')));
+        $this->assertTrue(collect($commands)->contains(fn (string $command): bool => str_contains($command, 'model:prune')
+            && str_contains($command, 'MemberAuthSession') && str_contains($command, 'MemberTokenRefresh')));
 
         $this->assertSame([
             '15 1 * * *',
             '30 1 * * *',
+            '*/5 * * * *',
+            '*/5 * * * *',
             '*/5 * * * *',
         ], $events->map(fn ($event) => $event->getExpression())->all());
 
@@ -119,6 +124,12 @@ class OperationsConfigurationTest extends TestCase
         $schedulerLogger->shouldReceive('warning')
             ->once()
             ->with('Failed to prune stale queue batch records');
+        $schedulerLogger->shouldReceive('warning')
+            ->once()
+            ->with('File deletion recovery failed');
+        $schedulerLogger->shouldReceive('warning')
+            ->once()
+            ->with('Member authentication pruning failed');
 
         $queueLogger = Mockery::mock(LoggerInterface::class);
         $queueLogger->shouldReceive('warning')
@@ -126,7 +137,7 @@ class OperationsConfigurationTest extends TestCase
             ->with('Queue monitor command failed');
 
         Log::shouldReceive('channel')
-            ->twice()
+            ->times(4)
             ->with('scheduler-operations')
             ->andReturn($schedulerLogger);
         Log::shouldReceive('channel')
@@ -245,7 +256,7 @@ class OperationsConfigurationTest extends TestCase
         $this->assertSame('@docs:api:check', $composer['scripts']['check'][0]);
         $this->assertSame([
             '@docs:api',
-            'git diff --exit-code -- docs/api.json',
+            'git diff --exit-code -- docs/api.json docs/admin-api.json docs/client-api.json',
         ], $composer['scripts']['docs:api:check']);
     }
 
@@ -299,6 +310,8 @@ class OperationsConfigurationTest extends TestCase
             'Prune stale failed queue job records',
             'Prune stale queue batch records',
             'Monitor configured queue backlog',
+            'Recover interrupted, previously authorized file deletions',
+            'Prune inactive member sessions and expired refresh results',
         ], $scheduled->pluck('description')->all());
     }
 
