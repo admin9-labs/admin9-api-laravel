@@ -284,7 +284,7 @@ class OperationsConfigurationTest extends TestCase
     {
         $workflow = (string) file_get_contents(base_path('.github/workflows/ci.yml'));
 
-        $this->assertSame("22.23.1\n", file_get_contents(base_path('.node-version')));
+        $this->assertSame("22.23.2\n", file_get_contents(base_path('.node-version')));
         $this->assertStringContainsString('node-version-file: .node-version', $workflow);
         $this->assertStringContainsString('npm ci --ignore-scripts', $workflow);
         $this->assertFileExists(base_path('package-lock.json'));
