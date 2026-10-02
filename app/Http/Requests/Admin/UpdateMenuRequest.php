@@ -45,7 +45,7 @@ class UpdateMenuRequest extends FormRequest
             'type' => ['sometimes', 'string', Rule::in(Menu::allowedTypes())],
             'permission_ids' => ['sometimes', 'array'],
             'permission_ids.*' => ['integer', 'distinct', Rule::exists(Permission::class, 'id')->where('guard_name', 'admin')],
-            'sort' => ['sometimes', 'integer', 'min:0'],
+            'sort' => ['sometimes', 'integer', 'min:0', 'max:4294967295'],
             'is_visible' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
         ];

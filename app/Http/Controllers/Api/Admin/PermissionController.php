@@ -51,6 +51,7 @@ class PermissionController extends Controller
             ]);
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+            DB::afterCommit(fn () => app(PermissionRegistrar::class)->forgetCachedPermissions());
 
             return $permission;
         });
@@ -81,6 +82,8 @@ class PermissionController extends Controller
         $validated = $request->validated();
 
         DB::transaction(function () use ($validated, $permission): void {
+            $permission = Permission::query()->whereKey($permission->getKey())->lockForUpdate()->firstOrFail();
+            $this->abortIfNotAdminGuard($permission);
             $old = $this->auditableAttributes($permission);
             $attributes = $this->permissionAttributes($validated, creating: false);
 
@@ -100,6 +103,7 @@ class PermissionController extends Controller
             ]);
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+            DB::afterCommit(fn () => app(PermissionRegistrar::class)->forgetCachedPermissions());
         });
 
         return $this->success([
@@ -140,6 +144,7 @@ class PermissionController extends Controller
                 $lockedPermission->delete();
                 $this->activityRecorder->record($lockedPermission, 'deleted', ['old' => $old]);
                 app(PermissionRegistrar::class)->forgetCachedPermissions();
+                DB::afterCommit(fn () => app(PermissionRegistrar::class)->forgetCachedPermissions());
 
                 return null;
             });

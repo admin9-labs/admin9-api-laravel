@@ -11,11 +11,12 @@ use App\Models\Permission;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\Audit\AdminActivityRecorder;
 use Closure;
-use Illuminate\Database\QueryException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Mitoop\Http\Exceptions\ClientSafeException;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleController extends Controller
 {
@@ -40,7 +41,7 @@ class RoleController extends Controller
         $permissions = $request->validated('permissions', []);
         $shouldSyncPermissions = $request->has('permissions');
 
-        $role = $this->runRoleWriteTransaction($permissions, function () use ($request, $permissions, $shouldSyncPermissions): Role {
+        $role = $this->runRoleWriteTransaction($permissions, function (Collection $permissions) use ($request, $shouldSyncPermissions): Role {
             $role = Role::query()->create([
                 'name' => $request->validated('name'),
                 'guard_name' => 'admin',
@@ -55,7 +56,7 @@ class RoleController extends Controller
                 'attributes' => [
                     'name' => $role->name,
                     'guard_name' => $role->guard_name,
-                    'permissions' => $permissions,
+                    'permissions' => $role->permissions->pluck('name')->values()->all(),
                 ],
             ]);
 
@@ -91,7 +92,8 @@ class RoleController extends Controller
         $permissions = $request->validated('permissions', []);
         $shouldSyncPermissions = $request->has('permissions');
 
-        $role = $this->runRoleWriteTransaction($permissions, function () use ($request, $role, $permissions, $shouldSyncPermissions): Role {
+        $role = $this->runRoleWriteTransaction($permissions, function (Collection $permissions) use ($request, $role, $shouldSyncPermissions): Role {
+            $role = $this->lockRoleForUpdate($role);
             $role->update($request->safe(['name']));
 
             if ($shouldSyncPermissions) {
@@ -103,7 +105,7 @@ class RoleController extends Controller
                 'attributes' => [
                     'name' => $role->name,
                     'guard_name' => $role->guard_name,
-                    'permissions' => $permissions,
+                    'permissions' => $role->permissions->pluck('name')->values()->all(),
                 ],
             ]);
 
@@ -123,7 +125,8 @@ class RoleController extends Controller
         /** @var array<int, string> $permissions */
         $permissions = $request->validated('permissions');
 
-        $role = $this->runRoleWriteTransaction($permissions, function () use ($permissions, $role): Role {
+        $role = $this->runRoleWriteTransaction($permissions, function (Collection $permissions) use ($role): Role {
+            $role = $this->lockRoleForUpdate($role);
             $role->syncPermissions($permissions);
             $role = $role->refresh()->load('permissions');
             $this->activityRecorder->record($role, 'permissions_synced', [
@@ -149,56 +152,52 @@ class RoleController extends Controller
         $this->abortIfReservedRole($role);
 
         DB::transaction(function () use ($role): void {
+            $role = $this->lockRoleForUpdate($role);
             $attributes = ['name' => $role->name, 'guard_name' => $role->guard_name];
             $role->delete();
             $this->activityRecorder->record($role, 'deleted', ['old' => $attributes]);
-        });
+            DB::afterCommit(fn () => app(PermissionRegistrar::class)->forgetCachedPermissions());
+        }, 3);
 
         return $this->success(message: 'deleted');
     }
 
     /**
      * @param  array<int, string>  $permissions
-     * @param  Closure(): Role  $callback
+     * @param  Closure(Collection<int, Permission>): Role  $callback
      */
     private function runRoleWriteTransaction(array $permissions, Closure $callback): Role
     {
-        try {
-            return DB::transaction($callback);
-        } catch (QueryException $exception) {
-            if ($this->isConcurrentPermissionDeletion($exception, $permissions)) {
+        return DB::transaction(function () use ($permissions, $callback): Role {
+            $selectedPermissions = Permission::query()
+                ->admin()
+                ->whereIn('name', $permissions)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($selectedPermissions->count() !== count(array_unique($permissions))) {
                 throw new ClientSafeException(
                     'One or more selected permissions no longer exist.',
-                    $exception,
+                    null,
                     422,
                 );
             }
 
-            throw $exception;
-        }
+            $role = $callback($selectedPermissions);
+            DB::afterCommit(fn () => app(PermissionRegistrar::class)->forgetCachedPermissions());
+
+            return $role;
+        }, 3);
     }
 
-    /**
-     * @param  array<int, string>  $permissions
-     */
-    private function isConcurrentPermissionDeletion(QueryException $exception, array $permissions): bool
+    private function lockRoleForUpdate(Role $role): Role
     {
-        $rolePermissionTable = config('permission.table_names.role_has_permissions');
+        $role = Role::query()->whereKey($role->getKey())->lockForUpdate()->firstOrFail();
+        $this->abortIfNotAdminGuard($role);
+        $this->abortIfReservedRole($role);
 
-        if (($exception->errorInfo[0] ?? null) !== '23000'
-            || (int) ($exception->errorInfo[1] ?? 0) !== 1452
-            || ! is_string($rolePermissionTable)
-            || $rolePermissionTable === ''
-            || ! str_contains($exception->getSql(), $rolePermissionTable)) {
-            return false;
-        }
-
-        $permissions = array_values(array_unique($permissions));
-
-        return $permissions !== [] && Permission::query()
-            ->admin()
-            ->whereIn('name', $permissions)
-            ->count() !== count($permissions);
+        return $role;
     }
 
     private function abortIfNotAdminGuard(Role $role): void

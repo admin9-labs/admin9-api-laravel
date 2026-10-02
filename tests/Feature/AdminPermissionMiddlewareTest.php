@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
 use Tests\TestCase;
 
@@ -136,6 +137,31 @@ class AdminPermissionMiddlewareTest extends TestCase
         $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
             ->assertOk()
             ->assertJsonPath('success', true);
+    }
+
+    public function test_a_late_permission_cache_write_cannot_restore_a_revoked_role_grant(): void
+    {
+        $permission = $this->createAdminPermission('system.role.view');
+        $role = Role::findOrCreate('late-cache-reader', 'admin');
+        $role->givePermissionTo($permission);
+        $user = User::factory()->create();
+        $user->assignRole($role);
+        $token = $this->adminTokenFor($user);
+        $managerToken = $this->managerTokenFor(['system.role.update']);
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->getPermissions();
+        $oldCache = $registrar->getCacheRepository()->get($registrar->cacheKey);
+
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])->assertOk();
+        $this->putJson(ApiRouting::path('/admin/roles/').$role->id.'/permissions', [
+            'permissions' => [],
+        ], ['Authorization' => 'Bearer '.$managerToken])->assertOk();
+
+        $registrar->getCacheRepository()->put($registrar->cacheKey, $oldCache, 60);
+        $registrar->clearPermissionsCollection();
+
+        $this->getJson(ApiRouting::path('/admin/roles'), ['Authorization' => 'Bearer '.$token])
+            ->assertForbidden();
     }
 
     public function test_inactive_permission_denies_regular_admin_even_when_assigned(): void

@@ -57,6 +57,7 @@ This checklist is intentionally command/process oriented and does not contain se
    - Run `php artisan db:seed --force` after migrations to create the required roles, permissions, and menus. This does not create an administrator outside local or testing environments.
    - On the first production deployment, run `php artisan admin:create` from a trusted interactive terminal after seeding. It creates the first super administrator and displays the generated temporary password once.
    - When `MEDIA_DISK=public`, run `php artisan storage:link --force`; remote disks provide their own URL and do not use this link.
+   - Re-running `AdminRbacSeeder` restores built-in permission definitions and enabled states, and replaces the reserved `system-admin` role's permissions with the built-in set. Use a separate role for project-specific grants.
    - Treat deployed migrations as immutable; add forward migrations for schema changes.
 4. **Cache framework metadata**
    - Run `php artisan config:cache` after production environment variables are present.

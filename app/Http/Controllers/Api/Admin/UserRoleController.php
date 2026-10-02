@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Role;
 
 class UserRoleController extends Controller
 {
@@ -25,6 +26,20 @@ class UserRoleController extends Controller
         $user = DB::transaction(function () use ($actor, $roles, $user): User {
             $activeSuperAdminIds = ReservedAdminRole::activeSuperAdminIdsForUpdate();
             $user = ReservedAdminRole::lockUserForUpdate($user);
+            $selectedRoles = Role::query()
+                ->where('guard_name', 'admin')
+                ->whereIn('name', $roles)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            if ($selectedRoles->count() !== count(array_unique($roles))) {
+                throw ValidationException::withMessages([
+                    'roles' => ['One or more selected roles are unavailable or duplicated.'],
+                ]);
+            }
+
+            $roles = $selectedRoles->pluck('name')->all();
 
             if (! $actor instanceof User || ! ReservedAdminRole::userIsSuperAdmin($actor)) {
                 if (ReservedAdminRole::userHasReservedRole($user)) {
@@ -37,7 +52,7 @@ class UserRoleController extends Controller
             }
 
             $this->assertLastSuperAdminKeepsRole($user, $roles, $activeSuperAdminIds);
-            $user->syncRoles($roles);
+            $user->syncRoles($selectedRoles);
             $user = $user->refresh()->load('roles');
             $this->activityRecorder->record($user, 'roles_synced', [
                 'attributes' => [

@@ -2,12 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Http\Requests\Admin\UpdatePermissionRequest;
 use App\Models\Menu;
 use App\Models\User;
 use App\Support\ApiRouting;
+use Illuminate\Cache\Events\KeyForgotten;
 use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
 use Tests\TestCase;
 
@@ -155,6 +160,72 @@ class AdminPermissionManagementTest extends TestCase
             ->assertStatus(403)
             ->assertJsonPath('success', false)
             ->assertJsonPath('code', 403);
+    }
+
+    public function test_permission_rename_clears_cache_repopulated_before_commit(): void
+    {
+        $permission = $this->createPermission('dynamic.before-rename');
+        $user = User::factory()->create();
+        $user->givePermissionTo($permission);
+        $token = $this->managerTokenFor(['system.permission.update']);
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->getPermissions();
+        $oldCache = $registrar->getCacheRepository()->get($registrar->cacheKey);
+        $testTransactionLevel = DB::transactionLevel();
+        $repopulated = false;
+
+        Event::listen(KeyForgotten::class, function (KeyForgotten $event) use ($registrar, $oldCache, $testTransactionLevel, &$repopulated): void {
+            if ($event->key === $registrar->cacheKey && DB::transactionLevel() > $testTransactionLevel) {
+                $registrar->getCacheRepository()->put($registrar->cacheKey, $oldCache, 60);
+                $repopulated = true;
+            }
+        });
+
+        $this->putJson(ApiRouting::path("/admin/permissions/{$permission->id}"), [
+            'name' => 'dynamic.after-rename',
+        ], ['Authorization' => 'Bearer '.$token])->assertOk();
+
+        $this->assertTrue($repopulated);
+        $registrar->clearPermissionsCollection();
+        $this->assertFalse($user->fresh()->checkPermissionTo('dynamic.before-rename'));
+        $this->assertTrue($user->fresh()->checkPermissionTo('dynamic.after-rename'));
+    }
+
+    public function test_permission_sort_stays_within_its_database_integer_range(): void
+    {
+        $permission = $this->createPermission('dynamic.sort-range');
+        $token = $this->managerTokenFor(['system.permission.create', 'system.permission.update']);
+        $headers = ['Authorization' => 'Bearer '.$token];
+
+        $this->postJson(ApiRouting::path('/admin/permissions'), [
+            'name' => 'dynamic.sort-overflow',
+            'sort' => 4294967296,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+
+        $this->putJson(ApiRouting::path("/admin/permissions/{$permission->id}"), [
+            'sort' => 4294967296,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+
+        $this->putJson(ApiRouting::path("/admin/permissions/{$permission->id}"), [
+            'sort' => 4294967295,
+        ], $headers)->assertOk()->assertJsonPath('data.permission.sort', 4294967295);
+    }
+
+    public function test_permission_update_uses_current_values_after_validation(): void
+    {
+        $permission = $this->createPermission('dynamic.concurrent.metadata', ['display_name' => 'Original']);
+        $token = $this->managerTokenFor(['system.permission.update']);
+        $this->app->afterResolving(UpdatePermissionRequest::class, function () use ($permission): void {
+            Permission::query()->whereKey($permission->id)->update(['display_name' => 'Concurrent']);
+        });
+
+        $this->putJson(ApiRouting::path("/admin/permissions/{$permission->id}"), [
+            'display_name' => 'Original',
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertOk()
+            ->assertJsonPath('data.permission.display_name', 'Original');
+
+        $this->assertSame('Original', $permission->refresh()->display_name);
     }
 
     public function test_duplicate_admin_permission_name_returns_validation_error(): void

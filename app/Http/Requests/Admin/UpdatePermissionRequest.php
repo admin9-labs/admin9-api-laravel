@@ -30,7 +30,7 @@ class UpdatePermissionRequest extends FormRequest
             'display_name' => ['nullable', 'string', 'max:125'],
             'group' => ['nullable', 'string', 'max:125'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'sort' => ['sometimes', 'integer', 'min:0'],
+            'sort' => ['sometimes', 'integer', 'min:0', 'max:4294967295'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

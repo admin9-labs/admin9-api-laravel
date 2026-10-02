@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Http\Requests\Admin\StoreMenuRequest;
+use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Models\Menu;
 use App\Models\User;
 use App\Support\ApiRouting;
@@ -180,6 +182,47 @@ class AdminMenuPermissionTest extends TestCase
             ->assertJsonPath('data.menu.permissions', []);
 
         $this->assertFalse(Menu::query()->findOrFail($unrestricted->json('data.menu.id'))->permissions()->exists());
+    }
+
+    public function test_menu_creation_rejects_a_permission_deleted_after_validation(): void
+    {
+        $permission = $this->createAdminPermission('dynamic.menu.deleted-create');
+        $token = $this->managerTokenFor(['system.menu.create']);
+        $this->app->afterResolving(StoreMenuRequest::class, function () use ($permission): void {
+            $permission->delete();
+        });
+
+        $this->postJson(ApiRouting::path('/admin/menus'), [
+            'name' => 'Concurrent Missing Permission',
+            'code' => 'concurrent-missing-permission',
+            'type' => Menu::TYPE_DIRECTORY,
+            'permission_ids' => [$permission->id],
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('permission_ids');
+
+        $this->assertDatabaseMissing('menus', ['code' => 'concurrent-missing-permission']);
+    }
+
+    public function test_menu_update_preserves_bindings_when_a_selected_permission_was_deleted_after_validation(): void
+    {
+        $oldPermission = $this->createAdminPermission('dynamic.menu.retained');
+        $deletedPermission = $this->createAdminPermission('dynamic.menu.deleted-update');
+        $menu = $this->createMenu(['code' => 'concurrent-menu-update'], [$oldPermission]);
+        $token = $this->managerTokenFor(['system.menu.update']);
+        $this->app->afterResolving(UpdateMenuRequest::class, function () use ($deletedPermission): void {
+            $deletedPermission->delete();
+        });
+
+        $this->putJson(ApiRouting::path("/admin/menus/{$menu->id}"), [
+            'name' => 'Must Roll Back',
+            'permission_ids' => [$deletedPermission->id],
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('permission_ids');
+
+        $this->assertNotSame('Must Roll Back', $menu->refresh()->name);
+        $this->assertSame([$oldPermission->id], $menu->permissions()->pluck('permissions.id')->all());
     }
 
     public function test_menu_update_omission_preserves_permissions_and_explicit_empty_array_unbinds(): void
@@ -537,6 +580,67 @@ class AdminMenuPermissionTest extends TestCase
 
         $this->assertContains('query-budget.child.5', $this->menuCodes(collect($response->json('data'))));
         $this->assertLessThanOrEqual(2, $permissionSelects);
+    }
+
+    public function test_role_authorized_menu_queries_do_not_grow_with_distinct_permissions(): void
+    {
+        $root = Menu::factory()->directory()->create(['code' => 'role-query-budget']);
+        $role = Role::findOrCreate('menu-query-reader', 'admin');
+        $user = User::factory()->create();
+        $user->assignRole($role);
+        $token = $this->adminTokenFor($user);
+        $queryCounts = [];
+
+        foreach (range(1, 20) as $number) {
+            $permission = $this->createAdminPermission("query.menu.{$number}");
+            $role->givePermissionTo($permission);
+            $this->createMenu([
+                'parent_id' => $root->id,
+                'code' => "role-query-budget.{$number}",
+                'type' => Menu::TYPE_PAGE,
+            ], [$permission]);
+
+            if (! in_array($number, [1, 20], true)) {
+                continue;
+            }
+
+            DB::enableQueryLog();
+            DB::flushQueryLog();
+
+            try {
+                $this->getJson(ApiRouting::path('/admin/menus/tree'), ['Authorization' => 'Bearer '.$token])
+                    ->assertOk()
+                    ->assertJsonCount($number, 'data.0.children');
+                $queryCounts[$number] = count(DB::getQueryLog());
+            } finally {
+                DB::disableQueryLog();
+                DB::flushQueryLog();
+            }
+        }
+
+        $this->assertSame($queryCounts[1], $queryCounts[20], json_encode($queryCounts, JSON_THROW_ON_ERROR));
+    }
+
+    public function test_menu_sort_stays_within_its_database_integer_range(): void
+    {
+        $menu = Menu::factory()->directory()->create();
+        $token = $this->managerTokenFor(['system.menu.create', 'system.menu.update']);
+        $headers = ['Authorization' => 'Bearer '.$token];
+
+        $this->postJson(ApiRouting::path('/admin/menus'), [
+            'name' => 'Overflow Sort',
+            'code' => 'overflow-sort',
+            'type' => Menu::TYPE_DIRECTORY,
+            'sort' => 4294967296,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+
+        $this->putJson(ApiRouting::path("/admin/menus/{$menu->id}"), [
+            'sort' => 4294967296,
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('sort');
+
+        $this->putJson(ApiRouting::path("/admin/menus/{$menu->id}"), [
+            'sort' => 4294967295,
+        ], $headers)->assertOk()->assertJsonPath('data.menu.sort', 4294967295);
     }
 
     public function test_hidden_menu_is_not_an_authorization_boundary(): void

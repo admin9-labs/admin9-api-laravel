@@ -76,6 +76,28 @@ class AdminSuperAdminConcurrencyTest extends TestCase
         }
     }
 
+    public function test_case_insensitive_reserved_role_names_cannot_elevate_an_ordinary_admin(): void
+    {
+        $this->resetDatabase();
+        $this->createPermission('system.user.assign-role');
+        $this->createSuperAdmin('canonical-super-admin@example.com');
+        Role::findOrCreate('system-admin', 'admin');
+        $manager = User::factory()->create();
+        $manager->givePermissionTo('system.user.assign-role');
+        $target = User::factory()->create();
+        $token = $this->tokenFor($manager);
+
+        foreach (['SUPER-ADMIN', 'SYSTEM-ADMIN', 'súper-admin'] as $roleName) {
+            $this->putJson(ApiRouting::path("/admin/users/{$target->id}/roles"), [
+                'roles' => [$roleName],
+            ], ['Authorization' => 'Bearer '.$token])
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('roles');
+
+            $this->assertFalse($target->refresh()->roles()->exists());
+        }
+    }
+
     public function test_concurrent_deletes_preserve_an_active_super_admin(): void
     {
         foreach (range(1, $this->rounds()) as $round) {
@@ -173,6 +195,64 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 'model_type' => User::class,
             ]);
         }
+    }
+
+    public function test_concurrent_permission_syncs_preserve_one_complete_role_assignment(): void
+    {
+        foreach (range(1, $this->rounds()) as $round) {
+            $this->resetDatabase();
+            $this->createPermission('system.role.update');
+            $firstPermission = $this->createPermission('dynamic.concurrent.first');
+            $secondPermission = $this->createPermission('dynamic.concurrent.second');
+            $role = Role::findOrCreate('concurrent-empty-role', 'admin');
+            $manager = User::factory()->create();
+            $manager->givePermissionTo('system.role.update');
+            $token = $this->tokenFor($manager);
+
+            $results = $this->raceRequests(
+                scenario: "role-sync-round-{$round}",
+                targetIds: [$manager->id],
+                requests: [
+                    $this->request('PUT', ApiRouting::path("/admin/roles/{$role->id}/permissions"), $token, [
+                        'permissions' => [$firstPermission->name],
+                    ]),
+                    $this->request('PUT', ApiRouting::path("/admin/roles/{$role->id}/permissions"), $token, [
+                        'permissions' => [$secondPermission->name],
+                    ]),
+                ],
+                role: $role,
+            );
+
+            $this->assertSame([200, 200], array_column($results, 'status'), json_encode($results, JSON_THROW_ON_ERROR));
+            $permissionNames = $role->refresh()->permissions()->pluck('name')->all();
+            $this->assertCount(1, $permissionNames);
+            $this->assertContains($permissionNames[0], [$firstPermission->name, $secondPermission->name]);
+        }
+    }
+
+    public function test_role_writes_resolve_permissions_using_database_name_comparison(): void
+    {
+        $this->resetDatabase();
+        $this->createPermission('system.role.create');
+        $this->createPermission('system.role.update');
+        $permission = $this->createPermission('dynamic.canonical.view');
+        $manager = User::factory()->create();
+        $manager->givePermissionTo(['system.role.create', 'system.role.update']);
+        $headers = ['Authorization' => 'Bearer '.$this->tokenFor($manager)];
+
+        $created = $this->postJson(ApiRouting::path('/admin/roles'), [
+            'name' => 'canonical-permission-role',
+            'permissions' => ['DYNAMIC.CANONICAL.VIEW'],
+        ], $headers)->assertOk()->assertJsonPath('data.role.permissions.0.name', $permission->name);
+        $roleId = $created->json('data.role.id');
+
+        $this->putJson(ApiRouting::path("/admin/roles/{$roleId}/permissions"), [
+            'permissions' => ['DYNAMIC.CANONICAL.VIEW'],
+        ], $headers)->assertOk()->assertJsonPath('data.role.permissions.0.name', $permission->name);
+
+        $this->patchJson(ApiRouting::path("/admin/roles/{$roleId}"), [
+            'permissions' => ['DYNAMIC.CANONICAL.VIEW'],
+        ], $headers)->assertOk()->assertJsonPath('data.role.permissions.0.name', $permission->name);
     }
 
     public function test_permission_deletion_serializes_concurrent_role_update(): void
@@ -541,10 +621,7 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 ...$assignmentConnectionIds,
             ]));
             $this->waitForLockWaits(DB::connection(), $assignmentConnectionIds, $assignmentProcesses);
-            $this->assertSame(
-                [$deleteConnectionId, $deleteConnectionId],
-                $this->permissionBlockingConnectionIds(DB::connection(), $assignmentConnectionIds),
-            );
+            $this->assertPermissionDeletionBlocksAssignments(DB::connection(), $assignmentConnectionIds, $deleteConnectionId);
 
             $this->assertNotFalse(file_put_contents($releaseFile, 'release', LOCK_EX));
 
@@ -605,7 +682,7 @@ class AdminSuperAdminConcurrencyTest extends TestCase
      * @param  array<int, array{method: string, uri: string, token: string, payload: array<string, mixed>}>  $requests
      * @return array<int, array{status: int, body: array<string, mixed>, connection_id: int}>
      */
-    private function raceRequests(string $scenario, array $targetIds, array $requests): array
+    private function raceRequests(string $scenario, array $targetIds, array $requests, ?Role $role = null): array
     {
         $connection = DB::connection();
         $temporaryDirectory = $this->createTemporaryDirectory($scenario);
@@ -622,7 +699,11 @@ class AdminSuperAdminConcurrencyTest extends TestCase
                 ->all());
 
             $lockedRole = Role::query()
-                ->where('name', ReservedAdminRole::SUPER_ADMIN)
+                ->when(
+                    $role instanceof Role,
+                    fn ($query) => $query->whereKey($role->getKey()),
+                    fn ($query) => $query->where('name', ReservedAdminRole::SUPER_ADMIN),
+                )
                 ->where('guard_name', 'admin')
                 ->lockForUpdate()
                 ->first(['id']);
@@ -921,11 +1002,26 @@ class AdminSuperAdminConcurrencyTest extends TestCase
 
     /**
      * @param  array<int, int>  $workerConnectionIds
-     * @return array<int, int>
      */
-    private function permissionBlockingConnectionIds(Connection $connection, array $workerConnectionIds): array
+    private function assertPermissionDeletionBlocksAssignments(Connection $connection, array $workerConnectionIds, int $deleteConnectionId): void
     {
-        return $this->blockingConnectionIds($connection, 'permissions', $workerConnectionIds);
+        $edges = $this->blockingConnectionEdges($connection, 'permissions', $workerConnectionIds);
+        $blockedConnections = [$deleteConnectionId];
+
+        do {
+            $previousCount = count($blockedConnections);
+
+            foreach ($edges as $edge) {
+                if (in_array($edge['blocking_connection_id'], $blockedConnections, true)
+                    && ! in_array($edge['requesting_connection_id'], $blockedConnections, true)) {
+                    $blockedConnections[] = $edge['requesting_connection_id'];
+                }
+            }
+        } while (count($blockedConnections) !== $previousCount);
+
+        foreach ($workerConnectionIds as $workerConnectionId) {
+            $this->assertContains($workerConnectionId, $blockedConnections, json_encode($edges, JSON_THROW_ON_ERROR));
+        }
     }
 
     /**
@@ -934,11 +1030,20 @@ class AdminSuperAdminConcurrencyTest extends TestCase
      */
     private function blockingConnectionIds(Connection $connection, string $table, array $workerConnectionIds): array
     {
+        return array_column($this->blockingConnectionEdges($connection, $table, $workerConnectionIds), 'blocking_connection_id');
+    }
+
+    /**
+     * @param  array<int, int>  $workerConnectionIds
+     * @return array<int, array{requesting_connection_id: int, blocking_connection_id: int}>
+     */
+    private function blockingConnectionEdges(Connection $connection, string $table, array $workerConnectionIds): array
+    {
         $rows = $connection->select(
             <<<'SQL'
                 select distinct
                     requesting_thread.processlist_id as requesting_connection_id,
-                    blocking_thread.processlist_id as connection_id
+                    blocking_thread.processlist_id as blocking_connection_id
                 from performance_schema.data_lock_waits as lock_wait
                 inner join performance_schema.data_locks as requesting_lock
                     on requesting_lock.engine_lock_id = lock_wait.requesting_engine_lock_id
@@ -956,7 +1061,10 @@ class AdminSuperAdminConcurrencyTest extends TestCase
         );
 
         return array_map(
-            fn (object $row): int => (int) $row->connection_id,
+            fn (object $row): array => [
+                'requesting_connection_id' => (int) $row->requesting_connection_id,
+                'blocking_connection_id' => (int) $row->blocking_connection_id,
+            ],
             $rows,
         );
     }

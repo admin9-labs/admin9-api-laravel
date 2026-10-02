@@ -16,6 +16,8 @@ use Spatie\Permission\Contracts\Permission as PermissionContract;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Spatie\Permission\Traits\HasRoles;
 
+use function Illuminate\Support\enum_value;
+
 #[Fillable(['name', 'email', 'password', 'is_active', 'last_login_at', 'last_login_ip'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
@@ -67,7 +69,7 @@ class User extends Authenticatable implements JWTSubject
      */
     public function hasPermissionTo($permission, ?string $guardName = null): bool
     {
-        $permission = $this->filterPermission($permission, $guardName);
+        $permission = $this->permissionForAuthorization($permission, $guardName);
 
         if (! (bool) $permission->getAttribute('is_active')) {
             return false;
@@ -90,7 +92,7 @@ class User extends Authenticatable implements JWTSubject
 
     public function hasDirectPermission($permission): bool
     {
-        $permission = $this->filterPermission($permission);
+        $permission = $this->permissionForAuthorization($permission);
 
         if (! (bool) $permission->getAttribute('is_active')) {
             return false;
@@ -98,5 +100,24 @@ class User extends Authenticatable implements JWTSubject
 
         return $this->loadMissing('permissions')->permissions
             ->contains($permission->getKeyName(), $permission->getKey());
+    }
+
+    private function permissionForAuthorization(mixed $permission, ?string $guardName = null): PermissionContract
+    {
+        if ($permission instanceof PermissionContract) {
+            return $permission;
+        }
+
+        $permission = enum_value($permission);
+        $query = Permission::query()->where('guard_name', $guardName ?? $this->getDefaultGuardName());
+        $resolved = (is_int($permission) ? $query->whereKey($permission) : $query->where('name', $permission))
+            ->with('roles')
+            ->first();
+
+        if ($resolved === null) {
+            throw new PermissionDoesNotExist;
+        }
+
+        return $resolved;
     }
 }

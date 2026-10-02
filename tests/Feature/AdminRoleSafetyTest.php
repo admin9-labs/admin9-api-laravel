@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Http\Requests\Admin\SyncRolePermissionsRequest;
+use App\Http\Requests\Admin\SyncUserRolesRequest;
 use App\Models\User;
 use App\Support\ApiRouting;
 use App\Support\Audit\AdminActivityRecorder;
@@ -11,6 +13,7 @@ use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\Feature\Concerns\InteractsWithAdminRbac;
 use Tests\TestCase;
 
@@ -240,6 +243,67 @@ class AdminRoleSafetyTest extends TestCase
         $this->assertFalse($targetSuperAdmin->refresh()->hasRole('super-admin'));
     }
 
+    public function test_role_name_update_audits_the_permissions_that_remain_assigned(): void
+    {
+        $permission = $this->createPermission('dynamic.retained.view');
+        $role = Role::findOrCreate('retained-role', 'admin');
+        $role->givePermissionTo($permission);
+        $token = $this->managerTokenFor(['system.role.update']);
+
+        $this->putJson(ApiRouting::path("/admin/roles/{$role->id}"), [
+            'name' => 'renamed-retained-role',
+        ], ['Authorization' => 'Bearer '.$token])->assertOk();
+
+        $activity = Activity::query()
+            ->where('subject_type', $role->getMorphClass())
+            ->where('subject_id', $role->id)
+            ->where('event', 'updated')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame([$permission->name], $activity->properties->get('attributes')['permissions']);
+    }
+
+    public function test_role_sync_rejects_permission_deleted_after_validation_without_losing_old_permissions(): void
+    {
+        $oldPermission = $this->createPermission('dynamic.retained.permission');
+        $deletedPermission = $this->createPermission('dynamic.deleted.permission');
+        $role = Role::findOrCreate('permission-delete-race', 'admin');
+        $role->givePermissionTo($oldPermission);
+        $token = $this->managerTokenFor(['system.role.update']);
+        $this->app->afterResolving(SyncRolePermissionsRequest::class, function () use ($deletedPermission): void {
+            $deletedPermission->delete();
+        });
+
+        $this->putJson(ApiRouting::path("/admin/roles/{$role->id}/permissions"), [
+            'permissions' => [$deletedPermission->name],
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'One or more selected permissions no longer exist.');
+
+        $this->assertSame([$oldPermission->name], $this->rolePermissionNames($role));
+    }
+
+    public function test_user_role_sync_rejects_role_deleted_after_validation_without_losing_old_roles(): void
+    {
+        $oldRole = Role::findOrCreate('retained-user-role', 'admin');
+        $deletedRole = Role::findOrCreate('deleted-user-role', 'admin');
+        $user = User::factory()->create();
+        $user->assignRole($oldRole);
+        $token = $this->managerTokenFor(['system.user.assign-role']);
+        $this->app->afterResolving(SyncUserRolesRequest::class, function () use ($deletedRole): void {
+            $deletedRole->delete();
+        });
+
+        $this->putJson(ApiRouting::path("/admin/users/{$user->id}/roles"), [
+            'roles' => [$deletedRole->name],
+        ], ['Authorization' => 'Bearer '.$token])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('roles');
+
+        $this->assertSame([$oldRole->name], $this->userRoleNames($user));
+    }
+
     public function test_role_creation_rolls_back_when_activity_recording_fails(): void
     {
         $this->createPermission('system.role.create', ['is_system' => true]);
@@ -258,6 +322,42 @@ class AdminRoleSafetyTest extends TestCase
             'name' => 'rollback-created-role',
             'guard_name' => 'admin',
         ]);
+    }
+
+    public function test_role_permission_revocation_clears_cache_repopulated_before_commit(): void
+    {
+        $this->seedRoleManagementPermissions();
+        $permission = $this->createPermission('dynamic.revoked.view');
+        $role = Role::findOrCreate('revoked-role', 'admin');
+        $role->givePermissionTo($permission);
+        $user = User::factory()->create();
+        $user->assignRole($role);
+        $token = $this->managerTokenFor(['system.role.update']);
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->getPermissions();
+        $oldCache = $registrar->getCacheRepository()->get($registrar->cacheKey);
+        $this->assertTrue($user->checkPermissionTo($permission->name));
+
+        $this->app->instance(AdminActivityRecorder::class, new class($oldCache) extends AdminActivityRecorder
+        {
+            public function __construct(private mixed $oldCache) {}
+
+            public function record(Model $subject, string $event, array $properties = []): ?Activity
+            {
+                $activity = parent::record($subject, $event, $properties);
+                $registrar = app(PermissionRegistrar::class);
+                $registrar->getCacheRepository()->put($registrar->cacheKey, $this->oldCache, 60);
+
+                return $activity;
+            }
+        });
+
+        $this->putJson(ApiRouting::path("/admin/roles/{$role->id}/permissions"), [
+            'permissions' => [],
+        ], ['Authorization' => 'Bearer '.$token])->assertOk();
+
+        $registrar->clearPermissionsCollection();
+        $this->assertFalse($user->fresh()->checkPermissionTo($permission->name));
     }
 
     public function test_role_update_rolls_back_when_activity_recording_fails(): void

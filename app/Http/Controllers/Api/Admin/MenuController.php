@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreMenuRequest;
 use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\MenuResource;
 use App\Models\Menu;
+use App\Models\Permission;
 use App\Support\Admin\AdminPermissionChecker;
 use App\Support\Admin\MenuHierarchyValidator;
 use App\Support\Audit\AdminActivityRecorder;
@@ -46,7 +47,7 @@ class MenuController extends Controller
             ->visible()
             ->navigation()
             ->ordered()
-            ->with('permissions')
+            ->with('permissions.roles')
             ->get();
         $user = $request->user('admin');
 
@@ -87,7 +88,7 @@ class MenuController extends Controller
             );
 
             $menu = Menu::query()->create($validated);
-            $menu->permissions()->sync($permissionIds);
+            $this->syncPermissions($menu, $permissionIds);
             $menu->load('permissions');
 
             if ($permissionIds !== []) {
@@ -151,7 +152,7 @@ class MenuController extends Controller
             $menu->update($validated);
 
             if ($shouldSyncPermissions) {
-                $menu->permissions()->sync($permissionIds);
+                $this->syncPermissions($menu, $permissionIds);
                 $menu->load('permissions');
 
                 if ($oldPermissions !== $this->permissionAuditSnapshot($menu)) {
@@ -254,6 +255,29 @@ class MenuController extends Controller
         }
 
         return $user !== null && $this->permissionChecker->canAccessAnyPermission($user, $menu->permissions);
+    }
+
+    /**
+     * @param  array<int, int>  $permissionIds
+     */
+    private function syncPermissions(Menu $menu, array $permissionIds): void
+    {
+        if ($permissionIds !== []) {
+            $permissions = Permission::query()
+                ->admin()
+                ->whereKey($permissionIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id']);
+
+            if ($permissions->count() !== count($permissionIds)) {
+                throw ValidationException::withMessages([
+                    'permission_ids' => ['One or more selected permissions no longer exist.'],
+                ]);
+            }
+        }
+
+        $menu->permissions()->sync($permissionIds);
     }
 
     /**
