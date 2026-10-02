@@ -9,6 +9,8 @@ class TestingDatabaseIsolationTest extends TestCase
 {
     private const PHPUNIT_ENVIRONMENT_PROBE = 'ADMIN9_PHPUNIT_ENVIRONMENT_PROBE';
 
+    private const PHPUNIT_CACHED_ENVIRONMENT_PROBE = 'ADMIN9_PHPUNIT_CACHED_ENVIRONMENT_PROBE';
+
     public function test_artisan_accepts_an_isolated_in_memory_database_in_the_testing_environment(): void
     {
         $process = $this->artisanProcess([
@@ -114,6 +116,96 @@ class TestingDatabaseIsolationTest extends TestCase
         $process->run();
 
         $this->assertTrue($process->isSuccessful(), $process->getOutput().$process->getErrorOutput());
+    }
+
+    public function test_phpunit_refuses_cached_non_testing_configuration_before_running_tests(): void
+    {
+        if (getenv(self::PHPUNIT_CACHED_ENVIRONMENT_PROBE) === '1') {
+            $this->fail('Non-testing cached configuration reached the test body.');
+        }
+
+        $cache = $this->cachedConfiguration('local');
+
+        try {
+            $process = new Process([
+                PHP_BINARY, 'vendor/bin/phpunit', '--configuration=phpunit.xml', '--do-not-cache-result',
+                '--filter='.__FUNCTION__, __FILE__,
+            ], base_path(), [
+                self::PHPUNIT_CACHED_ENVIRONMENT_PROBE => '1', 'APP_CONFIG_CACHE' => $cache,
+            ]);
+            $process->run();
+            $this->assertFalse($process->isSuccessful());
+            $this->assertStringContainsString(
+                'Refusingtobootthetestingenvironmentwithcachednon-testingconfiguration',
+                $this->withoutWhitespace($process),
+            );
+        } finally {
+            unlink($cache);
+        }
+    }
+
+    public function test_artisan_test_refuses_non_testing_cache_before_starting_phpunit(): void
+    {
+        $cache = $this->cachedConfiguration('local');
+        try {
+            $process = new Process([PHP_BINARY, 'artisan', 'test', '--compact'], base_path(), [
+                'APP_ENV' => 'local', 'APP_CONFIG_CACHE' => $cache,
+            ]);
+            $process->run();
+
+            $this->assertFalse($process->isSuccessful());
+            $this->assertStringContainsString(
+                'Refusingtobootthetestingenvironmentwithcachednon-testingconfiguration',
+                $this->withoutWhitespace($process),
+            );
+        } finally {
+            unlink($cache);
+        }
+    }
+
+    public function test_testing_cache_with_an_isolated_database_is_still_accepted(): void
+    {
+        $cache = $this->cachedConfiguration('testing');
+        try {
+            $process = new Process([PHP_BINARY, 'artisan', 'about', '--env=testing'], base_path(), [
+                'APP_CONFIG_CACHE' => $cache,
+            ]);
+            $process->mustRun();
+
+            $this->assertStringContainsString('testing', $process->getOutput());
+            $this->assertFileExists($cache);
+        } finally {
+            unlink($cache);
+        }
+    }
+
+    public function test_config_clear_can_remove_the_selected_non_testing_cache(): void
+    {
+        $cache = $this->cachedConfiguration('local');
+        $process = new Process([PHP_BINARY, 'artisan', 'config:clear', '--env=testing'], base_path(), [
+            'APP_ENV' => 'testing', 'APP_CONFIG_CACHE' => $cache,
+        ]);
+        try {
+            $process->mustRun();
+            $this->assertFileDoesNotExist($cache);
+        } finally {
+            if (is_file($cache)) {
+                unlink($cache);
+            }
+        }
+    }
+
+    private function cachedConfiguration(string $environment): string
+    {
+        $cache = tempnam(sys_get_temp_dir(), 'admin9-test-config-');
+        $configuration = config()->all();
+        $configuration['app']['env'] = $environment;
+        $configuration['database']['default'] = 'sqlite';
+        $configuration['database']['connections']['sqlite']['database'] = ':memory:';
+        $configuration['database']['connections']['sqlite']['url'] = null;
+        file_put_contents($cache, '<?php return '.var_export($configuration, true).';');
+
+        return $cache;
     }
 
     /**

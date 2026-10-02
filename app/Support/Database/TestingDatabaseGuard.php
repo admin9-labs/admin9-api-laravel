@@ -10,8 +10,16 @@ final class TestingDatabaseGuard
 {
     public static function ensureIsolated(Application $app): void
     {
-        if (! $app->environment('testing')) {
+        if ($app->runningInConsole() && ($_SERVER['argv'][1] ?? null) === 'config:clear') {
             return;
+        }
+
+        if (! self::testingWasRequested($app)) {
+            return;
+        }
+
+        if ($app->configurationIsCached() && config('app.env') !== 'testing') {
+            throw new RuntimeException('Refusing to boot the testing environment with cached non-testing configuration. Clear the selected configuration cache before testing.');
         }
 
         $connectionName = (string) config('database.default');
@@ -45,5 +53,24 @@ final class TestingDatabaseGuard
         $databaseName = pathinfo($database, PATHINFO_FILENAME);
 
         return preg_match('/(^|[_-])(test|testing)([_-]|$)/i', $databaseName) === 1;
+    }
+
+    private static function testingWasRequested(Application $app): bool
+    {
+        if ($app->environment('testing') || defined('PHPUNIT_COMPOSER_INSTALL')) {
+            return true;
+        }
+
+        if ($app->runningInConsole()
+            && ($_SERVER['argv'][1] ?? null) === 'test'
+            && $app->configurationIsCached()) {
+            return true;
+        }
+
+        return in_array('testing', [
+            $_SERVER['APP_ENV'] ?? null,
+            $_ENV['APP_ENV'] ?? null,
+            getenv('APP_ENV'),
+        ], true);
     }
 }
