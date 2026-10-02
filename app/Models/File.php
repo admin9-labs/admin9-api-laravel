@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Database\Factories\FileFactory;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,7 +36,19 @@ class File extends Model
             'width' => 'integer',
             'height' => 'integer',
             'deletion_started_at' => 'immutable_datetime',
+            'deletion_requested_at' => 'immutable_datetime',
+            'deletion_requested_by' => 'integer',
         ];
+    }
+
+    /** @param Builder<File> $query */
+    #[Scope]
+    protected function pendingDeletionRecovery(Builder $query): void
+    {
+        $query->whereNotNull('deletion_token')->where(function (Builder $query): void {
+            $query->whereNull('deletion_started_at')
+                ->orWhere('deletion_started_at', '<=', now()->subMinutes(self::DELETION_CLAIM_TTL_MINUTES));
+        });
     }
 
     /**

@@ -9,7 +9,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// 只调度 Laravel 内置运维命令；当前项目没有后台业务 Job，避免伪造业务队列负载。
+// 调度框架运维命令与文件删除恢复；当前项目没有后台业务 Job。
 Schedule::command('queue:prune-failed', [
     '--hours' => config('queue.failed.prune_hours'),
 ])
@@ -36,3 +36,9 @@ Schedule::command('queue:monitor', [
     ->withoutOverlapping()
     ->onFailure(fn () => Log::channel((string) config('logging.operations.queue_channel'))->warning('Queue monitor command failed'))
     ->description('Monitor configured queue backlog');
+
+Schedule::command('files:recover-deletions')
+    ->everyFiveMinutes()
+    ->withoutOverlapping()
+    ->onFailure(fn () => Log::channel((string) config('logging.operations.scheduler_channel'))->warning('File deletion recovery failed'))
+    ->description('Recover interrupted, previously authorized file deletions');

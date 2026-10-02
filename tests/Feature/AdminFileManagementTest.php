@@ -372,6 +372,8 @@ class AdminFileManagementTest extends TestCase
         $this->assertInstanceOf(stdClass::class, $payload->errors);
         $this->assertModelExists($file);
         $this->assertNull($file->refresh()->deletion_token);
+        $this->assertNull($file->deletion_requested_by);
+        $this->assertNull($file->deletion_requested_at);
     }
 
     public function test_pending_upload_and_active_delete_owner_are_protected(): void

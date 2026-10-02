@@ -11,15 +11,21 @@ class SecurityActivityRecorder
 {
     /**
      * Record a credential lifecycle event without storing credential material.
+     *
+     * @param  array<string, mixed>  $properties
      */
-    public function record(Model $subject, Model $causer, string $guard, string $event): ?Activity
-    {
+    public function record(
+        Model $subject,
+        ?Model $causer,
+        string $guard,
+        string $event,
+        array $properties = [],
+    ): ?Activity {
         /** @var Activity|null $activity */
-        $activity = activity('security')
+        $logger = activity('security')
             ->event($event)
             ->performedOn($subject)
-            ->causedBy($causer)
-            ->withProperties(SensitiveDataSanitizer::removeSensitiveKeys([
+            ->withProperties(SensitiveDataSanitizer::removeSensitiveKeys(array_merge($properties, [
                 'request_id' => Context::get('request_id'),
                 'ip_address' => request()?->ip(),
                 'user_agent' => request()?->userAgent(),
@@ -28,8 +34,13 @@ class SecurityActivityRecorder
                 'path' => request()?->path(),
                 'method' => request()?->method(),
                 'event' => $event,
-            ]))
-            ->log(sprintf('%s %s', class_basename($subject), $event));
+            ])));
+
+        if ($causer instanceof Model) {
+            $logger->causedBy($causer);
+        }
+
+        $activity = $logger->log(sprintf('%s %s', class_basename($subject), $event));
 
         return $activity;
     }
