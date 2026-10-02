@@ -904,6 +904,12 @@ class OpenApiDocsTest extends TestCase
             $this->assertArrayHasKey($operationId, $operations);
         }
 
+        $typeFilter = collect($operations['admin.files.index']['parameters'])->firstWhere('name', 'types[]');
+        $this->assertFalse($typeFilter['required'] ?? false);
+        $this->assertSame('array', $typeFilter['schema']['type']);
+        $this->assertArrayNotHasKey('enum', $typeFilter['schema']);
+        $this->assertSame(app(FileUploadPolicy::class)->types(), $typeFilter['schema']['items']['enum']);
+
         $path = ApiRouting::path('/admin/files');
         $requestBody = $document['paths'][$path]['post']['requestBody'];
         $this->assertSame(['multipart/form-data'], array_keys($requestBody['content']));

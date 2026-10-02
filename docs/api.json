@@ -2562,16 +2562,8 @@
                     {
                         "name": "types[]",
                         "in": "query",
-                        "required": true,
                         "schema": {
                             "type": "array",
-                            "enum": [
-                                "image",
-                                "document",
-                                "video",
-                                "audio",
-                                "other"
-                            ],
                             "items": {
                                 "type": "string",
                                 "enum": [
@@ -2581,7 +2573,8 @@
                                     "audio",
                                     "other"
                                 ]
-                            }
+                            },
+                            "maxItems": 5
                         }
                     },
                     {

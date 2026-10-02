@@ -78,6 +78,17 @@ class AdminApiOpenApiContract
         };
         $this->normalizeQueryParameterNames($operation, $queryParameterRenames);
 
+        if ($routeName === 'admin.files.index') {
+            foreach ($operation->parameters as $parameter) {
+                if ($parameter instanceof Parameter && $parameter->name === 'types[]') {
+                    $parameter->required = false;
+                    $parameter->setSchema(Schema::fromType(
+                        (new ArrayType)->setMax(5)->setItems((new StringType)->enum($this->fileUploadPolicy->types())),
+                    ));
+                }
+            }
+        }
+
         if ($routeName === 'admin.users.index') {
             $this->addUserPaginationParameters($operation);
         }
