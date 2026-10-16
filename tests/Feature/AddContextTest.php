@@ -247,7 +247,7 @@ class AddContextTest extends TestCase
 
     public function test_web_health_and_documentation_routes_remain_outside_the_api_context(): void
     {
-        foreach (['/', '/up', '/docs/api'] as $path) {
+        foreach (['/', '/up', '/docs/client-api', '/docs/admin-api'] as $path) {
             $this->get($path)
                 ->assertHeaderMissing('X-Request-Id');
         }

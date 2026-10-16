@@ -9,6 +9,8 @@ use App\Support\Admin\ReservedAdminRole;
 use App\Support\AdminApiOpenApiContract;
 use App\Support\ApiErrorOpenApiContract;
 use App\Support\Database\TestingDatabaseGuard;
+use App\Support\OpenApi\ApiDocumentRouting;
+use App\Support\OpenApi\DocumentPruner;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Operation;
@@ -80,29 +82,45 @@ class AppServiceProvider extends ServiceProvider
         if (class_exists(Scramble::class)) {
             $openApiContract = app(AdminApiOpenApiContract::class);
             $apiErrorOpenApiContract = app(ApiErrorOpenApiContract::class);
-
-            Scramble::routes(
-                static fn (LaravelRoute $route): bool => in_array('api', $route->gatherMiddleware(), true),
-            );
+            $documentRouting = app(ApiDocumentRouting::class);
+            $documentPruner = app(DocumentPruner::class);
 
             Scramble::configure()->withOperationTransformers(
-                static function (Operation $operation, RouteInfo $routeInfo) use ($openApiContract): void {
+                static function (Operation $operation, RouteInfo $routeInfo) use ($openApiContract, $documentRouting): void {
                     $routeName = $routeInfo->route->getName();
 
+                    $documentRouting->assertCanonicalDestination($routeInfo->route);
+                    $operation->servers([]);
                     $openApiContract->transformOperation($operation, $routeInfo);
 
                     if (in_array($routeName, ['member.auth.refresh', 'admin.auth.refresh'], true)) {
                         $operation->addSecurity(new SecurityRequirement(['http' => []]));
                     }
-
-                },
-            )->withDocumentTransformers(
-                static function (OpenApi $document) use ($openApiContract, $apiErrorOpenApiContract): void {
-                    $openApiContract->transformDocument($document);
-                    $apiErrorOpenApiContract->transformDocument($document);
-                    $openApiContract->addPatchAliases($document);
                 },
             );
+
+            $adminDocumentation = Scramble::registerApi('admin');
+
+            foreach (['client' => Scramble::configure(), 'admin' => $adminDocumentation] as $audience => $documentation) {
+                $admin = $audience === 'admin';
+                $documentation->useConfig(array_replace_recursive(config('scramble'), [
+                    'export_path' => 'docs/'.$audience.'-api.json',
+                    'servers' => [$documentRouting->origin($admin)],
+                    'ui' => ['title' => $admin ? 'Admin9 Admin API' : 'Admin9 Client API'],
+                ]))->routes(static fn (LaravelRoute $route): bool => in_array('api', $route->gatherMiddleware(), true)
+                    && ($route->getName() === 'system-settings.public'
+                        || str_starts_with($route->getName() ?? '', 'admin.') === $admin))
+                    ->expose(ui: '/docs/'.$audience.'-api', document: '/docs/'.$audience.'-api.json')
+                    ->withDocumentTransformers(
+                        static function (OpenApi $document) use ($admin, $openApiContract, $apiErrorOpenApiContract, $documentRouting, $documentPruner): void {
+                            $openApiContract->transformDocument($document, $admin);
+                            $apiErrorOpenApiContract->transformDocument($document);
+                            $openApiContract->addPatchAliases($document);
+                            $documentRouting->describeSharedSettings($document);
+                            $documentPruner->prune($document);
+                        },
+                    );
+            }
         }
 
         Gate::before(function (User $user, string $ability): ?bool {

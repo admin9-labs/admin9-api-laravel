@@ -2,47 +2,52 @@
 
 namespace Tests\Feature;
 
-use App\Support\OpenApi\DocumentPartitioner;
+use App\Support\OpenApi\DocumentPruner;
+use Dedoc\Scramble\Support\Generator\InfoObject;
+use Dedoc\Scramble\Support\Generator\OpenApi;
+use Dedoc\Scramble\Support\Generator\Operation;
+use Dedoc\Scramble\Support\Generator\Path;
+use Dedoc\Scramble\Support\Generator\Reference;
+use Dedoc\Scramble\Support\Generator\Response;
+use Dedoc\Scramble\Support\Generator\Schema;
+use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use Dedoc\Scramble\Support\Generator\Types\ObjectType;
+use Dedoc\Scramble\Support\Generator\Types\StringType;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 use stdClass;
 use Tests\TestCase;
 
 class OpenApiPartitionTest extends TestCase
 {
-    public function test_partitions_keep_only_their_operations_and_transitive_components(): void
+    public function test_independent_documents_keep_transitive_components_and_empty_objects(): void
     {
-        $document = json_decode(<<<'JSON'
-{"openapi":"3.1.0","security":[{"http":[]}],"tags":[{"name":"Admin"},{"name":"Client"},{"name":"Unused"}],"paths":{
-"/custom/items":{"get":{"operationId":"items.index","tags":["Client"],"security":[],"responses":{"200":{"$ref":"#/components/responses/Items"}}},"post":{"operationId":"admin.items.store","tags":["Admin"],"responses":{"200":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/AdminItem"}}}}}}},
-"/custom/settings":{"get":{"operationId":"system-settings.public","security":[],"responses":{}}}
-},"components":{"securitySchemes":{"http":{"type":"http","scheme":"bearer"}},"responses":{"Items":{"content":{"application/json":{"schema":{"$ref":"#/components/schemas/Item"}}}}},"schemas":{
-"Item":{"type":"object","properties":{"child":{"$ref":"#/components/schemas/Item"},"data":{"type":"object","example":{}}}},
-"AdminItem":{"type":"object","properties":{"item":{"$ref":"#/components/schemas/Item"}}},"Unused":{"type":"string"}
-}}}
-JSON, flags: JSON_THROW_ON_ERROR);
+        $document = OpenApi::make('3.1.0')->setInfo(InfoObject::make('Client'));
+        $document->secure(SecurityScheme::http('bearer'));
+        $item = new Reference('schemas', 'Item', $document->components);
+        $document->components->addSchema('Item', Schema::fromType((new ObjectType)
+            ->addProperty('child', $item)
+            ->addProperty('data', (new ObjectType)->example(new stdClass))));
+        $document->components->addSchema('Unused', Schema::fromType(new StringType));
+        $document->components->responses['Items'] = Response::make(200)->setContent('application/json', $item);
+        $document->components->responses['UnusedResponse'] = Response::make(400);
+        $document->addPath(Path::make('items')->addOperation(
+            Operation::make('get')->setOperationId('items.index')
+                ->addResponse(new Reference('responses', 'Items', $document->components)),
+        ));
 
-        ['admin' => $admin, 'client' => $client] = (new DocumentPartitioner)->partition($document);
+        (new DocumentPruner)->prune($document);
+        $result = $document->toArray();
 
-        $this->assertSame(['post'], array_keys((array) $admin->paths->{'/custom/items'}));
-        $this->assertSame(['get'], array_keys((array) $client->paths->{'/custom/items'}));
-        $this->assertSame(['Item', 'AdminItem'], array_keys((array) $admin->components->schemas));
-        $this->assertSame(['Item'], array_keys((array) $client->components->schemas));
-        $this->assertObjectNotHasProperty('responses', $admin->components);
-        $this->assertSame(['Items'], array_keys((array) $client->components->responses));
-        $this->assertSame(['Admin'], array_column($admin->tags, 'name'));
-        $this->assertSame(['Client'], array_column($client->tags, 'name'));
-
-        foreach ([$admin, $client] as $partition) {
-            $this->assertSame($document->security, $partition->security);
-            $this->assertEquals($document->components->securitySchemes, $partition->components->securitySchemes);
-            $this->assertSame([], $partition->paths->{'/custom/settings'}->get->security);
-            $this->assertInstanceOf(stdClass::class, $partition->components->schemas->Item->properties->data->example);
-        }
-
-        $this->assertSame(['get', 'post'], array_keys((array) $document->paths->{'/custom/items'}));
+        $this->assertSame(['Item'], array_keys($result['components']['schemas']));
+        $this->assertSame(['Items'], array_keys($result['components']['responses']));
+        $this->assertSame([['http' => []]], $result['security']);
+        $this->assertSame('bearer', $result['components']['securitySchemes']['http']['scheme']);
+        $this->assertInstanceOf(stdClass::class, $result['components']['schemas']['Item']['properties']['data']['example']);
+        $this->assertReferencesResolve($result, $result);
     }
 
-    public function test_committed_partitions_cover_all_api_routes_and_resolve_every_reference(): void
+    public function test_committed_documents_cover_all_api_routes_and_resolve_every_reference(): void
     {
         $actual = [];
 
@@ -86,21 +91,22 @@ JSON, flags: JSON_THROW_ON_ERROR);
         $this->assertSame($expected, $actual);
     }
 
-    public function test_partition_export_is_stable_and_preserves_the_combined_document(): void
+    public function test_independent_document_pruning_is_stable(): void
     {
-        $before = file_get_contents(base_path('docs/api.json'));
-        $this->artisan('docs:api:partition')->assertSuccessful();
-        $admin = file_get_contents(base_path('docs/admin-api.json'));
-        $client = file_get_contents(base_path('docs/client-api.json'));
-        $this->artisan('docs:api:partition')->assertSuccessful();
-        $this->assertSame($before, file_get_contents(base_path('docs/api.json')));
-        $this->assertSame($admin, file_get_contents(base_path('docs/admin-api.json')));
-        $this->assertSame($client, file_get_contents(base_path('docs/client-api.json')));
+        $document = OpenApi::make('3.1.0')->setInfo(InfoObject::make('Client'));
+        $document->components->addSchema('Unused', Schema::fromType(new StringType));
+        $document->addPath(Path::make('settings')->addOperation(Operation::make('get')->setOperationId('system-settings.public')));
+        $pruner = new DocumentPruner;
+        $pruner->prune($document);
+        $before = $document->toArray();
+        $pruner->prune($document);
+
+        $this->assertSame($before, $document->toArray());
+        $this->assertFileDoesNotExist(base_path('docs/api.json'));
+        $this->assertArrayNotHasKey('docs:api:partition', Artisan::all());
     }
 
-    /**
-     * @param  array<string, mixed>  $document
-     */
+    /** @param array<string, mixed> $document */
     private function assertReferencesResolve(mixed $value, array $document): void
     {
         if (is_array($value)) {

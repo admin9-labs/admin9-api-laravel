@@ -32,7 +32,7 @@ return [
     /*
      * The path where your OpenAPI specification will be exported.
      */
-    'export_path' => 'docs/api.json',
+    'export_path' => 'docs/client-api.json',
 
     /*
      * Cache configuration for the generated OpenAPI document.
@@ -40,7 +40,7 @@ return [
      * Use `scramble:cache` to warm the cache and `scramble:clear` to invalidate it.
      */
     'cache' => [
-        'key' => 'scramble.openapi',
+        'key' => 'scramble.openapi.boundaries',
         'store' => 'file',
     ],
 
@@ -51,7 +51,7 @@ return [
         'version' => env('API_VERSION', '0.1.0'),
 
         /*
-         * Description rendered on the home page of the API documentation (`/docs/api`).
+         * Description rendered on the API documentation pages.
          */
         'description' => 'Laravel 13 backend API for the Admin9 middle/back-office application.',
     ],

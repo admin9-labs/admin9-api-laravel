@@ -15,52 +15,71 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
 
         $this->assertSame('3.1.0', $document['openapi'] ?? null);
-        $this->assertSame('Admin9 API Laravel', $document['info']['title'] ?? null);
+        $this->assertSame('Admin9 Admin API', $document['info']['title'] ?? null);
         $this->assertIsArray($document['paths'] ?? null);
         $this->assertIsArray($document['components'] ?? null);
 
         foreach ([
-            ApiRouting::path('/admin/auth/login') => 'post',
-            ApiRouting::path('/admin/auth/me') => 'get',
-            ApiRouting::path('/admin/auth/password') => 'put',
-            ApiRouting::path('/admin/menus/tree') => 'get',
-            ApiRouting::path('/admin/users') => 'get',
-            ApiRouting::path('/admin/members') => 'get',
-            ApiRouting::path('/admin/users/{user}/password') => 'put',
-            ApiRouting::path('/admin/roles') => 'get',
-            ApiRouting::path('/admin/permissions') => 'get',
-            ApiRouting::path('/admin/dictionary-types') => 'get',
-            ApiRouting::path('/admin/system-configs') => 'get',
-            ApiRouting::path('/admin/activity-logs') => 'get',
-            ApiRouting::path('/admin/login-logs') => 'get',
-            ApiRouting::path('/auth/password') => 'put',
+            ApiRouting::adminPath('/auth/login') => 'post',
+            ApiRouting::adminPath('/auth/me') => 'get',
+            ApiRouting::adminPath('/auth/password') => 'put',
+            ApiRouting::adminPath('/menus/tree') => 'get',
+            ApiRouting::adminPath('/users') => 'get',
+            ApiRouting::adminPath('/members') => 'get',
+            ApiRouting::adminPath('/users/{user}/password') => 'put',
+            ApiRouting::adminPath('/roles') => 'get',
+            ApiRouting::adminPath('/permissions') => 'get',
+            ApiRouting::adminPath('/dictionary-types') => 'get',
+            ApiRouting::adminPath('/system-configs') => 'get',
+            ApiRouting::adminPath('/activity-logs') => 'get',
+            ApiRouting::adminPath('/login-logs') => 'get',
         ] as $path => $method) {
             $this->assertArrayHasKey($path, $document['paths']);
             $this->assertArrayHasKey($method, $document['paths'][$path]);
         }
     }
 
+    public function test_generated_client_document_contains_only_client_contracts(): void
+    {
+        $document = $this->openApiDocument('client');
+        $this->assertSame('3.1.0', $document['openapi'] ?? null);
+        $this->assertSame('Admin9 Client API', $document['info']['title'] ?? null);
+
+        foreach (['login' => 'post', 'refresh' => 'post', 'me' => 'get', 'password' => 'put', 'logout' => 'post'] as $action => $method) {
+            $this->assertSame('member.auth.'.$action.($action === 'password' ? '.update' : ''), $document['paths'][ApiRouting::path('/auth/'.$action)][$method]['operationId']);
+        }
+        foreach ($this->operationsById($document) as $operationId => $operation) {
+            $this->assertFalse(str_starts_with($operationId, 'admin.'));
+        }
+        foreach ($this->operationsById($this->openApiDocument()) as $operationId => $operation) {
+            $this->assertFalse(str_starts_with($operationId, 'member.'));
+        }
+    }
+
     public function test_generated_openapi_document_uses_the_application_api_prefix_and_only_api_middleware_routes(): void
     {
-        $document = $this->openApiDocument();
+        foreach (['client', 'admin'] as $api) {
+            $document = $this->openApiDocument($api);
+            $this->assertSame([['url' => 'http://localhost']], $document['servers']);
+            $prefix = $api === 'admin' ? ApiRouting::adminPath('/') : ApiRouting::path('/');
 
-        $this->assertSame([['url' => 'http://localhost']], $document['servers']);
-        $this->assertSame('api', ApiRouting::prefix());
+            foreach (array_keys($document['paths']) as $path) {
+                $this->assertStringStartsWith('/', $path);
+                if ($path !== ApiRouting::path('/system-settings/public')) {
+                    $this->assertStringStartsWith($prefix.'/', $path);
+                }
+            }
 
-        foreach (array_keys($document['paths']) as $path) {
-            $this->assertStringStartsWith('/', $path);
-            $this->assertStringStartsWith(ApiRouting::path('/').'/', $path);
-        }
-
-        foreach (['/', '/up', '/docs/api', '/docs/api.json'] as $nonApiPath) {
-            $this->assertArrayNotHasKey($nonApiPath, $document['paths']);
+            foreach (['/', '/up', '/docs/api', '/docs/api.json', '/docs/client-api', '/docs/client-api.json', '/docs/admin-api', '/docs/admin-api.json'] as $nonApiPath) {
+                $this->assertArrayNotHasKey($nonApiPath, $document['paths']);
+            }
         }
     }
 
     public function test_generated_openapi_document_uses_business_response_envelope_and_filters(): void
     {
         $document = $this->openApiDocument();
-        $loginResponseSchema = $document['paths'][ApiRouting::path('/admin/auth/login')]['post']['responses']['200']['content']['application/json']['schema'];
+        $loginResponseSchema = $document['paths'][ApiRouting::adminPath('/auth/login')]['post']['responses']['200']['content']['application/json']['schema'];
 
         $this->assertSame(['success', 'code', 'message', 'data', 'request_id'], $loginResponseSchema['required']);
         $this->assertArrayHasKey('success', $loginResponseSchema['properties']);
@@ -69,7 +88,7 @@ class OpenApiDocsTest extends TestCase
         $this->assertArrayHasKey('data', $loginResponseSchema['properties']);
         $this->assertArrayHasKey('request_id', $loginResponseSchema['properties']);
 
-        $systemConfigParameters = collect($document['paths'][ApiRouting::path('/admin/system-configs')]['get']['parameters'])
+        $systemConfigParameters = collect($document['paths'][ApiRouting::adminPath('/system-configs')]['get']['parameters'])
             ->pluck('name')
             ->all();
 
@@ -77,10 +96,10 @@ class OpenApiDocsTest extends TestCase
             $this->assertContains($parameter, $systemConfigParameters);
         }
 
-        $activityLogParameters = collect($document['paths'][ApiRouting::path('/admin/activity-logs')]['get']['parameters'])
+        $activityLogParameters = collect($document['paths'][ApiRouting::adminPath('/activity-logs')]['get']['parameters'])
             ->pluck('name')
             ->all();
-        $loginLogParameters = collect($document['paths'][ApiRouting::path('/admin/login-logs')]['get']['parameters'])
+        $loginLogParameters = collect($document['paths'][ApiRouting::adminPath('/login-logs')]['get']['parameters'])
             ->pluck('name')
             ->all();
 
@@ -103,16 +122,16 @@ class OpenApiDocsTest extends TestCase
     public function test_generated_openapi_document_uses_runtime_query_parameter_names_and_user_pagination(): void
     {
         $document = $this->openApiDocument();
-        $parameters = fn (string $path): array => collect($document['paths'][ApiRouting::path($path)]['get']['parameters'] ?? [])
+        $parameters = fn (string $path): array => collect($document['paths'][ApiRouting::adminPath($path)]['get']['parameters'] ?? [])
             ->keyBy('name')
             ->all();
 
         foreach ([
-            '/admin/activity-logs',
-            '/admin/login-logs',
-            '/admin/dictionary-types',
-            '/admin/dictionary-items',
-            '/admin/system-configs',
+            '/activity-logs',
+            '/login-logs',
+            '/dictionary-types',
+            '/dictionary-items',
+            '/system-configs',
         ] as $path) {
             $pathParameters = $parameters($path);
             $names = array_keys($pathParameters);
@@ -126,11 +145,11 @@ class OpenApiDocsTest extends TestCase
             );
         }
 
-        $dictionaryItemParameters = $parameters('/admin/dictionary-items');
+        $dictionaryItemParameters = $parameters('/dictionary-items');
         $this->assertArrayHasKey('type_code', $dictionaryItemParameters);
         $this->assertArrayNotHasKey('type_code:type$code', $dictionaryItemParameters);
 
-        $userParameters = $parameters('/admin/users');
+        $userParameters = $parameters('/users');
         $this->assertSame('integer', $userParameters['page']['schema']['type'] ?? null);
         $this->assertSame(1, $userParameters['page']['schema']['minimum'] ?? null);
         $this->assertSame('integer', $userParameters['page_size']['schema']['type'] ?? null);
@@ -149,11 +168,11 @@ class OpenApiDocsTest extends TestCase
 
     public function test_generated_openapi_document_preserves_resource_scalar_types(): void
     {
-        $schemas = $this->openApiDocument()['components']['schemas'];
+        $document = $this->openApiDocument();
+        $schemas = $document['components']['schemas'];
 
         foreach ([
             'UserResource' => ['id' => 'integer', 'is_active' => 'boolean'],
-            'MemberResource' => ['id' => 'integer', 'is_active' => 'boolean'],
             'DictionaryItemResource' => ['id' => 'integer', 'dictionary_type_id' => 'integer', 'sort' => 'integer', 'is_active' => 'boolean'],
             'DictionaryTypeResource' => ['id' => 'integer', 'sort' => 'integer', 'is_active' => 'boolean'],
             'PermissionResource' => ['id' => 'integer', 'sort' => 'integer', 'is_system' => 'boolean', 'is_active' => 'boolean'],
@@ -169,11 +188,11 @@ class OpenApiDocsTest extends TestCase
 
     public function test_generated_openapi_document_preserves_nullable_resource_strings(): void
     {
-        $schemas = $this->openApiDocument()['components']['schemas'];
+        $document = $this->openApiDocument();
+        $schemas = $document['components']['schemas'];
 
         foreach ([
             'UserResource' => ['last_login_ip'],
-            'MemberResource' => ['name', 'email', 'mobile'],
             'DictionaryItemResource' => ['value', 'description'],
             'DictionaryTypeResource' => ['description'],
             'PermissionResource' => ['display_name', 'group', 'description'],
@@ -195,10 +214,10 @@ class OpenApiDocsTest extends TestCase
     {
         $document = $this->openApiDocument();
 
-        foreach (['/admin/users/{user}', '/admin/roles/{role}', '/admin/dictionary-types/{dictionaryType}'] as $path) {
+        foreach (['/users/{user}', '/roles/{role}', '/dictionary-types/{dictionaryType}'] as $path) {
             $this->assertSame(
                 '#/components/responses/ApiValidationErrorResponse',
-                $document['paths'][ApiRouting::path($path)]['delete']['responses']['422']['$ref'] ?? null,
+                $document['paths'][ApiRouting::adminPath($path)]['delete']['responses']['422']['$ref'] ?? null,
             );
         }
     }
@@ -207,18 +226,18 @@ class OpenApiDocsTest extends TestCase
     {
         $document = $this->openApiDocument();
         $updatePaths = [
-            '/admin/files/{file}',
-            '/admin/menus/{menu}',
-            '/admin/roles/{role}',
-            '/admin/permissions/{permission}',
-            '/admin/users/{user}',
-            '/admin/dictionary-types/{dictionaryType}',
-            '/admin/dictionary-items/{dictionaryItem}',
-            '/admin/system-configs/{systemConfig}',
+            '/files/{file}',
+            '/menus/{menu}',
+            '/roles/{role}',
+            '/permissions/{permission}',
+            '/users/{user}',
+            '/dictionary-types/{dictionaryType}',
+            '/dictionary-items/{dictionaryItem}',
+            '/system-configs/{systemConfig}',
         ];
 
         foreach ($updatePaths as $path) {
-            $pathItem = $document['paths'][ApiRouting::path($path)];
+            $pathItem = $document['paths'][ApiRouting::adminPath($path)];
             $put = $pathItem['put'];
             unset($put['operationId']);
 
@@ -233,21 +252,23 @@ class OpenApiDocsTest extends TestCase
         );
         $operationIds = $operations->pluck('operationId')->filter()->values();
 
-        $this->assertCount(80, $operations);
-        $this->assertCount(72, $operationIds);
-        $this->assertCount(72, $operationIds->unique());
+        $this->assertCount(74, $operations);
+        $this->assertCount(66, $operationIds);
+        $this->assertCount(66, $operationIds->unique());
+        $clientOperations = $this->operationsById($this->openApiDocument('client'));
+        $this->assertCount(7, $clientOperations);
+        $this->assertSame(['system-settings.public'], array_values(array_intersect($operationIds->all(), array_keys($clientOperations))));
     }
 
     public function test_generated_openapi_document_uses_precise_auth_token_schema(): void
     {
-        $document = $this->openApiDocument();
-
         foreach ([
-            ApiRouting::path('/auth/login'),
-            ApiRouting::path('/auth/refresh'),
-            ApiRouting::path('/admin/auth/login'),
-            ApiRouting::path('/admin/auth/refresh'),
-        ] as $path) {
+            ['client', ApiRouting::path('/auth/login')],
+            ['client', ApiRouting::path('/auth/refresh')],
+            ['admin', ApiRouting::adminPath('/auth/login')],
+            ['admin', ApiRouting::adminPath('/auth/refresh')],
+        ] as [$api, $path]) {
+            $document = $this->openApiDocument($api);
             $dataProperties = $document['paths'][$path]['post']['responses']['200']['content']['application/json']['schema']['properties']['data']['properties'];
 
             $this->assertSame(['type' => 'string'], $dataProperties['access_token'], "{$path} access_token must be documented as string.");
@@ -258,9 +279,8 @@ class OpenApiDocsTest extends TestCase
 
     public function test_generated_openapi_document_requires_bearer_security_for_refresh_authentication_failures(): void
     {
-        $document = $this->openApiDocument();
-
-        foreach ([ApiRouting::path('/auth/refresh'), ApiRouting::path('/admin/auth/refresh')] as $path) {
+        foreach (['client' => ApiRouting::path('/auth/refresh'), 'admin' => ApiRouting::adminPath('/auth/refresh')] as $api => $path) {
+            $document = $this->openApiDocument($api);
             $operation = $document['paths'][$path]['post'];
 
             $this->assertSame([['http' => []]], $operation['security']);
@@ -275,7 +295,7 @@ class OpenApiDocsTest extends TestCase
     public function test_permission_middleware_and_disabled_account_refresh_failures_document_forbidden_response(): void
     {
         $document = $this->openApiDocument();
-        $operations = $this->operationsById($document);
+        $operations = [...$this->operationsById($this->openApiDocument('client')), ...$this->operationsById($document)];
         $forbiddenOperationIds = collect(RouteFacade::getRoutes()->getRoutes())
             ->filter(fn (Route $route): bool => collect($route->gatherMiddleware())
                 ->contains(fn (string $middleware): bool => str_starts_with($middleware, 'permission:')
@@ -294,16 +314,19 @@ class OpenApiDocsTest extends TestCase
             );
         }
 
-        $forbiddenResponse = $document['components']['responses']['ApiForbiddenResponse'];
-        $forbiddenSchema = $forbiddenResponse['content']['application/json']['schema'];
-        $this->assertSame(['success', 'code', 'message', 'data', 'errors', 'request_id'], $forbiddenSchema['required']);
-        $this->assertSame([false], $forbiddenSchema['properties']['success']['enum']);
-        $this->assertSame(403, $forbiddenSchema['properties']['code']['const']);
-        $this->assertSame(['account_inactive'], $forbiddenSchema['properties']['error_code']['enum']);
-        $this->assertSame('string', $forbiddenResponse['headers']['X-Request-Id']['schema']['type']);
+        foreach (['client', 'admin'] as $api) {
+            $document = $this->openApiDocument($api);
+            $forbiddenResponse = $document['components']['responses']['ApiForbiddenResponse'];
+            $forbiddenSchema = $forbiddenResponse['content']['application/json']['schema'];
+            $this->assertSame(['success', 'code', 'message', 'data', 'errors', 'request_id'], $forbiddenSchema['required']);
+            $this->assertSame([false], $forbiddenSchema['properties']['success']['enum']);
+            $this->assertSame(403, $forbiddenSchema['properties']['code']['const']);
+            $this->assertSame(['account_inactive'], $forbiddenSchema['properties']['error_code']['enum']);
+            $this->assertSame('string', $forbiddenResponse['headers']['X-Request-Id']['schema']['type']);
 
-        foreach (['data', 'errors'] as $property) {
-            $this->assertStrictEmptyObjectSchema($forbiddenSchema['properties'][$property]);
+            foreach (['data', 'errors'] as $property) {
+                $this->assertStrictEmptyObjectSchema($forbiddenSchema['properties'][$property]);
+            }
         }
     }
 
@@ -312,16 +335,17 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
 
         foreach ([
-            [ApiRouting::path('/auth/login'), 'post'],
-            [ApiRouting::path('/auth/refresh'), 'post'],
-            [ApiRouting::path('/auth/me'), 'get'],
-            [ApiRouting::path('/auth/password'), 'put'],
-            [ApiRouting::path('/auth/logout'), 'post'],
-            [ApiRouting::path('/admin/auth/login'), 'post'],
-        ] as [$path, $method]) {
+            ['client', ApiRouting::path('/auth/login'), 'post'],
+            ['client', ApiRouting::path('/auth/refresh'), 'post'],
+            ['client', ApiRouting::path('/auth/me'), 'get'],
+            ['client', ApiRouting::path('/auth/password'), 'put'],
+            ['client', ApiRouting::path('/auth/logout'), 'post'],
+            ['admin', ApiRouting::adminPath('/auth/login'), 'post'],
+        ] as [$api, $path, $method]) {
+            $operationDocument = $this->openApiDocument($api);
             $this->assertSame(
                 '#/components/responses/ApiRateLimitResponse',
-                $document['paths'][$path][$method]['responses']['429']['$ref'] ?? null,
+                $operationDocument['paths'][$path][$method]['responses']['429']['$ref'] ?? null,
                 "{$method} {$path} must document HTTP 429.",
             );
         }
@@ -341,75 +365,82 @@ class OpenApiDocsTest extends TestCase
 
     public function test_generated_openapi_document_centralizes_error_envelopes_and_headers(): void
     {
-        $document = $this->openApiDocument();
-        $expectedComponents = [
-            401 => 'ApiUnauthorizedResponse',
-            403 => 'ApiForbiddenResponse',
-            404 => 'ApiNotFoundResponse',
-            413 => 'ApiContentTooLargeResponse',
-            422 => 'ApiValidationErrorResponse',
-            429 => 'ApiRateLimitResponse',
-            500 => 'ApiServerErrorResponse',
-            503 => 'ApiServiceUnavailableResponse',
-        ];
-        $expectedComponentNames = [
-            ...array_values($expectedComponents),
-            'ApiFileDeleteFailedResponse',
-            'ApiFileDirectoryConflictResponse',
-            'ApiManagedSystemSettingConflictResponse',
-        ];
-
-        $this->assertSame(
-            $expectedComponentNames,
-            array_keys($document['components']['responses']),
-        );
-
-        foreach ($expectedComponents as $status => $component) {
-            $response = $document['components']['responses'][$component];
-            $schema = $response['content']['application/json']['schema'];
-            $required = ['success', 'code', 'message', 'data', 'errors', 'request_id'];
-
-            $this->assertSame($required, $schema['required']);
-            $this->assertSame([false], $schema['properties']['success']['enum']);
-            $this->assertSame($status, $schema['properties']['code']['const']);
-            $this->assertStrictEmptyObjectSchema($schema['properties']['data']);
-            $this->assertSame('string', $response['headers']['X-Request-Id']['schema']['type']);
-
-            if ($status === 422) {
-                $this->assertSame('object', $schema['properties']['errors']['type']);
-                $this->assertSame('array', $schema['properties']['errors']['additionalProperties']['type']);
-                $this->assertSame('string', $schema['properties']['errors']['additionalProperties']['items']['type']);
-            } else {
-                $this->assertStrictEmptyObjectSchema($schema['properties']['errors']);
+        foreach (['client', 'admin'] as $api) {
+            $document = $this->openApiDocument($api);
+            $expectedComponents = [
+                401 => 'ApiUnauthorizedResponse',
+                403 => 'ApiForbiddenResponse',
+                404 => 'ApiNotFoundResponse',
+                413 => 'ApiContentTooLargeResponse',
+                422 => 'ApiValidationErrorResponse',
+                429 => 'ApiRateLimitResponse',
+                500 => 'ApiServerErrorResponse',
+                503 => 'ApiServiceUnavailableResponse',
+            ];
+            if ($api === 'client') {
+                unset($expectedComponents[404]);
             }
-        }
+            $expectedComponentNames = array_values($expectedComponents);
+            if ($api === 'admin') {
+                $expectedComponentNames = [...$expectedComponentNames,
+                    'ApiFileDeleteFailedResponse',
+                    'ApiFileDirectoryConflictResponse',
+                    'ApiManagedSystemSettingConflictResponse',
+                ];
+            }
 
-        foreach ($document['paths'] as $path => $pathItem) {
-            foreach ($pathItem as $method => $operation) {
-                foreach ($operation['responses'] as $status => $response) {
-                    $resolved = isset($response['$ref'])
-                        ? $document['components']['responses'][str($response['$ref'])->afterLast('/')->toString()]
-                        : $response;
+            $this->assertSame(
+                $expectedComponentNames,
+                array_keys($document['components']['responses']),
+            );
 
-                    $this->assertArrayHasKey(
-                        'X-Request-Id',
-                        $resolved['headers'] ?? [],
-                        "{$method} {$path} response {$status} must document X-Request-Id.",
+            foreach ($expectedComponents as $status => $component) {
+                $response = $document['components']['responses'][$component];
+                $schema = $response['content']['application/json']['schema'];
+                $required = ['success', 'code', 'message', 'data', 'errors', 'request_id'];
+
+                $this->assertSame($required, $schema['required']);
+                $this->assertSame([false], $schema['properties']['success']['enum']);
+                $this->assertSame($status, $schema['properties']['code']['const']);
+                $this->assertStrictEmptyObjectSchema($schema['properties']['data']);
+                $this->assertSame('string', $response['headers']['X-Request-Id']['schema']['type']);
+
+                if ($status === 422) {
+                    $this->assertSame('object', $schema['properties']['errors']['type']);
+                    $this->assertSame('array', $schema['properties']['errors']['additionalProperties']['type']);
+                    $this->assertSame('string', $schema['properties']['errors']['additionalProperties']['items']['type']);
+                } else {
+                    $this->assertStrictEmptyObjectSchema($schema['properties']['errors']);
+                }
+            }
+
+            foreach ($document['paths'] as $path => $pathItem) {
+                foreach ($pathItem as $method => $operation) {
+                    foreach ($operation['responses'] as $status => $response) {
+                        $resolved = isset($response['$ref'])
+                            ? $document['components']['responses'][str($response['$ref'])->afterLast('/')->toString()]
+                            : $response;
+
+                        $this->assertArrayHasKey(
+                            'X-Request-Id',
+                            $resolved['headers'] ?? [],
+                            "{$method} {$path} response {$status} must document X-Request-Id.",
+                        );
+                    }
+
+                    $this->assertSame(
+                        '#/components/responses/ApiServerErrorResponse',
+                        $operation['responses']['500']['$ref'] ?? null,
+                        "{$method} {$path} must document HTTP 500.",
                     );
                 }
-
-                $this->assertSame(
-                    '#/components/responses/ApiServerErrorResponse',
-                    $operation['responses']['500']['$ref'] ?? null,
-                    "{$method} {$path} must document HTTP 500.",
-                );
             }
         }
     }
 
     public function test_member_auth_operations_document_actual_error_boundaries(): void
     {
-        $document = $this->openApiDocument();
+        $document = $this->openApiDocument('client');
         $operations = [
             [ApiRouting::path('/auth/login'), 'post'],
             [ApiRouting::path('/auth/refresh'), 'post'],
@@ -462,9 +493,9 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
 
         foreach ([
-            [ApiRouting::path('/admin/auth/login'), 'post'],
-            [ApiRouting::path('/admin/auth/me'), 'get'],
-            [ApiRouting::path('/admin/auth/refresh'), 'post'],
+            [ApiRouting::adminPath('/auth/login'), 'post'],
+            [ApiRouting::adminPath('/auth/me'), 'get'],
+            [ApiRouting::adminPath('/auth/refresh'), 'post'],
         ] as [$path, $method]) {
             $permissionNames = $document['paths'][$path][$method]['responses']['200']['content']['application/json']['schema']['properties']['data']['properties']['permission_names'];
 
@@ -479,13 +510,13 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
 
         foreach ([
-            ApiRouting::path('/admin/users'),
-            ApiRouting::path('/admin/members'),
-            ApiRouting::path('/admin/dictionary-types'),
-            ApiRouting::path('/admin/dictionary-items'),
-            ApiRouting::path('/admin/system-configs'),
-            ApiRouting::path('/admin/activity-logs'),
-            ApiRouting::path('/admin/login-logs'),
+            ApiRouting::adminPath('/users'),
+            ApiRouting::adminPath('/members'),
+            ApiRouting::adminPath('/dictionary-types'),
+            ApiRouting::adminPath('/dictionary-items'),
+            ApiRouting::adminPath('/system-configs'),
+            ApiRouting::adminPath('/activity-logs'),
+            ApiRouting::adminPath('/login-logs'),
         ] as $path) {
             $schema = $document['paths'][$path]['get']['responses']['200']['content']['application/json']['schema'];
 
@@ -507,20 +538,21 @@ class OpenApiDocsTest extends TestCase
         $this->assertArrayNotHasKey('password', $schemas['UpdateUserRequest']['properties']);
 
         foreach ([
-            ApiRouting::path('/admin/auth/password') => ['current_password', 'password', 'password_confirmation'],
-            ApiRouting::path('/auth/password') => ['current_password', 'password', 'password_confirmation'],
-            ApiRouting::path('/admin/users/{user}/password') => ['password', 'password_confirmation'],
-        ] as $path => $required) {
-            $reference = $document['paths'][$path]['put']['requestBody']['content']['application/json']['schema']['$ref'];
-            $schemaName = str($reference)->afterLast('/')->toString();
+            ['admin', ApiRouting::adminPath('/auth/password'), ['current_password', 'password', 'password_confirmation']],
+            ['client', ApiRouting::path('/auth/password'), ['current_password', 'password', 'password_confirmation']],
+            ['admin', ApiRouting::adminPath('/users/{user}/password'), ['password', 'password_confirmation']],
+        ] as [$api, $path, $required]) {
+            $operationDocument = $this->openApiDocument($api);
+            $reference = $operationDocument['paths'][$path]['put']['requestBody']['content']['application/json']['schema']['$ref'];
+            $passwordSchema = $this->referencedSchema($operationDocument, $reference);
 
-            $this->assertSame($required, $schemas[$schemaName]['required']);
-            $this->assertSame(8, $schemas[$schemaName]['properties']['password']['minLength']);
-            $this->assertSame(255, $schemas[$schemaName]['properties']['password']['maxLength']);
-            $this->assertStringContainsString('72 bytes', $schemas[$schemaName]['properties']['password']['description'] ?? '');
-            $this->assertStringContainsString('NUL', $schemas[$schemaName]['properties']['password']['description'] ?? '');
-            $this->assertSame(8, $schemas[$schemaName]['properties']['password_confirmation']['minLength']);
-            $this->assertSame(255, $schemas[$schemaName]['properties']['password_confirmation']['maxLength']);
+            $this->assertSame($required, $passwordSchema['required']);
+            $this->assertSame(8, $passwordSchema['properties']['password']['minLength']);
+            $this->assertSame(255, $passwordSchema['properties']['password']['maxLength']);
+            $this->assertStringContainsString('72 bytes', $passwordSchema['properties']['password']['description'] ?? '');
+            $this->assertStringContainsString('NUL', $passwordSchema['properties']['password']['description'] ?? '');
+            $this->assertSame(8, $passwordSchema['properties']['password_confirmation']['minLength']);
+            $this->assertSame(255, $passwordSchema['properties']['password_confirmation']['maxLength']);
         }
 
         $this->assertSame(8, $schemas['StoreUserRequest']['properties']['password']['minLength']);
@@ -529,19 +561,18 @@ class OpenApiDocsTest extends TestCase
 
     public function test_refresh_lock_contention_has_a_generic_retryable_service_unavailable_contract(): void
     {
-        $document = $this->openApiDocument();
-
-        foreach (['/auth/refresh', '/admin/auth/refresh'] as $path) {
+        foreach (['client' => ApiRouting::path('/auth/refresh'), 'admin' => ApiRouting::adminPath('/auth/refresh')] as $api => $path) {
+            $document = $this->openApiDocument($api);
             $this->assertSame(
                 '#/components/responses/ApiServiceUnavailableResponse',
-                $document['paths'][ApiRouting::path($path)]['post']['responses']['503']['$ref'] ?? null,
+                $document['paths'][$path]['post']['responses']['503']['$ref'] ?? null,
             );
-        }
 
-        $response = $document['components']['responses']['ApiServiceUnavailableResponse'];
-        $schema = $response['content']['application/json']['schema'];
-        $this->assertArrayNotHasKey('error_code', $schema['properties']);
-        $this->assertSame('integer', $response['headers']['Retry-After']['schema']['type']);
+            $response = $document['components']['responses']['ApiServiceUnavailableResponse'];
+            $schema = $response['content']['application/json']['schema'];
+            $this->assertArrayNotHasKey('error_code', $schema['properties']);
+            $this->assertSame('integer', $response['headers']['Retry-After']['schema']['type']);
+        }
     }
 
     public function test_generated_openapi_document_keeps_bounded_admin_catalogs_unpaginated(): void
@@ -549,10 +580,10 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
 
         foreach ([
-            ApiRouting::path('/admin/roles'),
-            ApiRouting::path('/admin/permissions'),
-            ApiRouting::path('/admin/menus'),
-            ApiRouting::path('/admin/menus/tree'),
+            ApiRouting::adminPath('/roles'),
+            ApiRouting::adminPath('/permissions'),
+            ApiRouting::adminPath('/menus'),
+            ApiRouting::adminPath('/menus/tree'),
         ] as $path) {
             $schema = $document['paths'][$path]['get']['responses']['200']['content']['application/json']['schema'];
 
@@ -565,7 +596,7 @@ class OpenApiDocsTest extends TestCase
     {
         $document = $this->openApiDocument();
 
-        foreach ([ApiRouting::path('/admin/activity-logs'), ApiRouting::path('/admin/login-logs')] as $path) {
+        foreach ([ApiRouting::adminPath('/activity-logs'), ApiRouting::adminPath('/login-logs')] as $path) {
             $parameters = collect($document['paths'][$path]['get']['parameters'])->keyBy('name');
             $createdAt = $parameters['created_at']['schema'];
 
@@ -577,7 +608,7 @@ class OpenApiDocsTest extends TestCase
             $this->assertSame('int64', $parameters['subject_id']['schema']['format']);
         }
 
-        $activityParameters = collect($document['paths'][ApiRouting::path('/admin/activity-logs')]['get']['parameters'])->keyBy('name');
+        $activityParameters = collect($document['paths'][ApiRouting::adminPath('/activity-logs')]['get']['parameters'])->keyBy('name');
         $this->assertSame('integer', $activityParameters['causer_id']['schema']['type']);
         $this->assertSame('int64', $activityParameters['causer_id']['schema']['format']);
 
@@ -663,21 +694,21 @@ class OpenApiDocsTest extends TestCase
         $document = $this->openApiDocument();
 
         foreach ([
-            [ApiRouting::path('/admin/users'), 'post'],
-            [ApiRouting::path('/admin/members'), 'post'],
-            [ApiRouting::path('/admin/users/{user}'), 'delete'],
-            [ApiRouting::path('/admin/roles'), 'post'],
-            [ApiRouting::path('/admin/roles/{role}'), 'delete'],
-            [ApiRouting::path('/admin/permissions'), 'post'],
-            [ApiRouting::path('/admin/permissions/{permission}'), 'delete'],
-            [ApiRouting::path('/admin/menus'), 'post'],
-            [ApiRouting::path('/admin/menus/{menu}'), 'delete'],
-            [ApiRouting::path('/admin/dictionary-types'), 'post'],
-            [ApiRouting::path('/admin/dictionary-types/{dictionaryType}'), 'delete'],
-            [ApiRouting::path('/admin/dictionary-items'), 'post'],
-            [ApiRouting::path('/admin/dictionary-items/{dictionaryItem}'), 'delete'],
-            [ApiRouting::path('/admin/system-configs'), 'post'],
-            [ApiRouting::path('/admin/system-configs/{systemConfig}'), 'delete'],
+            [ApiRouting::adminPath('/users'), 'post'],
+            [ApiRouting::adminPath('/members'), 'post'],
+            [ApiRouting::adminPath('/users/{user}'), 'delete'],
+            [ApiRouting::adminPath('/roles'), 'post'],
+            [ApiRouting::adminPath('/roles/{role}'), 'delete'],
+            [ApiRouting::adminPath('/permissions'), 'post'],
+            [ApiRouting::adminPath('/permissions/{permission}'), 'delete'],
+            [ApiRouting::adminPath('/menus'), 'post'],
+            [ApiRouting::adminPath('/menus/{menu}'), 'delete'],
+            [ApiRouting::adminPath('/dictionary-types'), 'post'],
+            [ApiRouting::adminPath('/dictionary-types/{dictionaryType}'), 'delete'],
+            [ApiRouting::adminPath('/dictionary-items'), 'post'],
+            [ApiRouting::adminPath('/dictionary-items/{dictionaryItem}'), 'delete'],
+            [ApiRouting::adminPath('/system-configs'), 'post'],
+            [ApiRouting::adminPath('/system-configs/{systemConfig}'), 'delete'],
         ] as [$path, $method]) {
             $responses = $document['paths'][$path][$method]['responses'];
 
@@ -704,7 +735,7 @@ class OpenApiDocsTest extends TestCase
             $this->assertArrayHasKey($operationId, $operations);
         }
 
-        $memberReference = $document['paths'][ApiRouting::path('/admin/members')]['get']['responses']['200']['content']['application/json']['schema']['properties']['data']['items']['$ref'];
+        $memberReference = $document['paths'][ApiRouting::adminPath('/members')]['get']['responses']['200']['content']['application/json']['schema']['properties']['data']['items']['$ref'];
         $memberSchema = $document['components']['schemas'][str($memberReference)->afterLast('/')->toString()];
         $this->assertSame([
             'id',
@@ -721,7 +752,9 @@ class OpenApiDocsTest extends TestCase
         $this->assertArrayNotHasKey('password', $memberSchema['properties']);
         $this->assertArrayNotHasKey('auth_version', $memberSchema['properties']);
 
-        $publicMember = $document['components']['schemas']['MemberResource'];
+        $clientDocument = $this->openApiDocument('client');
+        $publicMemberReference = $clientDocument['paths'][ApiRouting::path('/auth/me')]['get']['responses']['200']['content']['application/json']['schema']['properties']['data']['properties']['member']['$ref'];
+        $publicMember = $this->referencedSchema($clientDocument, $publicMemberReference);
         $this->assertSame([
             'id',
             'name',
@@ -731,6 +764,11 @@ class OpenApiDocsTest extends TestCase
             'last_login_at',
         ], $publicMember['required']);
         $this->assertSame($publicMember['required'], array_keys($publicMember['properties']));
+        $this->assertSame('integer', $publicMember['properties']['id']['type']);
+        $this->assertSame('boolean', $publicMember['properties']['is_active']['type']);
+        foreach (['name', 'email', 'mobile'] as $property) {
+            $this->assertEqualsCanonicalizing(['string', 'null'], $publicMember['properties'][$property]['type']);
+        }
 
         $storeMember = $document['components']['schemas']['StoreMemberRequest'];
         $storeMemberProperties = $storeMember['allOf'][0];
@@ -776,10 +814,10 @@ class OpenApiDocsTest extends TestCase
 
         $this->assertArrayNotHasKey(
             'requestBody',
-            $document['paths'][ApiRouting::path('/admin/members/{member}/invalidate-sessions')]['post'],
+            $document['paths'][ApiRouting::adminPath('/members/{member}/invalidate-sessions')]['post'],
         );
 
-        $indexParameters = collect($document['paths'][ApiRouting::path('/admin/members')]['get']['parameters'])->pluck('name')->all();
+        $indexParameters = collect($document['paths'][ApiRouting::adminPath('/members')]['get']['parameters'])->pluck('name')->all();
         foreach (['page', 'per_page', 'search', 'is_active'] as $parameter) {
             $this->assertContains($parameter, $indexParameters);
         }
@@ -827,6 +865,14 @@ class OpenApiDocsTest extends TestCase
         );
 
         $settings = $document['components']['schemas']['SystemSettingsResource'];
+        $clientDocument = $this->openApiDocument('client');
+        $publicOperation = $clientDocument['paths'][ApiRouting::path('/system-settings/public')]['get'];
+        $this->assertSame('system-settings.public', $publicOperation['operationId']);
+        $this->assertSame([], $publicOperation['security']);
+        $this->assertSame(
+            $settings,
+            $this->referencedSchema($clientDocument, $publicOperation['responses']['200']['content']['application/json']['schema']['properties']['data']['$ref']),
+        );
         $this->assertSame(['basic', 'branding'], $settings['required']);
         $this->assertSame(
             ['system_name', 'copyright', 'icp_filing_number'],
@@ -877,11 +923,11 @@ class OpenApiDocsTest extends TestCase
         }
 
         foreach ([
-            ['path' => '/admin/system-configs', 'method' => 'post'],
-            ['path' => '/admin/system-configs/{systemConfig}', 'method' => 'put'],
-            ['path' => '/admin/system-configs/{systemConfig}', 'method' => 'delete'],
+            ['path' => '/system-configs', 'method' => 'post'],
+            ['path' => '/system-configs/{systemConfig}', 'method' => 'put'],
+            ['path' => '/system-configs/{systemConfig}', 'method' => 'delete'],
         ] as $operation) {
-            $conflict = $document['paths'][ApiRouting::path($operation['path'])][$operation['method']]['responses']['409'];
+            $conflict = $document['paths'][ApiRouting::adminPath($operation['path'])][$operation['method']]['responses']['409'];
             $this->assertSame('#/components/responses/ApiManagedSystemSettingConflictResponse', $conflict['$ref']);
         }
         $managedConflict = $document['components']['responses']['ApiManagedSystemSettingConflictResponse']['content']['application/json']['schema'];
@@ -889,7 +935,7 @@ class OpenApiDocsTest extends TestCase
         $this->assertContains('error_code', $managedConflict['required']);
         $this->assertSame(['managed_system_setting_immutable'], $managedConflict['properties']['error_code']['enum']);
 
-        $fileDelete = $document['paths'][ApiRouting::path('/admin/files/{file}')]['delete']['responses']['503'];
+        $fileDelete = $document['paths'][ApiRouting::adminPath('/files/{file}')]['delete']['responses']['503'];
         $this->assertSame('#/components/responses/ApiFileDeleteFailedResponse', $fileDelete['$ref']);
         $fileDeleteFailure = $document['components']['responses']['ApiFileDeleteFailedResponse']['content']['application/json']['schema'];
         $this->assertSame(['file_delete_failed'], $fileDeleteFailure['properties']['error_code']['enum']);
@@ -910,7 +956,7 @@ class OpenApiDocsTest extends TestCase
         $this->assertArrayNotHasKey('enum', $typeFilter['schema']);
         $this->assertSame(app(FileUploadPolicy::class)->types(), $typeFilter['schema']['items']['enum']);
 
-        $path = ApiRouting::path('/admin/files');
+        $path = ApiRouting::adminPath('/files');
         $requestBody = $document['paths'][$path]['post']['requestBody'];
         $this->assertSame(['multipart/form-data'], array_keys($requestBody['content']));
         $requestReference = $requestBody['content']['multipart/form-data']['schema']['$ref'];
@@ -952,19 +998,39 @@ class OpenApiDocsTest extends TestCase
             $this->assertArrayNotHasKey($internalProperty, $fileSchema['properties']);
         }
 
-        $deleteResponse = $document['paths'][ApiRouting::path('/admin/files/{file}')]['delete']['responses']['503'];
+        $deleteResponse = $document['paths'][ApiRouting::adminPath('/files/{file}')]['delete']['responses']['503'];
         $this->assertSame('#/components/responses/ApiFileDeleteFailedResponse', $deleteResponse['$ref']);
         $fileDeleteFailed = $document['components']['responses']['ApiFileDeleteFailedResponse']['content']['application/json']['schema'];
         $this->assertSame(['file_delete_failed'], $fileDeleteFailed['properties']['error_code']['enum']);
 
     }
 
+    public function test_generated_documents_resolve_all_local_references_independently(): void
+    {
+        foreach (['client', 'admin'] as $api) {
+            $document = $this->openApiDocument($api);
+            array_walk_recursive($document, function (mixed $value, string|int $key) use ($document, $api): void {
+                if ($key !== '$ref' || ! is_string($value)) {
+                    return;
+                }
+                $this->assertStringStartsWith('#/', $value, "{$api} must not depend on another API document.");
+                $resolved = $document;
+                foreach (explode('/', substr($value, 2)) as $segment) {
+                    $segment = str_replace(['~1', '~0'], ['/', '~'], $segment);
+                    $this->assertIsArray($resolved);
+                    $this->assertArrayHasKey($segment, $resolved, "{$api}: {$value} must resolve in its own document.");
+                    $resolved = $resolved[$segment];
+                }
+            });
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
-    private function openApiDocument(): array
+    private function openApiDocument(string $api = 'admin'): array
     {
-        $path = base_path('docs/api.json');
+        $path = base_path("docs/{$api}-api.json");
 
         $this->assertFileExists($path, 'Run composer docs:api before running the OpenAPI documentation tests.');
 
@@ -973,6 +1039,19 @@ class OpenApiDocsTest extends TestCase
         $this->assertIsArray($document);
 
         return $document;
+    }
+
+    /**
+     * @param  array<string, mixed>  $document
+     * @return array<string, mixed>
+     */
+    private function referencedSchema(array $document, string $reference): array
+    {
+        $this->assertStringStartsWith('#/components/schemas/', $reference);
+        $name = str($reference)->afterLast('/')->toString();
+        $this->assertArrayHasKey($name, $document['components']['schemas']);
+
+        return $document['components']['schemas'][$name];
     }
 
     /**

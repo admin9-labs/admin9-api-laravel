@@ -1,7 +1,7 @@
 {
     "openapi": "3.1.0",
     "info": {
-        "title": "Admin9 API Laravel",
+        "title": "Admin9 Admin API",
         "version": "0.1.0",
         "description": "Laravel 13 backend API for the Admin9 middle/back-office application."
     },
@@ -212,7 +212,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/App.Http.Requests.Admin.Auth.LoginRequest"
+                                "$ref": "#/components/schemas/LoginRequest"
                             }
                         }
                     }
@@ -506,7 +506,7 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/App.Http.Requests.Admin.Auth.ChangePasswordRequest"
+                                "$ref": "#/components/schemas/ChangePasswordRequest"
                             }
                         }
                     }
@@ -3109,7 +3109,7 @@
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/components/schemas/App.Http.Resources.Admin.MemberResource"
+                                                "$ref": "#/components/schemas/MemberResource"
                                             }
                                         },
                                         "meta": {
@@ -3222,7 +3222,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "member": {
-                                                    "$ref": "#/components/schemas/App.Http.Resources.Admin.MemberResource"
+                                                    "$ref": "#/components/schemas/MemberResource"
                                                 }
                                             },
                                             "required": [
@@ -3312,7 +3312,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "member": {
-                                                    "$ref": "#/components/schemas/App.Http.Resources.Admin.MemberResource"
+                                                    "$ref": "#/components/schemas/MemberResource"
                                                 }
                                             },
                                             "required": [
@@ -3406,7 +3406,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "member": {
-                                                    "$ref": "#/components/schemas/App.Http.Resources.Admin.MemberResource"
+                                                    "$ref": "#/components/schemas/MemberResource"
                                                 }
                                             },
                                             "required": [
@@ -3509,7 +3509,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "member": {
-                                                    "$ref": "#/components/schemas/App.Http.Resources.Admin.MemberResource"
+                                                    "$ref": "#/components/schemas/MemberResource"
                                                 }
                                             },
                                             "required": [
@@ -3612,7 +3612,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "member": {
-                                                    "$ref": "#/components/schemas/App.Http.Resources.Admin.MemberResource"
+                                                    "$ref": "#/components/schemas/MemberResource"
                                                 }
                                             },
                                             "required": [
@@ -3705,7 +3705,7 @@
                                             "type": "object",
                                             "properties": {
                                                 "member": {
-                                                    "$ref": "#/components/schemas/App.Http.Resources.Admin.MemberResource"
+                                                    "$ref": "#/components/schemas/MemberResource"
                                                 }
                                             },
                                             "required": [
@@ -6223,7 +6223,12 @@
                         "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 },
-                "security": []
+                "security": [],
+                "servers": [
+                    {
+                        "url": "http://localhost"
+                    }
+                ]
             }
         },
         "/api/admin/system-settings": {
@@ -7234,7 +7239,6 @@
             }
         }
     },
-    "tags": [],
     "components": {
         "securitySchemes": {
             "http": {
@@ -7316,7 +7320,7 @@
                 ],
                 "title": "ActivityLogResource"
             },
-            "App.Http.Requests.Admin.Auth.ChangePasswordRequest": {
+            "ChangePasswordRequest": {
                 "type": "object",
                 "properties": {
                     "current_password": {
@@ -7324,13 +7328,13 @@
                     },
                     "password": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
@@ -7340,83 +7344,7 @@
                     "password",
                     "password_confirmation"
                 ],
-                "title": "App.Http.Requests.Admin.Auth.ChangePasswordRequest"
-            },
-            "App.Http.Requests.Admin.Auth.LoginRequest": {
-                "type": "object",
-                "properties": {
-                    "email": {
-                        "type": "string",
-                        "format": "email",
-                        "maxLength": 255
-                    },
-                    "password": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "email",
-                    "password"
-                ],
-                "title": "App.Http.Requests.Admin.Auth.LoginRequest"
-            },
-            "App.Http.Resources.Admin.MemberResource": {
-                "type": "object",
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "format": "int64"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "email": {
-                        "type": [
-                            "string",
-                            "null"
-                        ],
-                        "format": "email"
-                    },
-                    "mobile": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "is_active": {
-                        "type": "boolean"
-                    },
-                    "last_login_at": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "last_login_ip": {
-                        "type": [
-                            "string",
-                            "null"
-                        ]
-                    },
-                    "created_at": {
-                        "type": "string"
-                    },
-                    "updated_at": {
-                        "type": "string"
-                    }
-                },
-                "required": [
-                    "id",
-                    "name",
-                    "email",
-                    "mobile",
-                    "is_active",
-                    "last_login_at",
-                    "last_login_ip",
-                    "created_at",
-                    "updated_at"
-                ],
-                "title": "App.Http.Resources.Admin.MemberResource"
+                "title": "ChangePasswordRequest"
             },
             "DictionaryItemResource": {
                 "type": "object",
@@ -7755,6 +7683,82 @@
                 ],
                 "title": "LoginLogResource"
             },
+            "LoginRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "maxLength": 255
+                    },
+                    "password": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ],
+                "title": "LoginRequest"
+            },
+            "MemberResource": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "format": "email"
+                    },
+                    "mobile": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "is_active": {
+                        "type": "boolean"
+                    },
+                    "last_login_at": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "last_login_ip": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    },
+                    "created_at": {
+                        "type": "string"
+                    },
+                    "updated_at": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "mobile",
+                    "is_active",
+                    "last_login_at",
+                    "last_login_ip",
+                    "created_at",
+                    "updated_at"
+                ],
+                "title": "MemberResource"
+            },
             "MenuResource": {
                 "type": "object",
                 "properties": {
@@ -7935,13 +7939,13 @@
                 "properties": {
                     "password": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
@@ -7957,13 +7961,13 @@
                 "properties": {
                     "password": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
@@ -8183,7 +8187,7 @@
                             },
                             "password": {
                                 "type": "string",
-                                "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                                "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                                 "minLength": 8,
                                 "maxLength": 255
                             },
@@ -8192,7 +8196,7 @@
                             },
                             "password_confirmation": {
                                 "type": "string",
-                                "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                                "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                                 "minLength": 8,
                                 "maxLength": 255
                             }
@@ -8444,7 +8448,7 @@
                     },
                     "password": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },

@@ -12,8 +12,15 @@ class FrameworkSurfaceAccessTest extends TestCase
     {
         $this->app->instance('env', 'production');
 
-        $this->getJson('/docs/api')->assertForbidden();
-        $this->getJson('/docs/api.json')->assertForbidden();
+        foreach (['/docs/client-api', '/docs/client-api.json', '/docs/admin-api', '/docs/admin-api.json'] as $path) {
+            $this->getJson($path)->assertForbidden();
+        }
+    }
+
+    public function test_retired_documentation_routes_are_not_exposed(): void
+    {
+        $this->getJson('/docs/api')->assertNotFound();
+        $this->getJson('/docs/api.json')->assertNotFound();
     }
 
     public function test_private_files_require_a_valid_unexpired_download_signature(): void

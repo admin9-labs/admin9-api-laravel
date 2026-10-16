@@ -120,31 +120,37 @@ class AdminApiOpenApiContract
         }
     }
 
-    public function transformDocument(OpenApi $document): void
+    public function transformDocument(OpenApi $document, bool $admin): void
     {
+        $this->normalizeSystemSettingsSchema($document);
+        $this->describePasswordPolicy($document, $admin ? [
+            AdminChangePasswordRequest::class,
+            StoreUserRequest::class,
+            StoreMemberRequest::class,
+            ResetUserPasswordRequest::class,
+            ResetMemberPasswordRequest::class,
+        ] : [ChangePasswordRequest::class]);
+
+        if (! $admin) {
+            return;
+        }
+
         $this->normalizeActivityLogSchema($this->objectSchema($document, ActivityLogResource::class));
         $this->normalizeLoginLogSchema($this->objectSchema($document, LoginLogResource::class));
         $this->normalizeDictionaryMetaSchemas($document);
         $this->normalizeSystemConfigSchemas($document);
-        $this->normalizeSystemSettingsSchemas($document);
+        $this->normalizeBrandingRequestSchema($document);
         $this->normalizeMenuSchemas($document);
-        $this->describePasswordPolicy($document);
         $this->normalizeMemberSchemas($document);
         $this->normalizeFileSchemas($document);
         $this->objectSchema($document, RoleResource::class)
             ->addProperty('id', (new IntegerType)->format('int64'));
     }
 
-    private function describePasswordPolicy(OpenApi $document): void
+    /** @param array<int, class-string> $requestClasses */
+    private function describePasswordPolicy(OpenApi $document, array $requestClasses): void
     {
-        foreach ([
-            AdminChangePasswordRequest::class,
-            ChangePasswordRequest::class,
-            StoreUserRequest::class,
-            StoreMemberRequest::class,
-            ResetUserPasswordRequest::class,
-            ResetMemberPasswordRequest::class,
-        ] as $requestClass) {
+        foreach ($requestClasses as $requestClass) {
             $schema = $this->objectSchema($document, $requestClass);
 
             foreach (['password', 'password_confirmation'] as $field) {
@@ -309,13 +315,18 @@ class AdminApiOpenApiContract
             ->addProperty('value', $resolvedValue);
     }
 
-    private function normalizeSystemSettingsSchemas(OpenApi $document): void
+    private function brandingUrlSchema(): StringType
     {
-        $brandUrl = (new StringType)
+        return (new StringType)
             ->format('uri')
             ->pattern('^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)')
             ->setMax(2048)
             ->nullable(true);
+    }
+
+    private function normalizeSystemSettingsSchema(OpenApi $document): void
+    {
+        $brandUrl = $this->brandingUrlSchema();
         $basic = (new ObjectType)
             ->addProperty('system_name', (new StringType)->nullable(true))
             ->addProperty('copyright', (new StringType)->nullable(true))
@@ -332,7 +343,11 @@ class AdminApiOpenApiContract
             ->addProperty('basic', $basic)
             ->addProperty('branding', $branding)
             ->setRequired(['basic', 'branding']);
+    }
 
+    private function normalizeBrandingRequestSchema(OpenApi $document): void
+    {
+        $brandUrl = $this->brandingUrlSchema();
         $this->objectSchema($document, UpdateBrandingSystemSettingsRequest::class)
             ->addProperty('navigation_logo_url', $brandUrl)
             ->addProperty('login_logo_url', $brandUrl)

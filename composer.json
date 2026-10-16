@@ -74,12 +74,11 @@
         ],
         "docs:api": [
             "@php -r \"is_dir('docs') || mkdir('docs', 0777, true);\"",
-            "APP_URL=http://localhost php artisan scramble:export --env=local --no-interaction",
-            "@php artisan docs:api:partition --env=local --no-interaction"
+            "@php -r \"require 'vendor/autoload.php'; \\$cache = sys_get_temp_dir().'/admin9-docs-'.bin2hex(random_bytes(8)); \\$environment = ['APP_URL' => 'http://localhost', 'API_VERSION' => '0.1.0', 'API_ROUTE_PREFIX' => 'api', 'API_DOMAIN' => '', 'ADMIN_API_ROUTE_PREFIX' => 'api/admin', 'ADMIN_API_DOMAIN' => '', 'APP_CONFIG_CACHE' => \\$cache.'/config.php', 'APP_ROUTES_CACHE' => \\$cache.'/routes.php']; foreach (['default' => 'client', 'admin' => 'admin'] as \\$api => \\$audience) { (new Symfony\\\\Component\\\\Process\\\\Process([PHP_BINARY, 'artisan', 'scramble:export', '--env=local', '--api='.\\$api, '--path=docs/'.\\$audience.'-api.json', '--no-interaction'], getcwd(), \\$environment))->setTimeout(120)->mustRun(static function (\\$type, \\$buffer) { echo \\$buffer; }); }\""
         ],
         "docs:api:check": [
             "@docs:api",
-            "git diff --exit-code -- docs/api.json docs/admin-api.json docs/client-api.json"
+            "git diff --exit-code -- docs/admin-api.json docs/client-api.json"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

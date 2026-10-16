@@ -252,11 +252,15 @@ class OperationsConfigurationTest extends TestCase
         ));
         $this->assertContains('@php artisan migrate --graceful --ansi', $composer['scripts']['post-create-project-cmd']);
         $this->assertSame(['./vendor/bin/pint --parallel'], $composer['scripts']['pint']);
-        $this->assertContains('APP_URL=http://localhost php artisan scramble:export --env=local --no-interaction', $composer['scripts']['docs:api']);
+        $documentationCommand = implode("\n", $composer['scripts']['docs:api']);
+        foreach (['APP_URL', 'API_ROUTE_PREFIX', 'API_DOMAIN', 'ADMIN_API_ROUTE_PREFIX', 'ADMIN_API_DOMAIN', 'APP_CONFIG_CACHE', 'APP_ROUTES_CACHE', 'scramble:export'] as $setting) {
+            $this->assertStringContainsString($setting, $documentationCommand);
+        }
+        $this->assertStringNotContainsString('docs:api:partition', $documentationCommand);
         $this->assertSame('@docs:api:check', $composer['scripts']['check'][0]);
         $this->assertSame([
             '@docs:api',
-            'git diff --exit-code -- docs/api.json docs/admin-api.json docs/client-api.json',
+            'git diff --exit-code -- docs/admin-api.json docs/client-api.json',
         ], $composer['scripts']['docs:api:check']);
     }
 

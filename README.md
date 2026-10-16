@@ -37,7 +37,7 @@ vendor/bin/pint --dirty --format agent
 php artisan route:list --except-vendor
 ```
 
-`composer docs:api` exports the generated OpenAPI document to `docs/api.json`; `composer docs:api:check` also fails if the committed document is stale. The same export additionally writes `docs/admin-api.json` and `docs/client-api.json`, retaining the combined document for existing consumers. Public system settings are included in both partitions; routes, operation IDs, and authentication rules are unchanged.
+`composer docs:api` independently exports `docs/client-api.json` and `docs/admin-api.json`; `composer docs:api:check` also fails if either committed document is stale. These commands use fixed default routing values and isolated cache paths, so local routing settings do not change the committed contract. Schema inference requires an available database with the current migrations already applied; export does not run migrations. The local documentation pages are `/docs/client-api` and `/docs/admin-api`, with JSON at the corresponding `.json` paths. The combined document, its old URL, and the partition command have been retired. Regenerate downstream API types when adopting the independent documents, as internal schema component names can change.
 
 ## API domains and paths
 
@@ -54,7 +54,18 @@ These defaults expose ordinary login at `/api/auth/login` and administrator logi
 
 An empty domain accepts any Host. A route bound to a hostname takes precedence over an unbound route at the same method and path, so a single bound domain does not isolate both APIs. For mutually exclusive API hosts, bind both domains to different hostnames. An empty prefix classifies every path on its matching hosts as API context, including JSON exception formatting and CORS coverage; existing homepage and health-check handlers continue to run. Domains select routes; guards, JWT checks, and permissions enforce access.
 
-The application rejects overlapping ordinary and administrator routes when both use the same domain constraint, including two unbound domains. The check covers current static ordinary endpoints against administrator route patterns and reports the conflicting method, path, and route names; it does not claim to detect every possible intersection between future dynamic route patterns. Rebuild both configuration and route caches after changing routing settings.
+The application rejects overlapping ordinary and administrator routes when both use the same domain constraint, including two unbound domains. The check covers current static ordinary endpoints against administrator route patterns and reports the conflicting method, path, and route names; it does not claim to detect every possible intersection between future dynamic route patterns. Rebuild both configuration and route caches after changing routing settings. If documentation was cached with `scramble:cache`, also run `php artisan scramble:clear --no-interaction` or regenerate both document caches with `php artisan scramble:cache --no-interaction` so the documentation uses the new origins and paths.
+
+Each client must use its own API base URL. Documentation paths include the complete configured prefix, while OpenAPI servers contain only the origin. Unbound API documentation uses the origin from `APP_URL`; choose an origin that reaches that API rather than an overlapping route on the other API's bound hostname. Public system settings remain an ordinary API operation: both documents include it, and the administrator document points that operation to the ordinary API origin. Administrator clients should request it using the ordinary API base URL.
+
+To export documentation for the current environment instead of the repository defaults, use separate output paths:
+
+```bash
+php artisan scramble:export --api=default --path=/tmp/client-api.json --no-interaction
+php artisan scramble:export --api=admin --path=/tmp/admin-api.json --no-interaction
+```
+
+The Scramble `default` configuration represents the ordinary API. Both documentation pages retain their existing local-only access restriction.
 
 New member logins issue a JWT with a persisted `sid`. The current logout revokes that session and its refreshed tokens; `DELETE /api/auth/sessions` invalidates every session and legacy JWT for the member and records a security audit event. Revoked, expired, foreign, or malformed sessions are rejected on protected requests and refresh. Administrator JWT behavior is unchanged. Revoked and expired sessions and expired refresh results are pruned every five minutes by the scheduler.
 

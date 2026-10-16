@@ -1,7 +1,7 @@
 {
     "openapi": "3.1.0",
     "info": {
-        "title": "Admin9 API Laravel",
+        "title": "Admin9 Client API",
         "version": "0.1.0",
         "description": "Laravel 13 backend API for the Admin9 middle/back-office application."
     },
@@ -580,11 +580,15 @@
                         "$ref": "#/components/responses/ApiRateLimitResponse"
                     }
                 },
-                "security": []
+                "security": [],
+                "servers": [
+                    {
+                        "url": "http://localhost"
+                    }
+                ]
             }
         }
     },
-    "tags": [],
     "components": {
         "securitySchemes": {
             "http": {
@@ -601,13 +605,13 @@
                     },
                     "password": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     },
                     "password_confirmation": {
                         "type": "string",
-                        "description": "8–255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
+                        "description": "8\u2013255 characters. With bcrypt, the password must not exceed 72 bytes (or a stricter configured byte limit) and must not contain NUL bytes. Other hash drivers retain the character-length limit.",
                         "minLength": 8,
                         "maxLength": 255
                     }
