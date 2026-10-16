@@ -67,7 +67,7 @@ class ApiErrorContractTest extends TestCase
         foreach ($errors as $messages) {
             $this->assertIsArray($messages);
             $this->assertNotEmpty($messages);
-            $this->assertContainsOnly('string', $messages);
+            $this->assertContainsOnlyString($messages);
         }
     }
 
