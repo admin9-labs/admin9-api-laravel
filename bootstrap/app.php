@@ -32,11 +32,24 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         then: function (): void {
             Route::middleware('api')
+                ->domain(ApiRouting::domain())
                 ->prefix(ApiRouting::prefix())
                 ->group(base_path('routes/api.php'));
+
+            $clientRoutes = array_filter(
+                Route::getRoutes()->getRoutes(),
+                static fn (Illuminate\Routing\Route $route): bool => in_array('api', $route->middleware(), true),
+            );
             Route::middleware('api')
-                ->prefix(ApiRouting::prefix())
+                ->domain(ApiRouting::adminDomain())
+                ->prefix(ApiRouting::adminPrefix())
                 ->group(base_path('routes/admin.php'));
+
+            $adminRoutes = array_filter(
+                Route::getRoutes()->getRoutes(),
+                static fn (Illuminate\Routing\Route $route): bool => str_starts_with((string) $route->getName(), 'admin.'),
+            );
+            ApiRouting::assertNoRouteConflicts($clientRoutes, $adminRoutes);
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {

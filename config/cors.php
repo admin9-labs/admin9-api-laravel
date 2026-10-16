@@ -17,9 +17,7 @@ return [
     |
     */
 
-    'paths' => ApiRouting::prefix() === ''
-        ? ['*']
-        : [ApiRouting::prefix(), ApiRouting::prefix().'/*', 'sanctum/csrf-cookie'],
+    'paths' => ApiRouting::corsPaths(),
 
     'allowed_methods' => ['*'],
 

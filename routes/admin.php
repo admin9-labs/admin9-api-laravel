@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Route;
 
 $adminPermission = static fn (string $permission): string => "permission:{$permission},admin";
 
-Route::prefix('/admin')->name('admin.')->group(function () use ($adminPermission): void {
+Route::name('admin.')->group(function () use ($adminPermission): void {
     Route::post('/auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:admin-login')
         ->name('auth.login');

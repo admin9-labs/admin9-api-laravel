@@ -39,6 +39,23 @@ php artisan route:list --except-vendor
 
 `composer docs:api` exports the generated OpenAPI document to `docs/api.json`; `composer docs:api:check` also fails if the committed document is stale. The same export additionally writes `docs/admin-api.json` and `docs/client-api.json`, retaining the combined document for existing consumers. Public system settings are included in both partitions; routes, operation IDs, and authentication rules are unchanged.
 
+## API domains and paths
+
+The ordinary API and administrator API each configure their own complete prefix and optional hostname:
+
+```dotenv
+API_DOMAIN=
+API_ROUTE_PREFIX=api
+ADMIN_API_DOMAIN=
+ADMIN_API_ROUTE_PREFIX=api/admin
+```
+
+These defaults expose ordinary login at `/api/auth/login` and administrator login at `/api/admin/auth/login`. Neither prefix inherits from the other. For separate domains with both APIs at their host roots, set `API_DOMAIN=api.example.com`, `ADMIN_API_DOMAIN=admin-api.example.com`, and leave both prefixes empty. Domains contain a fixed hostname only, without a scheme, port, or path. Prefixes are static paths; leading and trailing slashes are removed.
+
+An empty domain accepts any Host. A route bound to a hostname takes precedence over an unbound route at the same method and path, so a single bound domain does not isolate both APIs. For mutually exclusive API hosts, bind both domains to different hostnames. An empty prefix classifies every path on its matching hosts as API context, including JSON exception formatting and CORS coverage; existing homepage and health-check handlers continue to run. Domains select routes; guards, JWT checks, and permissions enforce access.
+
+The application rejects overlapping ordinary and administrator routes when both use the same domain constraint, including two unbound domains. The check covers current static ordinary endpoints against administrator route patterns and reports the conflicting method, path, and route names; it does not claim to detect every possible intersection between future dynamic route patterns. Rebuild both configuration and route caches after changing routing settings.
+
 New member logins issue a JWT with a persisted `sid`. The current logout revokes that session and its refreshed tokens; `DELETE /api/auth/sessions` invalidates every session and legacy JWT for the member and records a security audit event. Revoked, expired, foreign, or malformed sessions are rejected on protected requests and refresh. Administrator JWT behavior is unchanged. Revoked and expired sessions and expired refresh results are pruned every five minutes by the scheduler.
 
 Upgrade compatibility: previously issued JWTs without `sid` retain the existing signature, guard/provider, authentication-version, expiry, and blacklist checks. Their first successful refresh creates a session; new logins always use sessions. A malformed or explicit null `sid` is rejected rather than treated as a legacy token. Session refresh follows `JWT_REFRESH_IAT`; account-level credential and session invalidation still apply through `auth_version`.

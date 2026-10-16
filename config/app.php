@@ -56,6 +56,12 @@ return [
 
     'api_route_prefix' => env('API_ROUTE_PREFIX', 'api'),
 
+    'api_domain' => env('API_DOMAIN'),
+
+    'admin_api_route_prefix' => env('ADMIN_API_ROUTE_PREFIX', 'api/admin'),
+
+    'admin_api_domain' => env('ADMIN_API_DOMAIN'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone
