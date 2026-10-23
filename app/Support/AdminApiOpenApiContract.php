@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Admin9\ScrambleExtensions\Schema\Types\ClosedObjectType;
+use Admin9\ScrambleExtensions\Schema\Types\ReadOnlyIntegerType;
 use App\Http\Requests\Admin\Auth\ChangePasswordRequest as AdminChangePasswordRequest;
 use App\Http\Requests\Admin\ResetMemberPasswordRequest;
 use App\Http\Requests\Admin\ResetUserPasswordRequest;
@@ -10,6 +12,7 @@ use App\Http\Requests\Admin\StoreFileRequest;
 use App\Http\Requests\Admin\StoreMemberRequest;
 use App\Http\Requests\Admin\StoreMenuRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
+use App\Http\Requests\Admin\UpdateBasicSystemSettingsRequest;
 use App\Http\Requests\Admin\UpdateBrandingSystemSettingsRequest;
 use App\Http\Requests\Admin\UpdateDictionaryItemRequest;
 use App\Http\Requests\Admin\UpdateMemberRequest;
@@ -139,7 +142,7 @@ class AdminApiOpenApiContract
         $this->normalizeLoginLogSchema($this->objectSchema($document, LoginLogResource::class));
         $this->normalizeDictionaryMetaSchemas($document);
         $this->normalizeSystemConfigSchemas($document);
-        $this->normalizeBrandingRequestSchema($document);
+        $this->normalizeSystemSettingsRequestSchemas($document);
         $this->normalizeMenuSchemas($document);
         $this->normalizeMemberSchemas($document);
         $this->normalizeFileSchemas($document);
@@ -345,7 +348,7 @@ class AdminApiOpenApiContract
             ->setRequired(['basic', 'branding']);
     }
 
-    private function normalizeBrandingRequestSchema(OpenApi $document): void
+    private function normalizeSystemSettingsRequestSchemas(OpenApi $document): void
     {
         $brandUrl = $this->brandingUrlSchema();
         $this->objectSchema($document, UpdateBrandingSystemSettingsRequest::class)
@@ -354,6 +357,14 @@ class AdminApiOpenApiContract
             ->addProperty('login_background_url', $brandUrl)
             ->addProperty('favicon_url', $brandUrl)
             ->setRequired(['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url']);
+
+        foreach ([UpdateBasicSystemSettingsRequest::class, UpdateBrandingSystemSettingsRequest::class] as $requestClass) {
+            $object = $this->objectSchema($document, $requestClass)->clone();
+            $closedObject = (new ClosedObjectType)->addProperties($object);
+            $closedObject->properties = $object->properties;
+            $closedObject->required = $object->required;
+            $this->schema($document, $requestClass)->type = $closedObject;
+        }
     }
 
     private function normalizeMenuSchemas(OpenApi $document): void
@@ -444,16 +455,16 @@ class AdminApiOpenApiContract
     private function normalizeFileSchemas(OpenApi $document): void
     {
         $this->objectSchema($document, FileResource::class)
-            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
             ->addProperty('directory_id', (new IntegerType)->format('int64')->nullable(true))
             ->addProperty('name', new StringType)
             ->addProperty('type', (new StringType)->enum($this->fileUploadPolicy->types()))
             ->addProperty('mime_type', new StringType)
             ->addProperty('extension', new StringType)
-            ->addProperty('size', (new IntegerType)->format('int64'))
+            ->addProperty('size', (new ReadOnlyIntegerType)->format('int64'))
             ->addProperty('url', (new StringType)->format('uri')->nullable(true))
-            ->addProperty('width', (new IntegerType)->nullable(true))
-            ->addProperty('height', (new IntegerType)->nullable(true))
+            ->addProperty('width', (new ReadOnlyIntegerType)->nullable(true))
+            ->addProperty('height', (new ReadOnlyIntegerType)->nullable(true))
             ->addProperty('status', (new StringType)->enum(['pending', 'ready', 'failed']))
             ->addProperty('created_at', new StringType)
             ->addRequired([

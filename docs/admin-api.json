@@ -7517,7 +7517,8 @@
                 "properties": {
                     "id": {
                         "type": "integer",
-                        "format": "int64"
+                        "format": "int64",
+                        "readOnly": true
                     },
                     "directory_id": {
                         "type": [
@@ -7547,7 +7548,8 @@
                     },
                     "size": {
                         "type": "integer",
-                        "format": "int64"
+                        "format": "int64",
+                        "readOnly": true
                     },
                     "url": {
                         "type": [
@@ -7560,13 +7562,15 @@
                         "type": [
                             "integer",
                             "null"
-                        ]
+                        ],
+                        "readOnly": true
                     },
                     "height": {
                         "type": [
                             "integer",
                             "null"
-                        ]
+                        ],
+                        "readOnly": true
                     },
                     "status": {
                         "type": "string",
@@ -8694,6 +8698,7 @@
                     "copyright",
                     "icp_filing_number"
                 ],
+                "additionalProperties": false,
                 "title": "UpdateBasicSystemSettingsRequest"
             },
             "UpdateBrandingSystemSettingsRequest": {
@@ -8742,6 +8747,7 @@
                     "login_background_url",
                     "favicon_url"
                 ],
+                "additionalProperties": false,
                 "title": "UpdateBrandingSystemSettingsRequest"
             },
             "UpdateDictionaryItemRequest": {
