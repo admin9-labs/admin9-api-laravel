@@ -23,6 +23,53 @@ class JwtRefreshTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
+    public function test_jwt_token_state_is_reused_only_within_the_current_container_scope(): void
+    {
+        $token = $this->tokenWithClaims(['sub' => 1]);
+        $jwt = $this->app->make(JWT::class)->setToken($token);
+
+        $this->assertSame($jwt, $this->app->make(JWT::class));
+        $this->assertSame($token, $this->app->make(JWT::class)->getToken()?->get());
+
+        $this->app->forgetScopedInstances();
+
+        $nextJwt = $this->app->make(JWT::class);
+        $this->assertNotSame($jwt, $nextJwt);
+        $this->assertNull($nextJwt->getToken());
+        $this->assertSame($nextJwt, $this->app->make(JWT::class));
+    }
+
+    #[DataProvider('guardProvider')]
+    public function test_consecutive_requests_keep_different_accounts_isolated_and_return_401_without_a_valid_token(string $guard): void
+    {
+        [$firstAccount, $firstToken] = $this->login($guard);
+        $secondAccount = $guard === 'admin'
+            ? User::factory()->create(['email' => 'jwt-second-admin@example.com', 'password' => 'password'])
+            : Member::factory()->create(['email' => 'jwt-second-member@example.com', 'mobile' => '13900000001', 'password' => 'password']);
+
+        $secondToken = $this->postJson(
+            $guard === 'admin' ? ApiRouting::path('/admin/auth/login') : ApiRouting::path('/auth/login'),
+            [
+                ($guard === 'admin' ? 'email' : 'account') => $secondAccount->email,
+                'password' => 'password',
+            ],
+        )->assertOk()->assertJsonPath($this->identityPath($guard), $secondAccount->getKey())
+            ->json('data.access_token');
+        $this->assertIsString($secondToken);
+
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($firstToken))
+            ->assertOk()
+            ->assertJsonPath($this->identityPath($guard), $firstAccount->getKey());
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($secondToken))
+            ->assertOk()
+            ->assertJsonPath($this->identityPath($guard), $secondAccount->getKey());
+        $this->getJson($this->meUri($guard))->assertUnauthorized();
+        $this->getJson($this->meUri($guard), $this->authorizationHeader('not-a-jwt'))->assertUnauthorized();
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($firstToken))
+            ->assertOk()
+            ->assertJsonPath($this->identityPath($guard), $firstAccount->getKey());
+    }
+
     #[DataProvider('guardProvider')]
     public function test_unexpired_access_token_can_be_refreshed(string $guard): void
     {
