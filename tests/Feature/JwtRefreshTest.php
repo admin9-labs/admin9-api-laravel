@@ -24,6 +24,37 @@ class JwtRefreshTest extends TestCase
     use LazilyRefreshDatabase;
 
     #[DataProvider('guardProvider')]
+    public function test_consecutive_requests_keep_different_accounts_isolated_and_return_401_without_a_valid_token(string $guard): void
+    {
+        [$firstAccount, $firstToken] = $this->login($guard);
+        $secondAccount = $guard === 'admin'
+            ? User::factory()->create(['email' => 'jwt-second-admin@example.com', 'password' => 'password'])
+            : Member::factory()->create(['email' => 'jwt-second-member@example.com', 'mobile' => '13900000001', 'password' => 'password']);
+
+        $secondToken = $this->postJson(
+            $guard === 'admin' ? ApiRouting::path('/admin/auth/login') : ApiRouting::path('/auth/login'),
+            [
+                ($guard === 'admin' ? 'email' : 'account') => $secondAccount->email,
+                'password' => 'password',
+            ],
+        )->assertOk()->assertJsonPath($this->identityPath($guard), $secondAccount->getKey())
+            ->json('data.access_token');
+        $this->assertIsString($secondToken);
+
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($firstToken))
+            ->assertOk()
+            ->assertJsonPath($this->identityPath($guard), $firstAccount->getKey());
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($secondToken))
+            ->assertOk()
+            ->assertJsonPath($this->identityPath($guard), $secondAccount->getKey());
+        $this->getJson($this->meUri($guard))->assertUnauthorized();
+        $this->getJson($this->meUri($guard), $this->authorizationHeader('not-a-jwt'))->assertUnauthorized();
+        $this->getJson($this->meUri($guard), $this->authorizationHeader($firstToken))
+            ->assertOk()
+            ->assertJsonPath($this->identityPath($guard), $firstAccount->getKey());
+    }
+
+    #[DataProvider('guardProvider')]
     public function test_unexpired_access_token_can_be_refreshed(string $guard): void
     {
         [$account, $token] = $this->login($guard);

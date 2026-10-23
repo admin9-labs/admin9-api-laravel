@@ -2866,16 +2866,16 @@
         },
         {
             "name": "php-open-source-saver/jwt-auth",
-            "version": "2.9.2",
+            "version": "v2.9.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PHP-Open-Source-Saver/jwt-auth.git",
-                "reference": "ce08363a9986e5253efd3663ed4f75c976bec89a"
+                "reference": "1bdb72de5e60fcb02264d7aba4bd4608939e3798"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PHP-Open-Source-Saver/jwt-auth/zipball/ce08363a9986e5253efd3663ed4f75c976bec89a",
-                "reference": "ce08363a9986e5253efd3663ed4f75c976bec89a",
+                "url": "https://api.github.com/repos/PHP-Open-Source-Saver/jwt-auth/zipball/1bdb72de5e60fcb02264d7aba4bd4608939e3798",
+                "reference": "1bdb72de5e60fcb02264d7aba4bd4608939e3798",
                 "shasum": ""
             },
             "require": {
@@ -2955,7 +2955,7 @@
                 "issues": "https://github.com/PHP-Open-Source-Saver/jwt-auth/issues",
                 "source": "https://github.com/PHP-Open-Source-Saver/jwt-auth"
             },
-            "time": "2026-05-07T16:44:01+00:00"
+            "time": "2026-08-21T05:00:05+00:00"
         },
         {
             "name": "phpoption/phpoption",
