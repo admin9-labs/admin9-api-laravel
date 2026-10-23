@@ -23,6 +23,22 @@ class JwtRefreshTest extends TestCase
 {
     use LazilyRefreshDatabase;
 
+    public function test_jwt_token_state_is_reused_only_within_the_current_container_scope(): void
+    {
+        $token = $this->tokenWithClaims(['sub' => 1]);
+        $jwt = $this->app->make(JWT::class)->setToken($token);
+
+        $this->assertSame($jwt, $this->app->make(JWT::class));
+        $this->assertSame($token, $this->app->make(JWT::class)->getToken()?->get());
+
+        $this->app->forgetScopedInstances();
+
+        $nextJwt = $this->app->make(JWT::class);
+        $this->assertNotSame($jwt, $nextJwt);
+        $this->assertNull($nextJwt->getToken());
+        $this->assertSame($nextJwt, $this->app->make(JWT::class));
+    }
+
     #[DataProvider('guardProvider')]
     public function test_consecutive_requests_keep_different_accounts_isolated_and_return_401_without_a_valid_token(string $guard): void
     {
