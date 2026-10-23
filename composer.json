@@ -19,7 +19,7 @@
         "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {
-        "admin9/laravel-scramble-extensions": "^0.3",
+        "admin9/laravel-scramble-extensions": "^0.4",
         "barryvdh/laravel-ide-helper": "^3.7",
         "dedoc/scramble": "^0.13.30",
         "fakerphp/faker": "^1.23",
