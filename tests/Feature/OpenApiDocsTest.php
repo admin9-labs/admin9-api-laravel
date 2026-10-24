@@ -208,7 +208,31 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame('#/components/schemas/PermissionResource', $schemas['MenuResource']['properties']['permissions']['items']['$ref']);
     }
 
-    public function test_admin_read_only_primary_keys_do_not_affect_client_resources_or_request_inputs(): void
+    public function test_client_member_primary_key_is_read_only_without_changing_other_fields_or_response_references(): void
+    {
+        $document = $this->openApiDocument('client');
+        $member = $document['components']['schemas']['MemberResource'];
+
+        $this->assertSame([
+            'id' => ['type' => 'integer', 'readOnly' => true],
+            'name' => ['type' => ['string', 'null']],
+            'email' => ['type' => ['string', 'null']],
+            'mobile' => ['type' => ['string', 'null']],
+            'is_active' => ['type' => 'boolean'],
+            'last_login_at' => ['type' => ['string', 'null']],
+        ], $member['properties']);
+        $this->assertSame(['id', 'name', 'email', 'mobile', 'is_active', 'last_login_at'], $member['required']);
+
+        foreach (['login' => 'post', 'refresh' => 'post', 'me' => 'get'] as $action => $method) {
+            $response = $document['paths'][ApiRouting::path('/auth/'.$action)][$method]['responses']['200']['content']['application/json']['schema'];
+            $this->assertSame('#/components/schemas/MemberResource', $response['properties']['data']['properties']['member']['$ref']);
+        }
+
+        $adminMember = $this->openApiDocument()['components']['schemas']['MemberResource'];
+        $this->assertSame(['type' => 'integer', 'format' => 'int64', 'readOnly' => true], $adminMember['properties']['id']);
+    }
+
+    public function test_admin_read_only_primary_keys_do_not_affect_request_inputs(): void
     {
         $document = $this->openApiDocument();
         $schemas = $document['components']['schemas'];
@@ -217,9 +241,6 @@ class OpenApiDocsTest extends TestCase
             $this->assertSame(['type' => 'integer'], $schemas[$schemaName]['properties']['dictionary_type_id'], $schemaName);
         }
         $this->assertSame(['type' => ['integer', 'null']], $schemas['StoreFileDirectoryRequest']['properties']['parent_id']);
-
-        $clientSchemas = $this->openApiDocument('client')['components']['schemas'];
-        $this->assertSame(['type' => 'integer'], $clientSchemas['MemberResource']['properties']['id']);
 
         foreach (['StoreMenuRequest', 'UpdateMenuRequest'] as $schemaName) {
             $this->assertSame(['type' => ['integer', 'null']], $schemas[$schemaName]['properties']['parent_id']);
