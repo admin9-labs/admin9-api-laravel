@@ -2,9 +2,11 @@
 
 namespace App\Http\Responses;
 
-use App\Http\Resources\PaginationAwareResourceCollection;
 use App\Support\ApiRouting;
+use Illuminate\Contracts\Pagination\CursorPaginator;
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Support\Facades\Context;
 use Mitoop\Http\ResponseGenerator;
 use stdClass;
@@ -16,8 +18,8 @@ class ApiResponseGenerator extends ResponseGenerator
      */
     protected function resolvePagination(mixed $data): array
     {
-        if ($data instanceof PaginationAwareResourceCollection && $data->paginator() !== null) {
-            return parent::resolvePagination($data->paginator());
+        if ($data instanceof ResourceCollection && ($data->resource instanceof Paginator || $data->resource instanceof CursorPaginator)) {
+            $data = $data->resource;
         }
 
         return parent::resolvePagination($data);

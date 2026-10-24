@@ -3,9 +3,9 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\JsonResource;
+use Mitoop\Http\Resources\Resource;
 
-class SystemSettingsResource extends JsonResource
+class SystemSettingsResource extends Resource
 {
     /**
      * @return array<string, mixed>

@@ -3,15 +3,10 @@
 namespace App\Http\Resources;
 
 use DateTimeInterface;
-use Illuminate\Http\Resources\Json\JsonResource;
+use Mitoop\Http\Resources\Resource;
 
-abstract class PaginationAwareJsonResource extends JsonResource
+abstract class PaginationAwareJsonResource extends Resource
 {
-    protected static function newCollection($resource): PaginationAwareResourceCollection
-    {
-        return new PaginationAwareResourceCollection($resource, static::class);
-    }
-
     protected function dateTimeString(mixed $value): ?string
     {
         if ($value === null) {

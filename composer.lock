@@ -2107,21 +2107,24 @@
         },
         {
             "name": "mitoop/laravel-api-response",
-            "version": "v7.6.0",
+            "version": "v7.6.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mitoop/laravel-api-response.git",
-                "reference": "731839d0d41b0dd1b886a4dcf1a1caeeb0c45dc5"
+                "reference": "f6fad8de3c5714ef68fc53b84404951f59e06ac8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mitoop/laravel-api-response/zipball/731839d0d41b0dd1b886a4dcf1a1caeeb0c45dc5",
-                "reference": "731839d0d41b0dd1b886a4dcf1a1caeeb0c45dc5",
+                "url": "https://api.github.com/repos/mitoop/laravel-api-response/zipball/f6fad8de3c5714ef68fc53b84404951f59e06ac8",
+                "reference": "f6fad8de3c5714ef68fc53b84404951f59e06ac8",
                 "shasum": ""
             },
             "require": {
                 "laravel/framework": "^11|^12|^13",
                 "php": "^8.2"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^10.5"
             },
             "type": "library",
             "extra": {
@@ -2148,9 +2151,9 @@
             ],
             "support": {
                 "issues": "https://github.com/mitoop/laravel-api-response/issues",
-                "source": "https://github.com/mitoop/laravel-api-response/tree/v7.6.0"
+                "source": "https://github.com/mitoop/laravel-api-response/tree/v7.6.2"
             },
-            "time": "2026-04-02T12:26:38+00:00"
+            "time": "2026-10-24T06:27:03+00:00"
         },
         {
             "name": "mitoop/laravel-efficient-form-request",
