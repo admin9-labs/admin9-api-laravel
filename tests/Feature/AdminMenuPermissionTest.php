@@ -52,6 +52,27 @@ class AdminMenuPermissionTest extends TestCase
         $this->assertNotContains('system.inactive', $codes);
     }
 
+    public function test_menu_create_and_update_reject_duplicate_permission_ids(): void
+    {
+        $token = $this->managerTokenFor(['system.menu.create', 'system.menu.update']);
+        $headers = ['Authorization' => 'Bearer '.$token];
+        $permission = $this->createAdminPermission('system.duplicate.view');
+        $menu = Menu::factory()->create();
+
+        $this->postJson(ApiRouting::adminPath('/menus'), [
+            'name' => 'Duplicate permissions',
+            'code' => 'duplicate.permissions',
+            'type' => 'page',
+            'permission_ids' => [$permission->id, $permission->id],
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('permission_ids.0');
+
+        $this->patchJson(ApiRouting::adminPath('/menus/').$menu->id, [
+            'permission_ids' => [$permission->id, $permission->id],
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('permission_ids.0');
+
+        $this->assertSame(0, $menu->permissions()->count());
+    }
+
     public function test_menu_tree_filters_by_permission_relation(): void
     {
         $deniedPermission = $this->createAdminPermission('system.denied.view');

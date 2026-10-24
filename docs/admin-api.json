@@ -27,37 +27,57 @@
                         "name": "log_name",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
                         "name": "event",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
                         "name": "subject_type",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
                         "name": "subject_id",
                         "in": "query",
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "format": "int64",
+                            "minimum": 1
                         }
                     },
                     {
                         "name": "causer_id",
                         "in": "query",
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "format": "int64",
+                            "minimum": 1
                         }
                     },
                     {
@@ -65,8 +85,12 @@
                         "in": "query",
                         "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, created_at.",
                         "schema": {
-                            "type": "string",
-                            "pattern": "^-?(?:id|created_at)(?:,-?(?:id|created_at))*$"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^-?(?:id|created_at)(?:,-?(?:id|created_at))*$",
+                            "maxLength": 255
                         }
                     },
                     {
@@ -93,7 +117,10 @@
                         "name": "created_at",
                         "in": "query",
                         "schema": {
-                            "type": "array",
+                            "type": [
+                                "array",
+                                "null"
+                            ],
                             "items": {
                                 "type": "string",
                                 "format": "date"
@@ -656,49 +683,76 @@
                         "name": "dictionary_type_id",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "minimum": 1
                         }
                     },
                     {
                         "name": "type_code",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 100
                         }
                     },
                     {
                         "name": "code",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 100
                         }
                     },
                     {
                         "name": "name",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 100
                         }
                     },
                     {
                         "name": "value",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
                         "name": "is_active",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
                         }
                     },
                     {
                         "name": "keyword",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
@@ -706,8 +760,12 @@
                         "in": "query",
                         "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, name, code, value, sort, created_at, updated_at.",
                         "schema": {
-                            "type": "string",
-                            "pattern": "^-?(?:id|name|code|value|sort|created_at|updated_at)(?:,-?(?:id|name|code|value|sort|created_at|updated_at))*$"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^-?(?:id|name|code|value|sort|created_at|updated_at)(?:,-?(?:id|name|code|value|sort|created_at|updated_at))*$",
+                            "maxLength": 255
                         }
                     },
                     {
@@ -1296,28 +1354,43 @@
                         "name": "code",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 100
                         }
                     },
                     {
                         "name": "name",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 100
                         }
                     },
                     {
                         "name": "is_active",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
                         }
                     },
                     {
                         "name": "keyword",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
@@ -1325,8 +1398,12 @@
                         "in": "query",
                         "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, name, code, sort, created_at, updated_at.",
                         "schema": {
-                            "type": "string",
-                            "pattern": "^-?(?:id|name|code|sort|created_at|updated_at)(?:,-?(?:id|name|code|sort|created_at|updated_at))*$"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^-?(?:id|name|code|sort|created_at|updated_at)(?:,-?(?:id|name|code|sort|created_at|updated_at))*$",
+                            "maxLength": 255
                         }
                     },
                     {
@@ -2111,6 +2188,7 @@
                     {
                         "name": "type",
                         "in": "query",
+                        "description": "File type. Cannot be combined with types.",
                         "schema": {
                             "type": [
                                 "string",
@@ -2128,6 +2206,7 @@
                     {
                         "name": "types[]",
                         "in": "query",
+                        "description": "File types. Cannot be combined with type.",
                         "schema": {
                             "type": "array",
                             "items": {
@@ -2146,6 +2225,7 @@
                     {
                         "name": "ungrouped",
                         "in": "query",
+                        "description": "Filter ungrouped files. Cannot be combined with directory_id, including when false.",
                         "schema": {
                             "type": "boolean"
                         }
@@ -2153,6 +2233,7 @@
                     {
                         "name": "directory_id",
                         "in": "query",
+                        "description": "Existing directory ID. Cannot be combined with ungrouped.",
                         "schema": {
                             "type": "integer"
                         }
@@ -2864,43 +2945,66 @@
                         "name": "guard",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
                         "name": "event",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
                         "name": "successful",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
                         }
                     },
                     {
                         "name": "account",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
                         "name": "subject_id",
                         "in": "query",
                         "schema": {
-                            "type": "integer",
-                            "format": "int64"
+                            "type": [
+                                "integer",
+                                "null"
+                            ],
+                            "format": "int64",
+                            "minimum": 1
                         }
                     },
                     {
                         "name": "ip_address",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "description": "IPv4 or IPv6 address."
                         }
                     },
                     {
@@ -2908,8 +3012,12 @@
                         "in": "query",
                         "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, created_at.",
                         "schema": {
-                            "type": "string",
-                            "pattern": "^-?(?:id|created_at)(?:,-?(?:id|created_at))*$"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^-?(?:id|created_at)(?:,-?(?:id|created_at))*$",
+                            "maxLength": 255
                         }
                     },
                     {
@@ -2936,7 +3044,10 @@
                         "name": "created_at",
                         "in": "query",
                         "schema": {
-                            "type": "array",
+                            "type": [
+                                "array",
+                                "null"
+                            ],
                             "items": {
                                 "type": "string",
                                 "format": "date"
@@ -5523,49 +5634,75 @@
                         "name": "key",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 150
                         }
                     },
                     {
                         "name": "name",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 100
                         }
                     },
                     {
                         "name": "config_group",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 100
                         }
                     },
                     {
                         "name": "type",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 30
                         }
                     },
                     {
                         "name": "is_public",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
                         }
                     },
                     {
                         "name": "is_active",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "boolean",
+                                "null"
+                            ]
                         }
                     },
                     {
                         "name": "keyword",
                         "in": "query",
                         "schema": {
-                            "type": "string"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "maxLength": 255
                         }
                     },
                     {
@@ -5573,8 +5710,12 @@
                         "in": "query",
                         "description": "Comma-separated sort fields. Prefix a field with - for descending order. Allowed fields: id, name, key, type, config_group, sort, created_at, updated_at.",
                         "schema": {
-                            "type": "string",
-                            "pattern": "^-?(?:id|name|key|type|config_group|sort|created_at|updated_at)(?:,-?(?:id|name|key|type|config_group|sort|created_at|updated_at))*$"
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "pattern": "^-?(?:id|name|key|type|config_group|sort|created_at|updated_at)(?:,-?(?:id|name|key|type|config_group|sort|created_at|updated_at))*$",
+                            "maxLength": 255
                         }
                     },
                     {
@@ -7297,8 +7438,16 @@
                         "format": "int64"
                     },
                     "properties": {
-                        "type": "object",
-                        "additionalProperties": {}
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            {
+                                "type": "array",
+                                "items": {}
+                            }
+                        ]
                     },
                     "created_at": {
                         "type": [
@@ -7376,11 +7525,19 @@
                         ]
                     },
                     "meta": {
-                        "type": [
-                            "object",
-                            "null"
-                        ],
-                        "additionalProperties": {}
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            {
+                                "type": "array",
+                                "items": {}
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "sort": {
                         "type": "integer"
@@ -7669,8 +7826,16 @@
                         ]
                     },
                     "context": {
-                        "type": "object",
-                        "additionalProperties": {}
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            {
+                                "type": "array",
+                                "items": {}
+                            }
+                        ]
                     },
                     "created_at": {
                         "type": [
@@ -8072,11 +8237,19 @@
                         "maxLength": 1000
                     },
                     "meta": {
-                        "type": [
-                            "object",
-                            "null"
-                        ],
-                        "additionalProperties": {}
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            {
+                                "type": "array",
+                                "items": {}
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "sort": {
                         "type": "integer",
@@ -8206,6 +8379,7 @@
                                     "string",
                                     "null"
                                 ],
+                                "description": "Must not be an email address.",
                                 "maxLength": 32
                             },
                             "password": {
@@ -8324,6 +8498,7 @@
                     },
                     "permission_ids": {
                         "type": "array",
+                        "description": "Distinct permission IDs. Duplicate IDs are rejected.",
                         "items": {
                             "type": "integer",
                             "format": "int64"
@@ -8800,11 +8975,19 @@
                         "maxLength": 1000
                     },
                     "meta": {
-                        "type": [
-                            "object",
-                            "null"
-                        ],
-                        "additionalProperties": {}
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            {
+                                "type": "array",
+                                "items": {}
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
                     },
                     "sort": {
                         "type": "integer",
@@ -8903,6 +9086,7 @@
                             "string",
                             "null"
                         ],
+                        "description": "Must not be an email address.",
                         "maxLength": 32
                     }
                 },
@@ -8980,6 +9164,7 @@
                     },
                     "permission_ids": {
                         "type": "array",
+                        "description": "Distinct permission IDs. Duplicate IDs are rejected.",
                         "items": {
                             "type": "integer",
                             "format": "int64"

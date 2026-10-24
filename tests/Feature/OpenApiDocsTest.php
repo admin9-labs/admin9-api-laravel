@@ -2,6 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Http\Requests\Admin\ListActivityLogsRequest;
+use App\Http\Requests\Admin\ListDictionaryItemsRequest;
+use App\Http\Requests\Admin\ListDictionaryTypesRequest;
+use App\Http\Requests\Admin\ListLoginLogsRequest;
+use App\Http\Requests\Admin\ListSystemConfigsRequest;
 use App\Support\ApiRouting;
 use App\Support\FileUploadPolicy;
 use Illuminate\Routing\Route;
@@ -164,6 +169,42 @@ class OpenApiDocsTest extends TestCase
 
         $this->assertSame('integer', $role['properties']['id']['type'] ?? null);
         $this->assertSame('int64', $role['properties']['id']['format'] ?? null);
+    }
+
+    public function test_filter_query_schemas_preserve_form_request_scalar_constraints(): void
+    {
+        $document = $this->openApiDocument();
+
+        foreach ([
+            'activity-logs' => ListActivityLogsRequest::class,
+            'login-logs' => ListLoginLogsRequest::class,
+            'dictionary-types' => ListDictionaryTypesRequest::class,
+            'dictionary-items' => ListDictionaryItemsRequest::class,
+            'system-configs' => ListSystemConfigsRequest::class,
+        ] as $path => $requestClass) {
+            $parameters = collect($document['paths'][ApiRouting::adminPath('/'.$path)]['get']['parameters'])->keyBy('name');
+
+            foreach ((new $requestClass)->rules() as $field => $rules) {
+                if ($field === 'page_size' || str_contains($field, '*') || in_array('array', $rules, true) || in_array('ip', $rules, true)) {
+                    continue;
+                }
+
+                $schema = $parameters[$field]['schema'];
+                $type = array_values(array_intersect(['string', 'integer', 'boolean'], $rules))[0];
+                $this->assertSame(in_array('nullable', $rules, true) ? [$type, 'null'] : $type, $schema['type'], $path.'.'.$field);
+                $this->assertFalse($parameters[$field]['required'] ?? false);
+                $this->assertArrayNotHasKey('readOnly', $schema);
+
+                foreach ($rules as $rule) {
+                    if (str_starts_with($rule, 'max:')) {
+                        $this->assertSame((int) substr($rule, 4), $schema['maxLength']);
+                    }
+                    if (str_starts_with($rule, 'min:')) {
+                        $this->assertSame((int) substr($rule, 4), $schema['minimum']);
+                    }
+                }
+            }
+        }
     }
 
     public function test_generated_admin_resource_primary_keys_are_read_only_without_marking_other_fields(): void
@@ -688,16 +729,16 @@ class OpenApiDocsTest extends TestCase
             $parameters = collect($document['paths'][$path]['get']['parameters'])->keyBy('name');
             $createdAt = $parameters['created_at']['schema'];
 
-            $this->assertSame('array', $createdAt['type']);
+            $this->assertSame(['array', 'null'], $createdAt['type']);
             $this->assertSame(2, $createdAt['minItems']);
             $this->assertSame(2, $createdAt['maxItems']);
             $this->assertSame(['type' => 'string', 'format' => 'date'], $createdAt['items']);
-            $this->assertSame('integer', $parameters['subject_id']['schema']['type']);
+            $this->assertSame(['integer', 'null'], $parameters['subject_id']['schema']['type']);
             $this->assertSame('int64', $parameters['subject_id']['schema']['format']);
         }
 
         $activityParameters = collect($document['paths'][ApiRouting::adminPath('/activity-logs')]['get']['parameters'])->keyBy('name');
-        $this->assertSame('integer', $activityParameters['causer_id']['schema']['type']);
+        $this->assertSame(['integer', 'null'], $activityParameters['causer_id']['schema']['type']);
         $this->assertSame('int64', $activityParameters['causer_id']['schema']['format']);
 
         $activity = $document['components']['schemas']['ActivityLogResource']['properties'];
@@ -719,6 +760,13 @@ class OpenApiDocsTest extends TestCase
 
         $this->assertSame(['integer', 'null'], $login['subject_id']['type']);
         $this->assertSame('int64', $login['subject_id']['format']);
+
+        foreach ([$activity['properties'], $login['context']] as $payload) {
+            $this->assertSame([
+                ['type' => 'object', 'additionalProperties' => []],
+                ['type' => 'array', 'items' => []],
+            ], $payload['anyOf']);
+        }
     }
 
     public function test_generated_openapi_dictionary_and_system_config_value_contracts_are_precise(): void
@@ -736,8 +784,12 @@ class OpenApiDocsTest extends TestCase
         foreach (['DictionaryItemResource', 'StoreDictionaryItemRequest', 'UpdateDictionaryItemRequest'] as $schemaName) {
             $meta = $schemas[$schemaName]['properties']['meta'];
 
-            $this->assertSame(['object', 'null'], $meta['type']);
-            $this->assertSame([], $meta['additionalProperties']);
+            $this->assertSame([
+                ['type' => 'object', 'additionalProperties' => []],
+                ['type' => 'array', 'items' => []],
+                ['type' => 'null'],
+            ], $meta['anyOf']);
+            $this->assertSame($schemaName === 'DictionaryItemResource', in_array('meta', $schemas[$schemaName]['required'] ?? [], true));
         }
 
         foreach (['StoreSystemConfigRequest', 'UpdateSystemConfigRequest'] as $schemaName) {
@@ -779,6 +831,7 @@ class OpenApiDocsTest extends TestCase
             $properties = $schemas[$schemaName]['properties'];
 
             $this->assertArrayHasKey('permission_ids', $properties);
+            $this->assertSame('Distinct permission IDs. Duplicate IDs are rejected.', $properties['permission_ids']['description']);
             $this->assertArrayNotHasKey('permission_id', $properties);
             $this->assertArrayNotHasKey('permission_name', $properties);
             $this->assertArrayNotHasKey('seed_key', $properties);
@@ -897,6 +950,8 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame(255, $updateMember['properties']['email']['maxLength']);
         $this->assertSame(['string', 'null'], $updateMember['properties']['mobile']['type']);
         $this->assertSame(32, $updateMember['properties']['mobile']['maxLength']);
+        $this->assertSame('Must not be an email address.', $updateMember['properties']['mobile']['description']);
+        $this->assertSame('Must not be an email address.', $storeMemberProperties['properties']['mobile']['description']);
 
         $updateStatus = $document['components']['schemas']['UpdateMemberStatusRequest'];
         $this->assertSame(['is_active'], array_keys($updateStatus['properties']));
@@ -1051,6 +1106,11 @@ class OpenApiDocsTest extends TestCase
 
     public function test_generated_openapi_document_exposes_exact_file_management_contract(): void
     {
+        $parameters = collect($this->openApiDocument()['paths'][ApiRouting::adminPath('/files')]['get']['parameters'])->keyBy('name');
+        foreach (['type' => 'types', 'types[]' => 'type', 'ungrouped' => 'directory_id', 'directory_id' => 'ungrouped'] as $field => $conflict) {
+            $this->assertStringContainsString('Cannot be combined with '.$conflict, $parameters[$field]['description']);
+        }
+
         $document = $this->openApiDocument();
         $operations = $this->operationsById($document);
 

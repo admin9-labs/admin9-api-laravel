@@ -171,6 +171,43 @@ class DictionaryManagementTest extends TestCase
         $this->assertSame($sourceType->id, $movingItem->refresh()->dictionary_type_id);
     }
 
+    public function test_dictionary_item_meta_accepts_objects_lists_empty_arrays_and_null(): void
+    {
+        $token = $this->managerTokenFor(['system.dictionary.create', 'system.dictionary.update', 'system.dictionary.view']);
+        $headers = ['Authorization' => 'Bearer '.$token];
+        $type = DictionaryType::factory()->create();
+
+        foreach ([['color' => 'green', 'nested' => ['enabled' => true]], ['green', 7, null, ['enabled' => true]], [], null] as $index => $meta) {
+            $response = $this->postJson(ApiRouting::adminPath('/dictionary-items'), [
+                'dictionary_type_id' => $type->id,
+                'name' => 'Metadata shape',
+                'code' => 'meta_shape_'.$index,
+                'meta' => $meta,
+            ], $headers)->assertOk()->assertJsonPath('data.dictionary_item.meta', $meta);
+
+            $id = $response->json('data.dictionary_item.id');
+            $this->getJson(ApiRouting::adminPath('/dictionary-items/').$id, $headers)
+                ->assertOk()->assertJsonPath('data.dictionary_item.meta', $meta);
+
+            $this->patchJson(ApiRouting::adminPath('/dictionary-items/').$id, ['meta' => $meta], $headers)
+                ->assertOk()->assertJsonPath('data.dictionary_item.meta', $meta);
+
+            $this->assertSame($meta, DictionaryItem::query()->findOrFail($id)->meta);
+        }
+
+        foreach (['invalid', 12, true] as $meta) {
+            $this->postJson(ApiRouting::adminPath('/dictionary-items'), [
+                'dictionary_type_id' => $type->id,
+                'name' => 'Invalid metadata',
+                'code' => 'invalid_meta',
+                'meta' => $meta,
+            ], $headers)->assertUnprocessable()->assertJsonValidationErrors('meta');
+
+            $this->patchJson(ApiRouting::adminPath('/dictionary-items/').$id, ['meta' => $meta], $headers)
+                ->assertUnprocessable()->assertJsonValidationErrors('meta');
+        }
+    }
+
     public function test_dictionary_type_with_items_cannot_be_deleted(): void
     {
         $this->createPermission('system.dictionary.delete');

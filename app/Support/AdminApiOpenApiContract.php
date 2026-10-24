@@ -84,9 +84,23 @@ class AdminApiOpenApiContract
             default => [],
         };
         $this->normalizeQueryParameterNames($operation, $queryParameterRenames);
+        $this->normalizeFilterParameterSchemas($operation, $routeName);
 
         if ($routeName === 'admin.files.index') {
             foreach ($operation->parameters as $parameter) {
+                if ($parameter instanceof Parameter) {
+                    $description = match ($parameter->name) {
+                        'type' => 'File type. Cannot be combined with types.',
+                        'types[]' => 'File types. Cannot be combined with type.',
+                        'ungrouped' => 'Filter ungrouped files. Cannot be combined with directory_id, including when false.',
+                        'directory_id' => 'Existing directory ID. Cannot be combined with ungrouped.',
+                        default => null,
+                    };
+                    if ($description !== null) {
+                        $parameter->description($description);
+                    }
+                }
+
                 if ($parameter instanceof Parameter && $parameter->name === 'types[]') {
                     $parameter->required = false;
                     $parameter->setSchema(Schema::fromType(
@@ -226,7 +240,7 @@ class AdminApiOpenApiContract
             $allowedSorts = $parameter->schema?->type instanceof StringType
                 ? $parameter->schema->type->enum
                 : [];
-            $sortType = new StringType;
+            $sortType = (new StringType)->setMax(255)->nullable(true);
 
             if ($allowedSorts !== []) {
                 $fields = implode('|', array_map(
@@ -241,6 +255,43 @@ class AdminApiOpenApiContract
             }
 
             $parameter->setSchema(Schema::fromType($sortType));
+        }
+    }
+
+    private function normalizeFilterParameterSchemas(Operation $operation, ?string $routeName): void
+    {
+        $stringLimits = match ($routeName) {
+            'admin.activity-logs.index' => ['log_name' => 255, 'event' => 255, 'subject_type' => 255],
+            'admin.login-logs.index' => ['guard' => 255, 'event' => 255, 'account' => 255],
+            'admin.dictionary-types.index' => ['name' => 100, 'code' => 100, 'keyword' => 255],
+            'admin.dictionary-items.index' => ['type_code' => 100, 'code' => 100, 'name' => 100, 'value' => 255, 'keyword' => 255],
+            'admin.system-configs.index' => ['key' => 150, 'name' => 100, 'config_group' => 100, 'type' => 30, 'keyword' => 255],
+            default => [],
+        };
+        $booleanFields = match ($routeName) {
+            'admin.login-logs.index' => ['successful'],
+            'admin.dictionary-types.index', 'admin.dictionary-items.index' => ['is_active'],
+            'admin.system-configs.index' => ['is_public', 'is_active'],
+            default => [],
+        };
+
+        foreach ($operation->parameters as $parameter) {
+            if (! $parameter instanceof Parameter) {
+                continue;
+            }
+
+            if (isset($stringLimits[$parameter->name])) {
+                $parameter->setSchema(Schema::fromType((new StringType)->setMax($stringLimits[$parameter->name])->nullable(true)));
+            }
+            if (in_array($parameter->name, $booleanFields, true)) {
+                $parameter->setSchema(Schema::fromType((new BooleanType)->nullable(true)));
+            }
+            if ($routeName === 'admin.dictionary-items.index' && $parameter->name === 'dictionary_type_id') {
+                $parameter->setSchema(Schema::fromType((new IntegerType)->setMin(1)->nullable(true)));
+            }
+            if ($routeName === 'admin.login-logs.index' && $parameter->name === 'ip_address') {
+                $parameter->setSchema(Schema::fromType((new StringType)->nullable(true)->setDescription('IPv4 or IPv6 address.')));
+            }
         }
     }
 
@@ -279,6 +330,7 @@ class AdminApiOpenApiContract
                 $parameter->setName('created_at')->required(false);
                 $parameter->setSchema(Schema::fromType(
                     (new ArrayType)
+                        ->nullable(true)
                         ->setMin(2)
                         ->setMax(2)
                         ->setItems((new StringType)->format('date'))
@@ -286,7 +338,7 @@ class AdminApiOpenApiContract
             }
 
             if (in_array($parameter->name, $idParameterNames, true)) {
-                $parameter->setSchema(Schema::fromType((new IntegerType)->format('int64')));
+                $parameter->setSchema(Schema::fromType((new IntegerType)->format('int64')->setMin(1)->nullable(true)));
             }
         }
     }
@@ -300,14 +352,22 @@ class AdminApiOpenApiContract
             ->addProperty('subject_type', (new StringType)->nullable(true))
             ->addProperty('subject_id', (new IntegerType)->format('int64')->nullable(true))
             ->addProperty('causer_type', (new StringType)->nullable(true))
-            ->addProperty('causer_id', (new IntegerType)->format('int64')->nullable(true));
+            ->addProperty('causer_id', (new IntegerType)->format('int64')->nullable(true))
+            ->addProperty('properties', (new AnyOf)->setItems([
+                (new ObjectType)->additionalProperties(new MixedType),
+                (new ArrayType)->setItems(new MixedType),
+            ]));
     }
 
     private function normalizeLoginLogSchema(ObjectType $schema): void
     {
         $schema
             ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
-            ->addProperty('subject_id', (new IntegerType)->format('int64')->nullable(true));
+            ->addProperty('subject_id', (new IntegerType)->format('int64')->nullable(true))
+            ->addProperty('context', (new AnyOf)->setItems([
+                (new ObjectType)->additionalProperties(new MixedType),
+                (new ArrayType)->setItems(new MixedType),
+            ]));
     }
 
     private function normalizeDictionaryMetaSchemas(OpenApi $document): void
@@ -319,7 +379,11 @@ class AdminApiOpenApiContract
         ] as $schemaClass) {
             $this->objectSchema($document, $schemaClass)->addProperty(
                 'meta',
-                (new ObjectType)->additionalProperties(new MixedType)->nullable(true),
+                (new AnyOf)->setItems([
+                    (new ObjectType)->additionalProperties(new MixedType),
+                    (new ArrayType)->setItems(new MixedType),
+                    new NullType,
+                ]),
             );
         }
     }
@@ -409,7 +473,8 @@ class AdminApiOpenApiContract
             $requestSchema = $this->objectSchema($document, $schemaClass);
             $requestSchema->addProperty(
                 'permission_ids',
-                (new ArrayType)->setItems((new IntegerType)->format('int64')),
+                (new ArrayType)->setItems((new IntegerType)->format('int64'))
+                    ->setDescription('Distinct permission IDs. Duplicate IDs are rejected.'),
             );
             unset(
                 $requestSchema->properties['permission_id'],
@@ -452,6 +517,8 @@ class AdminApiOpenApiContract
         $storeMemberSchema = $this->schema($document, StoreMemberRequest::class);
         $this->objectSchema($document, StoreMemberRequest::class)
             ->addProperty('name', (new StringType)->setMin(1)->setMax(255));
+        $this->objectSchema($document, StoreMemberRequest::class)->properties['mobile']
+            ->setDescription('Must not be an email address.');
         $storeMemberSchema->type = (new AllOf)->setItems([
             $storeMemberSchema->type,
             (new AnyOf)->setItems([
@@ -467,7 +534,7 @@ class AdminApiOpenApiContract
         $this->objectSchema($document, UpdateMemberRequest::class)
             ->addProperty('name', (new StringType)->setMin(1)->setMax(255))
             ->addProperty('email', (new StringType)->format('email')->setMax(255)->nullable(true))
-            ->addProperty('mobile', (new StringType)->setMax(32)->nullable(true));
+            ->addProperty('mobile', (new StringType)->setMax(32)->nullable(true)->setDescription('Must not be an email address.'));
 
         $this->objectSchema($document, UpdateMemberStatusRequest::class)
             ->addProperty('is_active', new BooleanType)
