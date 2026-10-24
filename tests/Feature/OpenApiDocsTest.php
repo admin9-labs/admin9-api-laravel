@@ -837,6 +837,9 @@ class OpenApiDocsTest extends TestCase
             'updated_at',
         ], $memberSchema['required']);
         $this->assertSame($memberSchema['required'], array_keys($memberSchema['properties']));
+        foreach (['created_at', 'updated_at'] as $field) {
+            $this->assertSame(['type' => ['string', 'null']], $memberSchema['properties'][$field]);
+        }
         $this->assertArrayNotHasKey('password', $memberSchema['properties']);
         $this->assertArrayNotHasKey('auth_version', $memberSchema['properties']);
 
@@ -1088,6 +1091,7 @@ class OpenApiDocsTest extends TestCase
             'status',
             'created_at',
         ], $fileSchema['required']);
+        $this->assertSame(['type' => ['string', 'null']], $fileSchema['properties']['created_at']);
         foreach (['id', 'size'] as $field) {
             $this->assertSame(['type' => 'integer', 'format' => 'int64', 'readOnly' => true], $fileSchema['properties'][$field]);
         }

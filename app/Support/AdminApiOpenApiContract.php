@@ -433,8 +433,8 @@ class AdminApiOpenApiContract
             ->addProperty('is_active', new BooleanType)
             ->addProperty('last_login_at', (new StringType)->nullable(true))
             ->addProperty('last_login_ip', (new StringType)->nullable(true))
-            ->addProperty('created_at', new StringType)
-            ->addProperty('updated_at', new StringType)
+            ->addProperty('created_at', (new StringType)->nullable(true))
+            ->addProperty('updated_at', (new StringType)->nullable(true))
             ->addRequired([
                 'id',
                 'name',
@@ -486,7 +486,7 @@ class AdminApiOpenApiContract
             ->addProperty('width', (new ReadOnlyIntegerType)->nullable(true))
             ->addProperty('height', (new ReadOnlyIntegerType)->nullable(true))
             ->addProperty('status', (new StringType)->enum(['pending', 'ready', 'failed']))
-            ->addProperty('created_at', new StringType)
+            ->addProperty('created_at', (new StringType)->nullable(true))
             ->addRequired([
                 'id',
                 'name',

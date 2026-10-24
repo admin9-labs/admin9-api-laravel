@@ -78,6 +78,29 @@ class AdminMemberManagementTest extends TestCase
             ->assertJsonPath('data.member.name', '');
     }
 
+    public function test_member_timestamps_preserve_their_format_and_null_values(): void
+    {
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.view']));
+
+        foreach ([
+            ['2026-01-02 03:04:05', '2026-02-03 04:05:06'],
+            [null, null],
+            ['2026-01-02 03:04:05', null],
+            [null, '2026-02-03 04:05:06'],
+        ] as [$createdAt, $updatedAt]) {
+            $member = Member::withoutTimestamps(fn (): Member => Member::factory()->create([
+                'created_at' => $createdAt,
+                'updated_at' => $updatedAt,
+            ]));
+
+            $this->getJson(ApiRouting::adminPath('/members/').$member->id, $headers)
+                ->assertOk()
+                ->assertJsonStructure(['data' => ['member' => ['created_at', 'updated_at']]])
+                ->assertJsonPath('data.member.created_at', $createdAt)
+                ->assertJsonPath('data.member.updated_at', $updatedAt);
+        }
+    }
+
     public function test_member_list_accepts_boolean_query_strings_without_broadening_validation(): void
     {
         $activeMember = Member::factory()->create(['is_active' => true]);
