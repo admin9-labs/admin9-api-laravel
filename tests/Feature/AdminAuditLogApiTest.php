@@ -161,8 +161,37 @@ class AdminAuditLogApiTest extends TestCase
         $this->assertStringNotContainsString('login-secret-token', json_encode($context, JSON_THROW_ON_ERROR));
     }
 
+    public function test_log_payloads_preserve_objects_lists_and_empty_arrays_after_sanitizing(): void
+    {
+        $this->createPermission('system.activity-log.view');
+        $this->createPermission('system.login-log.view');
+        $viewer = User::factory()->create();
+        $viewer->givePermissionTo(['system.activity-log.view', 'system.login-log.view']);
+        $headers = ['Authorization' => 'Bearer '.$this->adminTokenFor($viewer)];
+
+        foreach ([
+            [['label' => 'safe', 'password' => 'hidden'], ['label' => 'safe']],
+            [['safe', ['token' => 'hidden', 'label' => 'kept']], ['safe', ['label' => 'kept']]],
+            [[], []],
+            [['password' => 'hidden'], []],
+        ] as [$payload, $expected]) {
+            $activity = $this->createActivity($viewer, $viewer, 'updated', '2026-10-24 10:00:00', $payload);
+            $activity->forceFill(['properties' => $payload])->saveQuietly();
+            $login = $this->createLoginLog($viewer, $viewer->email, '2026-10-24 10:00:00', $payload);
+
+            foreach ([['activity-logs', 'properties', $activity], ['login-logs', 'context', $login]] as [$path, $field, $log]) {
+                $response = $this->getJson(ApiRouting::adminPath('/'.$path), $headers)->assertOk();
+                $entry = collect(json_decode($response->getContent(), false, 512, JSON_THROW_ON_ERROR)->data)
+                    ->firstWhere('id', $log->id);
+
+                $this->assertNotNull($entry);
+                $this->assertSame(json_encode($expected, JSON_THROW_ON_ERROR), json_encode($entry->{$field}, JSON_THROW_ON_ERROR));
+            }
+        }
+    }
+
     /**
-     * @param  array<string, mixed>  $properties
+     * @param  array<array-key, mixed>  $properties
      */
     private function createActivity(User $subject, User $causer, string $event, string $createdAt, array $properties): Activity
     {
