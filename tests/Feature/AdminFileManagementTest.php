@@ -116,6 +116,26 @@ class AdminFileManagementTest extends TestCase
             ->assertJsonValidationErrors('type');
     }
 
+    public function test_file_creation_time_preserves_its_format_and_null_value(): void
+    {
+        Storage::fake('public');
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.file.view']));
+
+        foreach (['2026-01-02 03:04:05', null] as $index => $createdAt) {
+            $file = File::withoutTimestamps(fn (): File => File::factory()->create([
+                'name' => 'timestamp-case-'.$index.'.pdf',
+                'created_at' => $createdAt,
+            ]));
+
+            $this->getJson(ApiRouting::adminPath('/files?search=').$file->name, $headers)
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $file->id)
+                ->assertJsonStructure(['data' => [['created_at']]])
+                ->assertJsonPath('data.0.created_at', $createdAt);
+        }
+    }
+
     public function test_upload_rejects_mismatch_damage_svg_unknown_and_oversize(): void
     {
         Storage::fake('public');
