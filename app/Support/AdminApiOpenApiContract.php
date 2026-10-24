@@ -156,6 +156,8 @@ class AdminApiOpenApiContract
         $this->normalizeFileSchemas($document);
         $this->objectSchema($document, RoleResource::class)
             ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'));
+        $this->objectSchema($document, DictionaryTypeResource::class)
+            ->addProperty('items_count', new ReadOnlyIntegerType);
 
         foreach ([
             UserResource::class,

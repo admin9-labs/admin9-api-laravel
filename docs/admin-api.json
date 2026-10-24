@@ -7445,7 +7445,8 @@
                         "type": "boolean"
                     },
                     "items_count": {
-                        "type": "integer"
+                        "type": "integer",
+                        "readOnly": true
                     },
                     "items": {
                         "type": "array",

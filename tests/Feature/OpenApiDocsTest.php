@@ -197,7 +197,7 @@ class OpenApiDocsTest extends TestCase
             $this->assertContains('id', $schema['required']);
 
             foreach ($schema['properties'] as $field => $property) {
-                if ($field !== 'id') {
+                if ($field !== 'id' && ! ($schemaName === 'DictionaryTypeResource' && $field === 'items_count')) {
                     $this->assertArrayNotHasKey('readOnly', $property, "{$schemaName}.{$field}");
                 }
             }
@@ -724,6 +724,14 @@ class OpenApiDocsTest extends TestCase
     public function test_generated_openapi_dictionary_and_system_config_value_contracts_are_precise(): void
     {
         $schemas = $this->openApiDocument()['components']['schemas'];
+
+        $dictionaryType = $schemas['DictionaryTypeResource'];
+        $this->assertSame(['type' => 'integer', 'readOnly' => true], $dictionaryType['properties']['items_count']);
+        $this->assertNotContains('items_count', $dictionaryType['required']);
+        foreach (['StoreDictionaryTypeRequest', 'UpdateDictionaryTypeRequest'] as $schemaName) {
+            $this->assertArrayNotHasKey('items_count', $schemas[$schemaName]['properties']);
+            $this->assertNotContains('items_count', $schemas[$schemaName]['required'] ?? []);
+        }
 
         foreach (['DictionaryItemResource', 'StoreDictionaryItemRequest', 'UpdateDictionaryItemRequest'] as $schemaName) {
             $meta = $schemas[$schemaName]['properties']['meta'];
