@@ -901,13 +901,18 @@ class OpenApiDocsTest extends TestCase
         }
 
         $basicRequest = $document['components']['schemas']['UpdateBasicSystemSettingsRequest'];
+        $this->assertFalse($basicRequest['additionalProperties'] ?? null);
         $this->assertSame(['system_name', 'copyright', 'icp_filing_number'], $basicRequest['required']);
         $this->assertSame($basicRequest['required'], array_keys($basicRequest['properties']));
         $this->assertSame('string', $basicRequest['properties']['system_name']['type']);
         $this->assertSame(['string', 'null'], $basicRequest['properties']['copyright']['type']);
         $this->assertSame(['string', 'null'], $basicRequest['properties']['icp_filing_number']['type']);
+        $this->assertSame(100, $basicRequest['properties']['system_name']['maxLength']);
+        $this->assertSame(1000, $basicRequest['properties']['copyright']['maxLength']);
+        $this->assertSame(100, $basicRequest['properties']['icp_filing_number']['maxLength']);
 
         $brandingRequest = $document['components']['schemas']['UpdateBrandingSystemSettingsRequest'];
+        $this->assertFalse($brandingRequest['additionalProperties'] ?? null);
         $this->assertSame([
             'navigation_logo_url',
             'login_logo_url',
@@ -920,6 +925,10 @@ class OpenApiDocsTest extends TestCase
             $this->assertSame('uri', $brandingRequest['properties'][$field]['format']);
             $this->assertSame('^[Hh][Tt][Tt][Pp][Ss]?://(?![^/?#]*@)', $brandingRequest['properties'][$field]['pattern']);
             $this->assertSame(2048, $brandingRequest['properties'][$field]['maxLength']);
+        }
+
+        foreach ([$settings, $settings['properties']['basic'], $settings['properties']['branding']] as $responseSchema) {
+            $this->assertArrayNotHasKey('additionalProperties', $responseSchema);
         }
 
         foreach ([
@@ -991,6 +1000,21 @@ class OpenApiDocsTest extends TestCase
             'status',
             'created_at',
         ], $fileSchema['required']);
+        foreach (['id', 'size'] as $field) {
+            $this->assertSame(['type' => 'integer', 'format' => 'int64', 'readOnly' => true], $fileSchema['properties'][$field]);
+        }
+        foreach (['width', 'height'] as $field) {
+            $this->assertSame(['type' => ['integer', 'null'], 'readOnly' => true], $fileSchema['properties'][$field]);
+        }
+        foreach ($fileSchema['properties'] as $field => $property) {
+            if (! in_array($field, ['id', 'size', 'width', 'height'], true)) {
+                $this->assertArrayNotHasKey('readOnly', $property, $field);
+            }
+        }
+        foreach (['StoreFileRequest', 'UpdateFileRequest', 'UpdateFileByUrlRequest'] as $schemaName) {
+            $this->assertArrayNotHasKey('readOnly', $document['components']['schemas'][$schemaName]['properties']['directory_id']);
+        }
+        $this->assertArrayNotHasKey('readOnly', $document['components']['schemas']['UpdateFileByUrlRequest']['properties']['url']);
         $this->assertSame(app(FileUploadPolicy::class)->types(), $fileSchema['properties']['type']['enum']);
         $this->assertSame(['image', 'document', 'video', 'audio', 'other'], $fileSchema['properties']['type']['enum']);
         $this->assertSame(['pending', 'ready', 'failed'], $fileSchema['properties']['status']['enum']);
