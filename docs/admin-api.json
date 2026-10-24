@@ -7252,7 +7252,8 @@
                 "properties": {
                     "id": {
                         "type": "integer",
-                        "format": "int64"
+                        "format": "int64",
+                        "readOnly": true
                     },
                     "log_name": {
                         "type": [
@@ -7605,7 +7606,8 @@
                 "properties": {
                     "id": {
                         "type": "integer",
-                        "format": "int64"
+                        "format": "int64",
+                        "readOnly": true
                     },
                     "guard": {
                         "type": "string"
@@ -7710,7 +7712,8 @@
                 "properties": {
                     "id": {
                         "type": "integer",
-                        "format": "int64"
+                        "format": "int64",
+                        "readOnly": true
                     },
                     "name": {
                         "type": "string"
@@ -7768,7 +7771,8 @@
                 "properties": {
                     "id": {
                         "type": "integer",
-                        "format": "int64"
+                        "format": "int64",
+                        "readOnly": true
                     },
                     "parent_id": {
                         "type": [
@@ -7987,7 +7991,8 @@
                 "properties": {
                     "id": {
                         "type": "integer",
-                        "format": "int64"
+                        "format": "int64",
+                        "readOnly": true
                     },
                     "name": {
                         "type": "string"

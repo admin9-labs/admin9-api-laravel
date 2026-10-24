@@ -147,7 +147,7 @@ class AdminApiOpenApiContract
         $this->normalizeMemberSchemas($document);
         $this->normalizeFileSchemas($document);
         $this->objectSchema($document, RoleResource::class)
-            ->addProperty('id', (new IntegerType)->format('int64'));
+            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'));
     }
 
     /** @param array<int, class-string> $requestClasses */
@@ -272,7 +272,7 @@ class AdminApiOpenApiContract
     private function normalizeActivityLogSchema(ObjectType $schema): void
     {
         $schema
-            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
             ->addProperty('log_name', (new StringType)->nullable(true))
             ->addProperty('event', (new StringType)->nullable(true))
             ->addProperty('subject_type', (new StringType)->nullable(true))
@@ -284,7 +284,7 @@ class AdminApiOpenApiContract
     private function normalizeLoginLogSchema(ObjectType $schema): void
     {
         $schema
-            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
             ->addProperty('subject_id', (new IntegerType)->format('int64')->nullable(true));
     }
 
@@ -371,7 +371,7 @@ class AdminApiOpenApiContract
     {
         $menuSchema = $this->objectSchema($document, MenuResource::class);
         $menuSchema
-            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
             ->addProperty('parent_id', (new IntegerType)->format('int64')->nullable(true))
             ->addProperty('permission_ids', (new ArrayType)->setItems((new IntegerType)->format('int64')))
             ->addProperty('permission_names', (new ArrayType)->setItems(new StringType))
@@ -406,7 +406,7 @@ class AdminApiOpenApiContract
 
         $memberComponent->type = $memberComponent->type->clone();
         $memberComponent->type
-            ->addProperty('id', (new IntegerType)->format('int64'))
+            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
             ->addProperty('name', new StringType)
             ->addProperty('email', (new StringType)->format('email')->nullable(true))
             ->addProperty('mobile', (new StringType)->nullable(true))
