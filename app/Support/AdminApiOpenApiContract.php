@@ -31,6 +31,7 @@ use App\Http\Resources\Admin\PermissionResource;
 use App\Http\Resources\Admin\RoleResource;
 use App\Http\Resources\Admin\SystemConfigResource;
 use App\Http\Resources\Admin\UserResource;
+use App\Http\Resources\MemberResource as ClientMemberResource;
 use App\Http\Resources\SystemSettingsResource;
 use Dedoc\Scramble\Support\Generator\Combined\AllOf;
 use Dedoc\Scramble\Support\Generator\Combined\AnyOf;
@@ -138,6 +139,10 @@ class AdminApiOpenApiContract
         ] : [ChangePasswordRequest::class]);
 
         if (! $admin) {
+            $memberSchema = $this->objectSchema($document, ClientMemberResource::class)->clone();
+            $memberSchema->addProperty('id', new ReadOnlyIntegerType);
+            $this->schema($document, ClientMemberResource::class)->type = $memberSchema;
+
             return;
         }
 
