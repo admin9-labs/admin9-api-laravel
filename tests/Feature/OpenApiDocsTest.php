@@ -166,6 +166,51 @@ class OpenApiDocsTest extends TestCase
         $this->assertSame('int64', $role['properties']['id']['format'] ?? null);
     }
 
+    public function test_generated_admin_resource_primary_keys_are_read_only_without_marking_other_fields(): void
+    {
+        $schemas = $this->openApiDocument()['components']['schemas'];
+
+        foreach (['ActivityLogResource', 'LoginLogResource', 'MenuResource', 'MemberResource', 'RoleResource'] as $schemaName) {
+            $schema = $schemas[$schemaName];
+            $this->assertSame(
+                ['type' => 'integer', 'format' => 'int64', 'readOnly' => true],
+                $schema['properties']['id'],
+                $schemaName,
+            );
+            $this->assertContains('id', $schema['required']);
+
+            foreach ($schema['properties'] as $field => $property) {
+                if ($field !== 'id') {
+                    $this->assertArrayNotHasKey('readOnly', $property, "{$schemaName}.{$field}");
+                }
+            }
+        }
+    }
+
+    public function test_admin_read_only_primary_keys_do_not_affect_other_resources_or_request_inputs(): void
+    {
+        $document = $this->openApiDocument();
+        $schemas = $document['components']['schemas'];
+
+        foreach (['UserResource', 'PermissionResource', 'DictionaryTypeResource', 'DictionaryItemResource', 'SystemConfigResource', 'FileDirectoryResource'] as $schemaName) {
+            $this->assertSame(['type' => 'integer'], $schemas[$schemaName]['properties']['id'], $schemaName);
+        }
+
+        $clientSchemas = $this->openApiDocument('client')['components']['schemas'];
+        $this->assertSame(['type' => 'integer'], $clientSchemas['MemberResource']['properties']['id']);
+
+        foreach (['StoreMenuRequest', 'UpdateMenuRequest'] as $schemaName) {
+            $this->assertSame(['type' => ['integer', 'null']], $schemas[$schemaName]['properties']['parent_id']);
+            $this->assertSame(['type' => 'integer', 'format' => 'int64'], $schemas[$schemaName]['properties']['permission_ids']['items']);
+        }
+
+        foreach ($this->operationsById($document) as $operationId => $operation) {
+            foreach ($operation['parameters'] ?? [] as $parameter) {
+                $this->assertArrayNotHasKey('readOnly', $parameter['schema'] ?? [], $operationId);
+            }
+        }
+    }
+
     public function test_generated_openapi_document_preserves_resource_scalar_types(): void
     {
         $document = $this->openApiDocument();
