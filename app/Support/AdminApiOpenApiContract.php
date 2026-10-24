@@ -21,6 +21,8 @@ use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Requests\Auth\ChangePasswordRequest;
 use App\Http\Resources\Admin\ActivityLogResource;
 use App\Http\Resources\Admin\DictionaryItemResource;
+use App\Http\Resources\Admin\DictionaryTypeResource;
+use App\Http\Resources\Admin\FileDirectoryResource;
 use App\Http\Resources\Admin\FileResource;
 use App\Http\Resources\Admin\LoginLogResource;
 use App\Http\Resources\Admin\MemberResource;
@@ -28,6 +30,7 @@ use App\Http\Resources\Admin\MenuResource;
 use App\Http\Resources\Admin\PermissionResource;
 use App\Http\Resources\Admin\RoleResource;
 use App\Http\Resources\Admin\SystemConfigResource;
+use App\Http\Resources\Admin\UserResource;
 use App\Http\Resources\SystemSettingsResource;
 use Dedoc\Scramble\Support\Generator\Combined\AllOf;
 use Dedoc\Scramble\Support\Generator\Combined\AnyOf;
@@ -148,6 +151,18 @@ class AdminApiOpenApiContract
         $this->normalizeFileSchemas($document);
         $this->objectSchema($document, RoleResource::class)
             ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'));
+
+        foreach ([
+            UserResource::class,
+            PermissionResource::class,
+            DictionaryTypeResource::class,
+            DictionaryItemResource::class,
+            SystemConfigResource::class,
+            FileDirectoryResource::class,
+        ] as $resourceClass) {
+            $this->objectSchema($document, $resourceClass)
+                ->addProperty('id', new ReadOnlyIntegerType);
+        }
     }
 
     /** @param array<int, class-string> $requestClasses */

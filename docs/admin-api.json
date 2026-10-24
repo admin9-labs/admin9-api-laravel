@@ -7351,7 +7351,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "readOnly": true
                     },
                     "dictionary_type_id": {
                         "type": "integer"
@@ -7422,7 +7423,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "readOnly": true
                     },
                     "name": {
                         "type": "string"
@@ -7480,7 +7482,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "readOnly": true
                     },
                     "parent_id": {
                         "type": [
@@ -7879,7 +7882,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "readOnly": true
                     },
                     "name": {
                         "type": "string"
@@ -8506,7 +8510,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "readOnly": true
                     },
                     "name": {
                         "type": "string"
@@ -9106,7 +9111,8 @@
                 "type": "object",
                 "properties": {
                     "id": {
-                        "type": "integer"
+                        "type": "integer",
+                        "readOnly": true
                     },
                     "name": {
                         "type": "string"

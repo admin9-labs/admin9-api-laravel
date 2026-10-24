@@ -187,14 +187,36 @@ class OpenApiDocsTest extends TestCase
         }
     }
 
-    public function test_admin_read_only_primary_keys_do_not_affect_other_resources_or_request_inputs(): void
+    public function test_remaining_admin_resource_primary_keys_are_read_only_without_adding_a_format(): void
+    {
+        $schemas = $this->openApiDocument()['components']['schemas'];
+
+        foreach (['UserResource', 'PermissionResource', 'DictionaryTypeResource', 'DictionaryItemResource', 'SystemConfigResource', 'FileDirectoryResource'] as $schemaName) {
+            $schema = $schemas[$schemaName];
+            $this->assertSame(['type' => 'integer', 'readOnly' => true], $schema['properties']['id'], $schemaName);
+            $this->assertContains('id', $schema['required']);
+
+            foreach ($schema['properties'] as $field => $property) {
+                if ($field !== 'id') {
+                    $this->assertArrayNotHasKey('readOnly', $property, "{$schemaName}.{$field}");
+                }
+            }
+        }
+
+        $this->assertSame('#/components/schemas/DictionaryItemResource', $schemas['DictionaryTypeResource']['properties']['items']['items']['$ref']);
+        $this->assertSame('#/components/schemas/DictionaryTypeResource', $schemas['DictionaryItemResource']['properties']['type']['$ref']);
+        $this->assertSame('#/components/schemas/PermissionResource', $schemas['MenuResource']['properties']['permissions']['items']['$ref']);
+    }
+
+    public function test_admin_read_only_primary_keys_do_not_affect_client_resources_or_request_inputs(): void
     {
         $document = $this->openApiDocument();
         $schemas = $document['components']['schemas'];
 
-        foreach (['UserResource', 'PermissionResource', 'DictionaryTypeResource', 'DictionaryItemResource', 'SystemConfigResource', 'FileDirectoryResource'] as $schemaName) {
-            $this->assertSame(['type' => 'integer'], $schemas[$schemaName]['properties']['id'], $schemaName);
+        foreach (['StoreDictionaryItemRequest', 'UpdateDictionaryItemRequest'] as $schemaName) {
+            $this->assertSame(['type' => 'integer'], $schemas[$schemaName]['properties']['dictionary_type_id'], $schemaName);
         }
+        $this->assertSame(['type' => ['integer', 'null']], $schemas['StoreFileDirectoryRequest']['properties']['parent_id']);
 
         $clientSchemas = $this->openApiDocument('client')['components']['schemas'];
         $this->assertSame(['type' => 'integer'], $clientSchemas['MemberResource']['properties']['id']);
