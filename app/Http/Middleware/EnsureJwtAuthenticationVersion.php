@@ -19,6 +19,8 @@ class EnsureJwtAuthenticationVersion
      * Handle an incoming request.
      *
      * @param  Closure(Request): (Response)  $next
+     *
+     * @throws AuthenticationException
      */
     public function handle(Request $request, Closure $next, string $guard): Response
     {

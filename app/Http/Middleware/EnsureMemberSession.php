@@ -14,6 +14,9 @@ class EnsureMemberSession
 {
     public function __construct(private MemberSessionManager $sessions) {}
 
+    /**
+     * @throws AuthenticationException
+     */
     public function handle(Request $request, Closure $next): Response
     {
         $member = $request->user('member');
