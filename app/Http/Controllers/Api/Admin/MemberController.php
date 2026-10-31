@@ -11,6 +11,7 @@ use App\Http\Requests\Admin\StoreMemberRequest;
 use App\Http\Requests\Admin\UpdateMemberRequest;
 use App\Http\Requests\Admin\UpdateMemberStatusRequest;
 use App\Http\Resources\Admin\MemberResource;
+use App\Http\Resources\Admin\MemberResourceCollection;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -20,7 +21,7 @@ class MemberController extends Controller
 {
     public function __construct(private ManageMember $manageMember) {}
 
-    public function index(ListMembersRequest $request): JsonResponse
+    public function index(ListMembersRequest $request): MemberResourceCollection
     {
         $validated = $request->validated();
         $search = $validated['search'] ?? null;
@@ -37,7 +38,7 @@ class MemberController extends Controller
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? null);
 
-        return $this->success(MemberResource::collection($members));
+        return new MemberResourceCollection($members);
     }
 
     public function store(StoreMemberRequest $request): JsonResponse

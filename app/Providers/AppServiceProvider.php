@@ -17,23 +17,20 @@ use Dedoc\Scramble\Support\Generator\Operation;
 use Dedoc\Scramble\Support\Generator\SecurityRequirement;
 use Dedoc\Scramble\Support\RouteInfo;
 use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route as LaravelRoute;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Mitoop\Http\Exceptions\Handler;
-use Mitoop\Http\JsonResponderDefault;
-use Mitoop\Http\ResponseGenerator;
+use Mitoop\Http\EnvelopeFactory;
+use Mitoop\Http\ResponderConfig;
 use Symfony\Component\HttpFoundation\Response;
 
 class AppServiceProvider extends ServiceProvider
 {
     public $singletons = [
-        ExceptionHandler::class => Handler::class,
-        ResponseGenerator::class => ApiResponseGenerator::class,
+        EnvelopeFactory::class => ApiResponseGenerator::class,
     ];
 
     /**
@@ -51,8 +48,10 @@ class AppServiceProvider extends ServiceProvider
     {
         TestingDatabaseGuard::ensureIsolated($this->app);
 
-        app(JsonResponderDefault::class)->apply([
-            'deny' => Response::HTTP_FORBIDDEN,
+        app(ResponderConfig::class)->apply([
+            'http_status' => [
+                'deny' => Response::HTTP_FORBIDDEN,
+            ],
         ]);
 
         RateLimiter::for('member-api', static function (Request $request): Limit {

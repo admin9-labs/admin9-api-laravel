@@ -38,6 +38,8 @@ use Dedoc\Scramble\Support\Generator\Combined\AnyOf;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Operation;
 use Dedoc\Scramble\Support\Generator\Parameter;
+use Dedoc\Scramble\Support\Generator\Reference;
+use Dedoc\Scramble\Support\Generator\Response;
 use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\Types\ArrayType;
 use Dedoc\Scramble\Support\Generator\Types\BooleanType;
@@ -66,11 +68,36 @@ class AdminApiOpenApiContract
         'admin.system-configs.update',
     ];
 
+    /**
+     * @var array<int, string>
+     */
+    private const PAGINATED_RESOURCE_ROUTES = [
+        'admin.activity-logs.index',
+        'admin.dictionary-items.index',
+        'admin.dictionary-types.index',
+        'admin.files.index',
+        'admin.login-logs.index',
+        'admin.members.index',
+        'admin.system-configs.index',
+        'admin.users.index',
+    ];
+
+    /**
+     * @var array<string, string>
+     */
+    private const RESOURCE_RESPONSE_SCHEMAS = [
+        'system-settings.public' => '#/components/schemas/SystemSettingsResource',
+        'admin.system-settings.show' => '#/components/schemas/SystemSettingsResource',
+        'admin.system-settings.basic.update' => '#/components/schemas/SystemSettingsResource',
+        'admin.system-settings.branding.update' => '#/components/schemas/SystemSettingsResource',
+    ];
+
     public function __construct(private FileUploadPolicy $fileUploadPolicy) {}
 
     public function transformOperation(Operation $operation, RouteInfo $routeInfo): void
     {
         $routeName = $routeInfo->route->getName();
+        $this->normalizeResourceResponseEnvelope($operation, $routeName);
 
         $queryParameterRenames = match ($routeName) {
             'admin.activity-logs.index',
@@ -141,37 +168,148 @@ class AdminApiOpenApiContract
         }
     }
 
+    private function normalizeResourceResponseEnvelope(Operation $operation, ?string $routeName): void
+    {
+        foreach ($operation->responses as $response) {
+            if (! $response instanceof Response || $response->code !== 200) {
+                continue;
+            }
+
+            if (! array_key_exists('application/json', $response->content)) {
+                continue;
+            }
+
+            $schema = $response->getContent('application/json');
+            if (! $schema instanceof Schema || ! $schema->type instanceof ObjectType) {
+                continue;
+            }
+
+            $envelope = $schema->type;
+            $resourceResponse = $envelope->properties['data'] ?? null;
+
+            if ($resourceResponse instanceof Reference) {
+                $resourceSchema = $resourceResponse->resolve();
+                $resourceResponse = $resourceSchema instanceof Schema ? $resourceSchema->type : null;
+            }
+
+            if ($resourceResponse instanceof ObjectType && isset(self::RESOURCE_RESPONSE_SCHEMAS[$routeName])) {
+                $envelope->properties['data'] = Reference::fromUri(self::RESOURCE_RESPONSE_SCHEMAS[$routeName]);
+            } elseif ($resourceResponse instanceof ObjectType && array_key_exists('data', $resourceResponse->properties)) {
+                $resourceResponse = $resourceResponse->properties['data'];
+
+                if ($resourceResponse instanceof Reference) {
+                    $resourceSchema = $resourceResponse->resolve();
+                    $resourceResponse = $resourceSchema instanceof Schema ? $resourceSchema->type : null;
+                }
+
+                $envelope->properties['data'] = $resourceResponse;
+            } elseif ($resourceResponse instanceof ArrayType) {
+                $envelope->properties['data'] = $resourceResponse;
+            } else {
+                continue;
+            }
+
+            if (! in_array($routeName, self::PAGINATED_RESOURCE_ROUTES, true)) {
+                continue;
+            }
+
+            $meta = (new ObjectType)
+                ->addProperty('pagination', new StringType)
+                ->addProperty('page', new IntegerType)
+                ->addProperty('page_size', new IntegerType)
+                ->addProperty('has_more', new BooleanType)
+                ->addProperty('total', new IntegerType)
+                ->setRequired(['pagination', 'page', 'page_size', 'has_more', 'total']);
+
+            $envelope->addProperty('meta', $meta);
+            $envelope->setRequired(['success', 'code', 'message', 'data', 'meta', 'request_id']);
+            $response->description = 'Paginated list';
+        }
+    }
+
     public function transformDocument(OpenApi $document, bool $admin): void
     {
-        $this->normalizeSystemSettingsSchema($document);
-        $this->describePasswordPolicy($document, $admin ? [
+        if ($this->hasSchema($document, SystemSettingsResource::class)) {
+            $this->normalizeSystemSettingsSchema($document);
+        }
+
+        $passwordRequestClasses = $admin ? [
             AdminChangePasswordRequest::class,
             StoreUserRequest::class,
             StoreMemberRequest::class,
             ResetUserPasswordRequest::class,
             ResetMemberPasswordRequest::class,
-        ] : [ChangePasswordRequest::class]);
+        ] : [ChangePasswordRequest::class];
+        $this->describePasswordPolicy($document, array_values(array_filter(
+            $passwordRequestClasses,
+            fn (string $requestClass): bool => $this->hasSchema($document, $requestClass),
+        )));
 
         if (! $admin) {
-            $memberSchema = $this->objectSchema($document, ClientMemberResource::class)->clone();
-            $memberSchema->addProperty('id', new ReadOnlyIntegerType);
-            $this->schema($document, ClientMemberResource::class)->type = $memberSchema;
+            if ($this->hasSchema($document, ClientMemberResource::class)) {
+                $memberSchema = $this->objectSchema($document, ClientMemberResource::class)->clone();
+                $memberSchema->addProperty('id', new ReadOnlyIntegerType);
+                $this->schema($document, ClientMemberResource::class)->type = $memberSchema;
+            }
 
             return;
         }
 
-        $this->normalizeActivityLogSchema($this->objectSchema($document, ActivityLogResource::class));
-        $this->normalizeLoginLogSchema($this->objectSchema($document, LoginLogResource::class));
-        $this->normalizeDictionaryMetaSchemas($document);
-        $this->normalizeSystemConfigSchemas($document);
-        $this->normalizeSystemSettingsRequestSchemas($document);
-        $this->normalizeMenuSchemas($document);
-        $this->normalizeMemberSchemas($document);
-        $this->normalizeFileSchemas($document);
-        $this->objectSchema($document, RoleResource::class)
-            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'));
-        $this->objectSchema($document, DictionaryTypeResource::class)
-            ->addProperty('items_count', new ReadOnlyIntegerType);
+        if ($this->hasSchema($document, ActivityLogResource::class)) {
+            $this->normalizeActivityLogSchema($this->objectSchema($document, ActivityLogResource::class));
+        }
+
+        if ($this->hasSchema($document, LoginLogResource::class)) {
+            $this->normalizeLoginLogSchema($this->objectSchema($document, LoginLogResource::class));
+        }
+
+        if ($this->hasSchemas($document, [
+            DictionaryItemResource::class,
+            StoreDictionaryItemRequest::class,
+            UpdateDictionaryItemRequest::class,
+        ])) {
+            $this->normalizeDictionaryMetaSchemas($document);
+        }
+
+        if ($this->hasSchema($document, SystemConfigResource::class)) {
+            $this->normalizeSystemConfigSchemas($document);
+        }
+
+        if ($this->hasSchemas($document, [UpdateBasicSystemSettingsRequest::class, UpdateBrandingSystemSettingsRequest::class])) {
+            $this->normalizeSystemSettingsRequestSchemas($document);
+        }
+
+        if ($this->hasSchemas($document, [
+            MenuResource::class,
+            PermissionResource::class,
+            StoreMenuRequest::class,
+            UpdateMenuRequest::class,
+        ])) {
+            $this->normalizeMenuSchemas($document);
+        }
+
+        if ($this->hasSchemas($document, [
+            MemberResource::class,
+            StoreMemberRequest::class,
+            UpdateMemberRequest::class,
+            UpdateMemberStatusRequest::class,
+        ])) {
+            $this->normalizeMemberSchemas($document);
+        }
+
+        if ($this->hasSchemas($document, [FileResource::class, StoreFileRequest::class])) {
+            $this->normalizeFileSchemas($document);
+        }
+
+        if ($this->hasSchema($document, RoleResource::class)) {
+            $this->objectSchema($document, RoleResource::class)
+                ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'));
+        }
+
+        if ($this->hasSchema($document, DictionaryTypeResource::class)) {
+            $this->objectSchema($document, DictionaryTypeResource::class)
+                ->addProperty('items_count', new ReadOnlyIntegerType);
+        }
 
         foreach ([
             UserResource::class,
@@ -181,8 +319,10 @@ class AdminApiOpenApiContract
             SystemConfigResource::class,
             FileDirectoryResource::class,
         ] as $resourceClass) {
-            $this->objectSchema($document, $resourceClass)
-                ->addProperty('id', new ReadOnlyIntegerType);
+            if ($this->hasSchema($document, $resourceClass)) {
+                $this->objectSchema($document, $resourceClass)
+                    ->addProperty('id', new ReadOnlyIntegerType);
+            }
         }
     }
 
@@ -627,10 +767,16 @@ class AdminApiOpenApiContract
             return $dotNotationClass;
         }
 
+        $schemaName = class_basename($schemaClass);
+
+        if (array_key_exists($schemaName, $document->components->schemas)) {
+            return $schemaName;
+        }
+
         $matchingComponentNames = collect(array_keys($document->components->schemas))
             ->filter(fn (string $componentName): bool => str_contains(
                 class_basename($componentName),
-                class_basename($schemaClass),
+                $schemaName,
             ))
             ->values();
 
@@ -639,5 +785,39 @@ class AdminApiOpenApiContract
         }
 
         return $matchingComponentNames->first();
+    }
+
+    /**
+     * @param  class-string  $schemaClass
+     */
+    private function hasSchema(OpenApi $document, string $schemaClass): bool
+    {
+        $schemaName = class_basename($schemaClass);
+
+        if (array_key_exists($schemaClass, $document->components->schemas)
+            || array_key_exists(str_replace('\\', '.', $schemaClass), $document->components->schemas)) {
+            return true;
+        }
+
+        if (array_key_exists($schemaName, $document->components->schemas)) {
+            return true;
+        }
+
+        return collect(array_keys($document->components->schemas))
+            ->filter(fn (string $componentName): bool => str_contains(
+                class_basename($componentName),
+                $schemaName,
+            ))
+            ->count() === 1;
+    }
+
+    /**
+     * @param  array<int, class-string>  $schemaClasses
+     */
+    private function hasSchemas(OpenApi $document, array $schemaClasses): bool
+    {
+        return collect($schemaClasses)->every(
+            fn (string $schemaClass): bool => $this->hasSchema($document, $schemaClass),
+        );
     }
 }

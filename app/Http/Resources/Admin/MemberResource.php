@@ -3,8 +3,12 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\Member;
 use Illuminate\Http\Request;
 
+/**
+ * @mixin Member
+ */
 class MemberResource extends PaginationAwareJsonResource
 {
     /**

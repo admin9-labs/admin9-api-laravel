@@ -3,8 +3,12 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\User;
 use Illuminate\Http\Request;
 
+/**
+ * @mixin User
+ */
 class UserResource extends PaginationAwareJsonResource
 {
     /**

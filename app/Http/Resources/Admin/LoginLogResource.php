@@ -3,9 +3,13 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\LoginLog;
 use App\Support\Security\SensitiveDataSanitizer;
 use Illuminate\Http\Request;
 
+/**
+ * @mixin LoginLog
+ */
 class LoginLogResource extends PaginationAwareJsonResource
 {
     /**

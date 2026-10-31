@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreMenuRequest;
 use App\Http\Requests\Admin\UpdateMenuRequest;
 use App\Http\Resources\Admin\MenuResource;
+use App\Http\Resources\Admin\MenuResourceCollection;
 use App\Models\Menu;
 use App\Models\Permission;
 use App\Support\Admin\AdminPermissionChecker;
@@ -30,17 +31,17 @@ class MenuController extends Controller
     /**
      * Return the complete bounded admin menu catalog for management UIs.
      */
-    public function index(): JsonResponse
+    public function index(): MenuResourceCollection
     {
-        return $this->success(MenuResource::collection(
+        return new MenuResourceCollection(
             Menu::query()->with(['children.permissions', 'permissions'])->ordered()->get()
-        ));
+        );
     }
 
     /**
      * Return the complete bounded visible menu tree for admin shell navigation.
      */
-    public function tree(Request $request): JsonResponse
+    public function tree(Request $request): MenuResourceCollection
     {
         $menus = Menu::query()
             ->active()
@@ -55,7 +56,7 @@ class MenuController extends Controller
             fn (Menu $menu): bool => $this->canViewMenu($menu, $user)
         );
 
-        return $this->success(MenuResource::collection($this->toTree($filteredMenus)));
+        return new MenuResourceCollection($this->toTree($filteredMenus));
     }
 
     /**
@@ -202,7 +203,11 @@ class MenuController extends Controller
         }, 5);
 
         if (! $deleted) {
-            return $this->error('Menus with child menus cannot be deleted.', 422);
+            return $this->error(
+                'Menus with child menus cannot be deleted.',
+                code: 422,
+                status: 422,
+            );
         }
 
         return $this->success(message: 'deleted');

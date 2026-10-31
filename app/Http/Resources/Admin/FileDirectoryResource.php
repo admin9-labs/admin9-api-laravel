@@ -3,8 +3,12 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\FileDirectory;
 use Illuminate\Http\Request;
 
+/**
+ * @mixin FileDirectory
+ */
 class FileDirectoryResource extends PaginationAwareJsonResource
 {
     /** @return array<string, mixed> */

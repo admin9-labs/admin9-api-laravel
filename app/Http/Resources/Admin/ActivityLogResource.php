@@ -5,7 +5,11 @@ namespace App\Http\Resources\Admin;
 use App\Http\Resources\PaginationAwareJsonResource;
 use App\Support\Security\SensitiveDataSanitizer;
 use Illuminate\Http\Request;
+use Spatie\Activitylog\Models\Activity;
 
+/**
+ * @mixin Activity
+ */
 class ActivityLogResource extends PaginationAwareJsonResource
 {
     /**

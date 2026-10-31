@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c85832e60b8970b930db222f3b933b56",
+    "content-hash": "34b7864b41b2cee48f84f9833b7e3351",
     "packages": [
         {
             "name": "brick/math",
@@ -2113,16 +2113,16 @@
         },
         {
             "name": "mitoop/laravel-api-response",
-            "version": "v7.6.2",
+            "version": "v8.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mitoop/laravel-api-response.git",
-                "reference": "f6fad8de3c5714ef68fc53b84404951f59e06ac8"
+                "reference": "ee88bb271bc7dd1232e56b06b2a7263039e6a819"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mitoop/laravel-api-response/zipball/f6fad8de3c5714ef68fc53b84404951f59e06ac8",
-                "reference": "f6fad8de3c5714ef68fc53b84404951f59e06ac8",
+                "url": "https://api.github.com/repos/mitoop/laravel-api-response/zipball/ee88bb271bc7dd1232e56b06b2a7263039e6a819",
+                "reference": "ee88bb271bc7dd1232e56b06b2a7263039e6a819",
                 "shasum": ""
             },
             "require": {
@@ -2130,13 +2130,14 @@
                 "php": "^8.2"
             },
             "require-dev": {
+                "laravel/pint": "^1.30",
                 "phpunit/phpunit": "^10.5"
             },
             "type": "library",
             "extra": {
                 "laravel": {
                     "providers": [
-                        "Mitoop\\Http\\JsonResponderServiceProvider"
+                        "Mitoop\\Http\\ResponderServiceProvider"
                     ]
                 }
             },
@@ -2155,11 +2156,12 @@
                     "email": "me@mitoop.com"
                 }
             ],
+            "description": "Unified JSON envelopes for Laravel APIs.",
             "support": {
                 "issues": "https://github.com/mitoop/laravel-api-response/issues",
-                "source": "https://github.com/mitoop/laravel-api-response/tree/v7.6.2"
+                "source": "https://github.com/mitoop/laravel-api-response/tree/v8.0.1"
             },
-            "time": "2026-10-24T06:27:03+00:00"
+            "time": "2026-10-31T12:40:25+00:00"
         },
         {
             "name": "mitoop/laravel-efficient-form-request",
@@ -2205,20 +2207,26 @@
         },
         {
             "name": "mitoop/laravel-query-builder",
-            "version": "v2.11.0",
+            "version": "v3.0.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mitoop/laravel-query-builder.git",
-                "reference": "2281433a79c9cb8a005f0a6fea27d3f9ca09e554"
+                "reference": "41f143eed70db9e7d8284e05d784749e367276ed"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mitoop/laravel-query-builder/zipball/2281433a79c9cb8a005f0a6fea27d3f9ca09e554",
-                "reference": "2281433a79c9cb8a005f0a6fea27d3f9ca09e554",
+                "url": "https://api.github.com/repos/mitoop/laravel-query-builder/zipball/41f143eed70db9e7d8284e05d784749e367276ed",
+                "reference": "41f143eed70db9e7d8284e05d784749e367276ed",
                 "shasum": ""
             },
             "require": {
-                "laravel/framework": "^11|^12|^13"
+                "laravel/framework": "^11|^12|^13",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "orchestra/testbench": "^9.0|^10.0|^11.0",
+                "phpunit/phpunit": "^10.5|^11.5|^12.0"
             },
             "type": "library",
             "extra": {
@@ -2243,11 +2251,12 @@
                     "email": "me@mitoop.com"
                 }
             ],
+            "description": "Declarative Eloquent filters for Laravel.",
             "support": {
                 "issues": "https://github.com/mitoop/laravel-query-builder/issues",
-                "source": "https://github.com/mitoop/laravel-query-builder/tree/v2.11.0"
+                "source": "https://github.com/mitoop/laravel-query-builder/tree/v3.0.1"
             },
-            "time": "2026-04-02T12:28:03+00:00"
+            "time": "2026-10-31T12:32:38+00:00"
         },
         {
             "name": "mitoop/laravel-query-logger",
@@ -10134,13 +10143,13 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "ext-zip": "*",
         "php": "^8.3"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.6.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
 }

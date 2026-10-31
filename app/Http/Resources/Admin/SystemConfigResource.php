@@ -3,8 +3,12 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\SystemConfig;
 use Illuminate\Http\Request;
 
+/**
+ * @mixin SystemConfig
+ */
 class SystemConfigResource extends PaginationAwareJsonResource
 {
     /**

@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\ResetUserPasswordRequest;
 use App\Http\Requests\Admin\StoreUserRequest;
 use App\Http\Requests\Admin\UpdateUserRequest;
 use App\Http\Resources\Admin\UserResource;
+use App\Http\Resources\Admin\UserResourceCollection;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\Audit\SecurityActivityRecorder;
@@ -23,11 +24,11 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(): UserResourceCollection
     {
-        return $this->success(UserResource::collection(
+        return new UserResourceCollection(
             User::query()->with('roles')->orderByDesc('id')->paginate()
-        ));
+        );
     }
 
     /**

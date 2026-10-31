@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StorePermissionRequest;
 use App\Http\Requests\Admin\UpdatePermissionRequest;
 use App\Http\Resources\Admin\PermissionResource;
+use App\Http\Resources\Admin\PermissionResourceCollection;
 use App\Models\Permission;
 use App\Support\Audit\AdminActivityRecorder;
 use Illuminate\Database\QueryException;
@@ -24,7 +25,7 @@ class PermissionController extends Controller
     /**
      * Return the complete bounded RBAC permission catalog for configuration UIs.
      */
-    public function index(): JsonResponse
+    public function index(): PermissionResourceCollection
     {
         $permissions = Permission::query()
             ->where('guard_name', self::ADMIN_GUARD)
@@ -33,7 +34,7 @@ class PermissionController extends Controller
             ->orderBy('name')
             ->get();
 
-        return $this->success(PermissionResource::collection($permissions));
+        return new PermissionResourceCollection($permissions);
     }
 
     /**
@@ -150,14 +151,18 @@ class PermissionController extends Controller
             });
         } catch (QueryException $exception) {
             if ($permission->menus()->exists()) {
-                return $this->error('Permissions used by menus cannot be deleted. Detach the menus first.', 422);
+                return $this->error(
+                    'Permissions used by menus cannot be deleted. Detach the menus first.',
+                    code: 422,
+                    status: 422,
+                );
             }
 
             throw $exception;
         }
 
         if ($errorMessage !== null) {
-            return $this->error($errorMessage, 422);
+            return $this->error($errorMessage, code: 422, status: 422);
         }
 
         return $this->success(message: 'deleted');

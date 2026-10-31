@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ClientSafeException;
 use App\Exceptions\FileDeleteFailedException;
 use App\Exceptions\FileDirectoryNotEmptyException;
 use App\Exceptions\ManagedSystemSettingException;
@@ -10,7 +11,6 @@ use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureJwtAuthenticationVersion;
 use App\Http\Middleware\EnsureMemberSession;
 use App\Http\Middleware\RefreshJwtGuards;
-use App\Http\Responses\ApiResponseGenerator;
 use App\Support\ApiRouting;
 use App\Support\Auth\AccountInactiveException;
 use Illuminate\Auth\AuthenticationException;
@@ -18,7 +18,10 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
+use Mitoop\Http\Responder;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -72,6 +75,60 @@ return Application::configure(basePath: dirname(__DIR__))
             fn (Request $request) => ApiRouting::matches($request),
         );
 
+        $exceptions->render(function (Throwable $exception): Response {
+            $responder = app(Responder::class);
+
+            if ($exception instanceof ClientSafeException) {
+                return $responder->error(
+                    $exception->getMessage(),
+                    $exception->getErrorCode(),
+                    status: $exception->getStatus(),
+                );
+            }
+
+            if ($exception instanceof AuthenticationException) {
+                return $responder->error(
+                    'Unauthenticated',
+                    code: Response::HTTP_UNAUTHORIZED,
+                    status: Response::HTTP_UNAUTHORIZED,
+                );
+            }
+
+            if ($exception instanceof ValidationException) {
+                return $responder->error(
+                    Arr::first(Arr::flatten($exception->errors())),
+                    code: $exception->status,
+                    errors: $exception->errors(),
+                    status: $exception->status,
+                );
+            }
+
+            if ($exception instanceof HttpExceptionInterface) {
+                return $responder->error(
+                    $exception->getMessage(),
+                    code: $exception->getStatusCode(),
+                    status: $exception->getStatusCode(),
+                );
+            }
+
+            $errors = new stdClass;
+            if (config('app.debug')) {
+                $errors = [
+                    'class' => get_class($exception),
+                    'code' => $exception->getCode(),
+                    'message' => $exception->getMessage(),
+                    'file' => sprintf('%s:%d', $exception->getFile(), $exception->getLine()),
+                ];
+            }
+
+            return $responder->error(
+                'Something went wrong',
+                code: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errors: $errors,
+                status: Response::HTTP_INTERNAL_SERVER_ERROR,
+            );
+        });
+
         $exceptions->respond(function (Response $response, Throwable $exception, Request $request): Response {
             if (! str_contains((string) $response->headers->get('Content-Type'), 'json')) {
                 return $response;
@@ -90,10 +147,10 @@ return Application::configure(basePath: dirname(__DIR__))
             $status = match (true) {
                 $exception instanceof HttpExceptionInterface => $exception->getStatusCode(),
                 $exception instanceof AuthenticationException => 401,
-                default => $payload->code ?? null,
+                default => null,
             };
 
-            if (! ApiResponseGenerator::isHttpErrorCode($status)) {
+            if (! is_int($status) || $status < 400 || $status > 599) {
                 return $response;
             }
 

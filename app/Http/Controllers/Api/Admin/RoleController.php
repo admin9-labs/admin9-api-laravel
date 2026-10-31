@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Exceptions\ClientSafeException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreRoleRequest;
 use App\Http\Requests\Admin\SyncRolePermissionsRequest;
 use App\Http\Requests\Admin\UpdateRoleRequest;
 use App\Http\Resources\Admin\RoleResource;
+use App\Http\Resources\Admin\RoleResourceCollection;
 use App\Models\Permission;
 use App\Support\Admin\ReservedAdminRole;
 use App\Support\Audit\AdminActivityRecorder;
@@ -14,7 +16,6 @@ use Closure;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Mitoop\Http\Exceptions\ClientSafeException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -25,11 +26,11 @@ class RoleController extends Controller
     /**
      * Return the complete bounded admin role catalog for assignment UIs.
      */
-    public function index(): JsonResponse
+    public function index(): RoleResourceCollection
     {
-        return $this->success(RoleResource::collection(
+        return new RoleResourceCollection(
             Role::query()->where('guard_name', 'admin')->with('permissions')->orderBy('id')->get()
-        ));
+        );
     }
 
     /**
@@ -180,6 +181,7 @@ class RoleController extends Controller
                 throw new ClientSafeException(
                     'One or more selected permissions no longer exist.',
                     null,
+                    422,
                     422,
                 );
             }

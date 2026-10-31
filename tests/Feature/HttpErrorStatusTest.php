@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Exceptions\ClientSafeException;
 use App\Support\ApiRouting;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
-use Mitoop\Http\Exceptions\ClientSafeException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
@@ -52,7 +52,7 @@ class HttpErrorStatusTest extends TestCase
     public function test_valid_http_payload_codes_are_used_only_as_a_fallback(): void
     {
         Route::middleware('api')->get(ApiRouting::path('/_test/client-safe-conflict'), function (): void {
-            throw new ClientSafeException('Conflict', errorCode: 409);
+            throw new ClientSafeException('Conflict', errorCode: 409, status: 409);
         });
         $response = $this->getJson(ApiRouting::path('/_test/client-safe-conflict'))->assertConflict()->assertJsonPath('success', false)->assertJsonPath('code', 409)->assertHeader('X-Request-Id');
         $this->assertResponseRequestIdMatchesHeader($response);
@@ -64,6 +64,21 @@ class HttpErrorStatusTest extends TestCase
             throw new ClientSafeException('Business error', errorCode: 1001);
         });
         $response = $this->getJson(ApiRouting::path('/_test/client-safe-business-error'))->assertOk()->assertJsonPath('success', false)->assertJsonPath('code', 1001)->assertHeader('X-Request-Id');
+        $this->assertResponseRequestIdMatchesHeader($response);
+    }
+
+    public function test_http_range_business_error_codes_do_not_become_http_statuses(): void
+    {
+        Route::middleware('api')->get(ApiRouting::path('/_test/client-safe-business-conflict'), function (): void {
+            throw new ClientSafeException('Business conflict', errorCode: 409);
+        });
+
+        $response = $this->getJson(ApiRouting::path('/_test/client-safe-business-conflict'))
+            ->assertOk()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('code', 409)
+            ->assertHeader('X-Request-Id');
+
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 

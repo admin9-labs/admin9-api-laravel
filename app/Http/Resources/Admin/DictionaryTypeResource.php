@@ -3,8 +3,12 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\DictionaryType;
 use Illuminate\Http\Request;
 
+/**
+ * @mixin DictionaryType
+ */
 class DictionaryTypeResource extends PaginationAwareJsonResource
 {
     /**

@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\ListDictionaryItemsRequest;
 use App\Http\Requests\Admin\StoreDictionaryItemRequest;
 use App\Http\Requests\Admin\UpdateDictionaryItemRequest;
 use App\Http\Resources\Admin\DictionaryItemResource;
+use App\Http\Resources\Admin\DictionaryItemResourceCollection;
 use App\Models\DictionaryItem;
 use App\Models\DictionaryType;
 use Illuminate\Http\JsonResponse;
@@ -21,15 +22,15 @@ class DictionaryItemController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(ListDictionaryItemsRequest $request): JsonResponse
+    public function index(ListDictionaryItemsRequest $request): DictionaryItemResourceCollection
     {
-        return $this->success(DictionaryItemResource::collection(
+        return new DictionaryItemResourceCollection(
             DictionaryItem::query()
                 ->with('type')
                 ->filter(DictionaryItemFilter::class, $request->validated())
                 ->ordered()
                 ->paginate()
-        ));
+        );
     }
 
     /**

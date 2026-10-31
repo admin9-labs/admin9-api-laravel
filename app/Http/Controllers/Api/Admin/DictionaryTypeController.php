@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\ListDictionaryTypesRequest;
 use App\Http\Requests\Admin\StoreDictionaryTypeRequest;
 use App\Http\Requests\Admin\UpdateDictionaryTypeRequest;
 use App\Http\Resources\Admin\DictionaryTypeResource;
+use App\Http\Resources\Admin\DictionaryTypeResourceCollection;
 use App\Models\DictionaryType;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
@@ -19,15 +20,15 @@ class DictionaryTypeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(ListDictionaryTypesRequest $request): JsonResponse
+    public function index(ListDictionaryTypesRequest $request): DictionaryTypeResourceCollection
     {
-        return $this->success(DictionaryTypeResource::collection(
+        return new DictionaryTypeResourceCollection(
             DictionaryType::query()
                 ->withCount('items')
                 ->filter(DictionaryTypeFilter::class, $request->validated())
                 ->ordered()
                 ->paginate()
-        ));
+        );
     }
 
     /**

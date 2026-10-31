@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
-use Mitoop\Http\JsonResponder;
-use Mitoop\Http\JsonResponderDefault;
+use Mitoop\Http\Responder;
+use Mitoop\Http\ResponderConfig;
 use ReflectionProperty;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
@@ -23,7 +23,7 @@ class AddContextTest extends TestCase
 {
     public function test_it_exposes_request_id_to_success_responses(): void
     {
-        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (Responder $responder) {
             return $responder->success();
         });
 
@@ -37,7 +37,7 @@ class AddContextTest extends TestCase
 
     public function test_it_exposes_request_id_to_error_responses(): void
     {
-        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-error'), function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-error'), function (Responder $responder) {
             return $responder->error('failed');
         });
 
@@ -52,14 +52,14 @@ class AddContextTest extends TestCase
 
     public function test_it_exposes_request_id_to_deny_responses(): void
     {
-        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-deny'), function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-deny'), function (Responder $responder) {
             return $responder->deny();
         });
 
         $response = $this->getJson(ApiRouting::path('/_test/add-context-deny'))
             ->assertForbidden()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('code', 403)
+            ->assertJsonPath('code', -1)
             ->assertHeader('X-Request-Id');
 
         $this->assertResponseRequestIdMatchesHeader($response);
@@ -92,8 +92,8 @@ class AddContextTest extends TestCase
 
     public function test_it_uses_403_status_code_for_api_forbidden_errors(): void
     {
-        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-forbidden'), function (JsonResponder $responder) {
-            return $responder->error('Forbidden', 403);
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context-forbidden'), function (Responder $responder) {
+            return $responder->error('Forbidden', code: 403, status: 403);
         });
 
         $response = $this->getJson(ApiRouting::path('/_test/add-context-forbidden'))
@@ -152,7 +152,7 @@ class AddContextTest extends TestCase
 
     public function test_it_generates_a_fresh_request_id_for_each_request(): void
     {
-        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (Responder $responder) {
             return $responder->success();
         });
 
@@ -198,26 +198,26 @@ class AddContextTest extends TestCase
 
     public function test_it_does_not_store_request_id_in_the_responder_singleton(): void
     {
-        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (Responder $responder) {
             return $responder->success();
         });
 
         $this->getJson(ApiRouting::path('/_test/add-context'))
             ->assertOk();
 
-        $rawExtra = (new ReflectionProperty(JsonResponderDefault::class, 'extra'))
-            ->getValue(app(JsonResponderDefault::class));
+        $rawExtra = (new ReflectionProperty(ResponderConfig::class, 'extra'))
+            ->getValue(app(ResponderConfig::class));
 
         $this->assertArrayNotHasKey('request_id', $rawExtra);
     }
 
     public function test_responder_payloads_on_web_routes_remain_outside_the_api_context(): void
     {
-        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (JsonResponder $responder) {
+        Route::middleware('api')->get(ApiRouting::path('/_test/add-context'), function (Responder $responder) {
             return $responder->success();
         });
 
-        Route::get('/_test/add-context-web-responder', function (JsonResponder $responder) {
+        Route::get('/_test/add-context-web-responder', function (Responder $responder) {
             return $responder->success();
         });
 

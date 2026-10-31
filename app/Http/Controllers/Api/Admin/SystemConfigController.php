@@ -9,6 +9,7 @@ use App\Http\Requests\Admin\ListSystemConfigsRequest;
 use App\Http\Requests\Admin\StoreSystemConfigRequest;
 use App\Http\Requests\Admin\UpdateSystemConfigRequest;
 use App\Http\Resources\Admin\SystemConfigResource;
+use App\Http\Resources\Admin\SystemConfigResourceCollection;
 use App\Models\SystemConfig;
 use App\Support\SystemSettings;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -21,14 +22,14 @@ class SystemConfigController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(ListSystemConfigsRequest $request): JsonResponse
+    public function index(ListSystemConfigsRequest $request): SystemConfigResourceCollection
     {
-        return $this->success(SystemConfigResource::collection(
+        return new SystemConfigResourceCollection(
             SystemConfig::query()
                 ->filter(SystemConfigFilter::class, $request->validated())
                 ->ordered()
                 ->paginate()
-        ));
+        );
     }
 
     /**

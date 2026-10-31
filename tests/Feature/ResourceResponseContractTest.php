@@ -9,7 +9,6 @@ use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\Route;
-use Mitoop\Http\JsonResponder;
 use Mitoop\Http\Resources\Resource;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -45,7 +44,7 @@ class ResourceResponseContractTest extends TestCase
         };
         $path = ApiRouting::path('/_test/resource-response');
 
-        Route::middleware('api')->get($path, fn (JsonResponder $responder) => $responder->success($resource::collection($data)));
+        Route::middleware('api')->get($path, fn () => $resource::collection($data));
 
         $response = $this->getJson($path)->assertOk()->assertHeader('X-Request-Id');
         $requestId = $response->headers->get('X-Request-Id');
@@ -83,10 +82,10 @@ class ResourceResponseContractTest extends TestCase
                 'pagination' => 'cursor', 'next_cursor' => (new Cursor(['id' => 1], true))->encode(), 'page_size' => 1, 'has_more' => true,
             ]],
             'terminal cursor' => ['last_cursor', [
-                'pagination' => 'cursor', 'next_cursor' => '', 'page_size' => 1, 'has_more' => false,
+                'pagination' => 'cursor', 'next_cursor' => null, 'page_size' => 1, 'has_more' => false,
             ]],
             'empty cursor' => ['empty_cursor', [
-                'pagination' => 'cursor', 'next_cursor' => '', 'page_size' => 1, 'has_more' => false,
+                'pagination' => 'cursor', 'next_cursor' => null, 'page_size' => 1, 'has_more' => false,
             ], true],
             'empty page' => ['empty_page', [
                 'pagination' => 'page', 'page' => 1, 'page_size' => 1, 'has_more' => false, 'total' => 0,

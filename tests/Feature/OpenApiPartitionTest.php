@@ -43,7 +43,7 @@ class OpenApiPartitionTest extends TestCase
         $this->assertSame(['Items'], array_keys($result['components']['responses']));
         $this->assertSame([['http' => []]], $result['security']);
         $this->assertSame('bearer', $result['components']['securitySchemes']['http']['scheme']);
-        $this->assertInstanceOf(stdClass::class, $result['components']['schemas']['Item']['properties']['data']['example']);
+        $this->assertInstanceOf(stdClass::class, $result['components']['schemas']['Item']['properties']['data']['examples'][0]);
         $this->assertReferencesResolve($result, $result);
     }
 

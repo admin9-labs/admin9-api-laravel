@@ -4,7 +4,11 @@ namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
 use Illuminate\Http\Request;
+use Spatie\Permission\Models\Role;
 
+/**
+ * @mixin Role
+ */
 class RoleResource extends PaginationAwareJsonResource
 {
     /**

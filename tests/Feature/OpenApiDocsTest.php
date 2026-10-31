@@ -19,7 +19,7 @@ class OpenApiDocsTest extends TestCase
     {
         $document = $this->openApiDocument();
 
-        $this->assertSame('3.1.0', $document['openapi'] ?? null);
+        $this->assertSame('3.1.2', $document['openapi'] ?? null);
         $this->assertSame('Admin9 Admin API', $document['info']['title'] ?? null);
         $this->assertIsArray($document['paths'] ?? null);
         $this->assertIsArray($document['components'] ?? null);
@@ -47,7 +47,7 @@ class OpenApiDocsTest extends TestCase
     public function test_generated_client_document_contains_only_client_contracts(): void
     {
         $document = $this->openApiDocument('client');
-        $this->assertSame('3.1.0', $document['openapi'] ?? null);
+        $this->assertSame('3.1.2', $document['openapi'] ?? null);
         $this->assertSame('Admin9 Client API', $document['info']['title'] ?? null);
 
         foreach (['login' => 'post', 'refresh' => 'post', 'me' => 'get', 'password' => 'put', 'logout' => 'post'] as $action => $method) {
@@ -764,7 +764,7 @@ class OpenApiDocsTest extends TestCase
         foreach ([$activity['properties'], $login['context']] as $payload) {
             $this->assertSame([
                 ['type' => 'object', 'additionalProperties' => []],
-                ['type' => 'array', 'items' => []],
+                ['type' => 'array'],
             ], $payload['anyOf']);
         }
     }
@@ -786,7 +786,7 @@ class OpenApiDocsTest extends TestCase
 
             $this->assertSame([
                 ['type' => 'object', 'additionalProperties' => []],
-                ['type' => 'array', 'items' => []],
+                ['type' => 'array'],
                 ['type' => 'null'],
             ], $meta['anyOf']);
             $this->assertSame($schemaName === 'DictionaryItemResource', in_array('meta', $schemas[$schemaName]['required'] ?? [], true));

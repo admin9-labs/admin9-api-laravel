@@ -7,30 +7,29 @@ use App\Http\Requests\Admin\UpdateBasicSystemSettingsRequest;
 use App\Http\Requests\Admin\UpdateBrandingSystemSettingsRequest;
 use App\Http\Resources\SystemSettingsResource;
 use App\Support\SystemSettings;
-use Illuminate\Http\JsonResponse;
 
 class SystemSettingsController extends Controller
 {
-    public function show(SystemSettings $systemSettings): JsonResponse
+    public function show(SystemSettings $systemSettings): SystemSettingsResource
     {
-        return $this->success(SystemSettingsResource::make($systemSettings->read()));
+        return SystemSettingsResource::make($systemSettings->read());
     }
 
     public function updateBasic(
         UpdateBasicSystemSettingsRequest $request,
         SystemSettings $systemSettings,
-    ): JsonResponse {
+    ): SystemSettingsResource {
         $systemSettings->updateBasic($request->validated());
 
-        return $this->success(SystemSettingsResource::make($systemSettings->read()));
+        return SystemSettingsResource::make($systemSettings->read());
     }
 
     public function updateBranding(
         UpdateBrandingSystemSettingsRequest $request,
         SystemSettings $systemSettings,
-    ): JsonResponse {
+    ): SystemSettingsResource {
         $systemSettings->updateBranding($request->validated());
 
-        return $this->success(SystemSettingsResource::make($systemSettings->read()));
+        return SystemSettingsResource::make($systemSettings->read());
     }
 }

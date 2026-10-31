@@ -6,6 +6,7 @@ use App\Actions\Admin\ManageFileDirectory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreFileDirectoryRequest;
 use App\Http\Resources\Admin\FileDirectoryResource;
+use App\Http\Resources\Admin\FileDirectoryResourceCollection;
 use App\Models\FileDirectory;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -15,11 +16,11 @@ class FileDirectoryController extends Controller
 {
     public function __construct(private ManageFileDirectory $manageFileDirectory) {}
 
-    public function index(): JsonResponse
+    public function index(): FileDirectoryResourceCollection
     {
         $directories = FileDirectory::query()->orderByRaw('parent_id IS NOT NULL')->orderBy('parent_id')->orderBy('id')->get();
 
-        return $this->success(FileDirectoryResource::collection($directories));
+        return new FileDirectoryResourceCollection($directories);
     }
 
     public function store(StoreFileDirectoryRequest $request): JsonResponse

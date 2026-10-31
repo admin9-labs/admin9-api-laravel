@@ -12,6 +12,7 @@ use App\Http\Requests\Admin\StoreFileRequest;
 use App\Http\Requests\Admin\UpdateFileByUrlRequest;
 use App\Http\Requests\Admin\UpdateFileRequest;
 use App\Http\Resources\Admin\FileResource;
+use App\Http\Resources\Admin\FileResourceCollection;
 use App\Models\File;
 use App\Models\FileDirectory;
 use App\Models\User;
@@ -28,7 +29,7 @@ class FileController extends Controller
         private DeleteFile $deleteFile,
     ) {}
 
-    public function index(ListFileRequest $request): JsonResponse
+    public function index(ListFileRequest $request): FileResourceCollection
     {
         $validated = $request->validated();
         $search = $validated['search'] ?? null;
@@ -46,7 +47,7 @@ class FileController extends Controller
             ->orderByDesc('id')
             ->paginate($validated['per_page'] ?? null);
 
-        return $this->success(FileResource::collection($files));
+        return new FileResourceCollection($files);
     }
 
     public function store(StoreFileRequest $request): JsonResponse

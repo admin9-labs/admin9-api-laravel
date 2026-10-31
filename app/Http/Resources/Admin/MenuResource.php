@@ -3,10 +3,14 @@
 namespace App\Http\Resources\Admin;
 
 use App\Http\Resources\PaginationAwareJsonResource;
+use App\Models\Menu;
 use App\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
+/**
+ * @mixin Menu
+ */
 class MenuResource extends PaginationAwareJsonResource
 {
     /**

@@ -45,7 +45,11 @@ class AuthController extends Controller
         if ($member !== null && ! $member->is_active) {
             $this->loginLogRecorder->record($request, 'member', 'login', false, $account, $member, 'Account disabled');
 
-            return $this->error('Invalid credentials', Response::HTTP_UNAUTHORIZED);
+            return $this->error(
+                'Invalid credentials',
+                code: Response::HTTP_UNAUTHORIZED,
+                status: Response::HTTP_UNAUTHORIZED,
+            );
         }
 
         $credentials = [$identifierField => $account, 'password' => $validated['password']];
@@ -54,7 +58,11 @@ class AuthController extends Controller
         if ($started === null) {
             $this->loginLogRecorder->record($request, 'member', 'login', false, $account, $member, 'Invalid credentials');
 
-            return $this->error('Invalid credentials', Response::HTTP_UNAUTHORIZED);
+            return $this->error(
+                'Invalid credentials',
+                code: Response::HTTP_UNAUTHORIZED,
+                status: Response::HTTP_UNAUTHORIZED,
+            );
         }
 
         $token = $started['token'];
