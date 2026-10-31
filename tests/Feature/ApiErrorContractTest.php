@@ -3,11 +3,16 @@
 namespace Tests\Feature;
 
 use App\Exceptions\FileDeleteFailedException;
+use App\Exceptions\FileDirectoryNotEmptyException;
+use App\Exceptions\ManagedSystemSettingException;
 use App\Support\ApiRouting;
 use App\Support\Auth\AccountInactiveException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use Mitoop\Http\Headers\HeaderResolverInterface;
+use Mitoop\Http\Responder;
+use PHPUnit\Framework\Attributes\DataProvider;
 use RuntimeException;
 use stdClass;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -15,6 +20,80 @@ use Tests\TestCase;
 
 class ApiErrorContractTest extends TestCase
 {
+    #[DataProvider('businessErrorProvider')]
+    public function test_explicit_errors_are_preserved_independently_of_business_code_and_status(?int $code, int $status): void
+    {
+        Route::middleware('api')->get(ApiRouting::path('/_test/explicit-errors'), function (Responder $responder) use ($code, $status) {
+            return $responder->error('Name required', code: $code, errors: [
+                'name' => ['Name required'],
+            ], status: $status);
+        });
+
+        $this->getJson(ApiRouting::path('/_test/explicit-errors'))
+            ->assertStatus($status)
+            ->assertJsonPath('code', $code ?? 1)
+            ->assertJsonPath('errors.name', ['Name required']);
+    }
+
+    public static function businessErrorProvider(): array
+    {
+        return [
+            'native validation example' => [null, 422],
+            'custom business code' => [1001, 422],
+            'HTTP-range business code' => [422, 409],
+            'default error status' => [1001, 200],
+        ];
+    }
+
+    #[DataProvider('domainExceptionProvider')]
+    public function test_domain_error_codes_are_in_the_payload_seen_by_the_native_header_resolver(string $exceptionClass, int $status, string $errorCode): void
+    {
+        $this->app->bind(HeaderResolverInterface::class, fn () => new class implements HeaderResolverInterface
+        {
+            public function resolve(array $payload, int $jsonOptions): array
+            {
+                return ['X-Payload-Hash' => hash('sha256', json_encode($payload, $jsonOptions))];
+            }
+        });
+        Route::middleware('api')->get(ApiRouting::path('/_test/domain-error'), function () use ($exceptionClass): void {
+            throw new $exceptionClass;
+        });
+
+        $response = $this->getJson(ApiRouting::path('/_test/domain-error'))
+            ->assertStatus($status)
+            ->assertJsonPath('error_code', $errorCode)
+            ->assertHeader('X-Payload-Hash');
+
+        $this->assertErrorEnvelope($response, $status);
+        $this->assertSame(hash('sha256', $response->getContent()), $response->headers->get('X-Payload-Hash'));
+
+        $this->getJson(ApiRouting::path('/_test/missing-after-domain-error'))
+            ->assertNotFound()
+            ->assertJsonMissingPath('error_code');
+    }
+
+    public static function domainExceptionProvider(): array
+    {
+        return [
+            'account inactive' => [AccountInactiveException::class, 403, 'account_inactive'],
+            'file deletion failed' => [FileDeleteFailedException::class, 503, 'file_delete_failed'],
+            'directory not empty' => [FileDirectoryNotEmptyException::class, 409, 'file_directory_not_empty'],
+            'managed setting' => [ManagedSystemSettingException::class, 409, 'managed_system_setting_immutable'],
+        ];
+    }
+
+    public function test_domain_error_codes_are_not_added_outside_the_api_boundary(): void
+    {
+        Route::get('/_test/web-domain-error', function (): void {
+            throw new AccountInactiveException;
+        });
+
+        $this->getJson('/_test/web-domain-error')
+            ->assertForbidden()
+            ->assertJsonMissingPath('error_code')
+            ->assertJsonMissingPath('request_id');
+    }
+
     public function test_authentication_errors_use_the_stable_object_envelope(): void
     {
         $response = $this->getJson(ApiRouting::path('/admin/auth/me'));

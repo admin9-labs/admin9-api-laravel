@@ -49,7 +49,7 @@ class HttpErrorStatusTest extends TestCase
         $this->assertResponseRequestIdMatchesHeader($response);
     }
 
-    public function test_valid_http_payload_codes_are_used_only_as_a_fallback(): void
+    public function test_client_safe_exceptions_use_the_explicit_http_status(): void
     {
         Route::middleware('api')->get(ApiRouting::path('/_test/client-safe-conflict'), function (): void {
             throw new ClientSafeException('Conflict', errorCode: 409, status: 409);

@@ -263,43 +263,16 @@ class AdminApiOpenApiContract
             $this->normalizeLoginLogSchema($this->objectSchema($document, LoginLogResource::class));
         }
 
-        if ($this->hasSchemas($document, [
-            DictionaryItemResource::class,
-            StoreDictionaryItemRequest::class,
-            UpdateDictionaryItemRequest::class,
-        ])) {
-            $this->normalizeDictionaryMetaSchemas($document);
-        }
+        $this->normalizeDictionaryMetaSchemas($document);
 
         if ($this->hasSchema($document, SystemConfigResource::class)) {
             $this->normalizeSystemConfigSchemas($document);
         }
 
-        if ($this->hasSchemas($document, [UpdateBasicSystemSettingsRequest::class, UpdateBrandingSystemSettingsRequest::class])) {
-            $this->normalizeSystemSettingsRequestSchemas($document);
-        }
-
-        if ($this->hasSchemas($document, [
-            MenuResource::class,
-            PermissionResource::class,
-            StoreMenuRequest::class,
-            UpdateMenuRequest::class,
-        ])) {
-            $this->normalizeMenuSchemas($document);
-        }
-
-        if ($this->hasSchemas($document, [
-            MemberResource::class,
-            StoreMemberRequest::class,
-            UpdateMemberRequest::class,
-            UpdateMemberStatusRequest::class,
-        ])) {
-            $this->normalizeMemberSchemas($document);
-        }
-
-        if ($this->hasSchemas($document, [FileResource::class, StoreFileRequest::class])) {
-            $this->normalizeFileSchemas($document);
-        }
+        $this->normalizeSystemSettingsRequestSchemas($document);
+        $this->normalizeMenuSchemas($document);
+        $this->normalizeMemberSchemas($document);
+        $this->normalizeFileSchemas($document);
 
         if ($this->hasSchema($document, RoleResource::class)) {
             $this->objectSchema($document, RoleResource::class)
@@ -517,6 +490,10 @@ class AdminApiOpenApiContract
             StoreDictionaryItemRequest::class,
             UpdateDictionaryItemRequest::class,
         ] as $schemaClass) {
+            if (! $this->hasSchema($document, $schemaClass)) {
+                continue;
+            }
+
             $this->objectSchema($document, $schemaClass)->addProperty(
                 'meta',
                 (new AnyOf)->setItems([
@@ -576,15 +553,21 @@ class AdminApiOpenApiContract
 
     private function normalizeSystemSettingsRequestSchemas(OpenApi $document): void
     {
-        $brandUrl = $this->brandingUrlSchema();
-        $this->objectSchema($document, UpdateBrandingSystemSettingsRequest::class)
-            ->addProperty('navigation_logo_url', $brandUrl)
-            ->addProperty('login_logo_url', $brandUrl)
-            ->addProperty('login_background_url', $brandUrl)
-            ->addProperty('favicon_url', $brandUrl)
-            ->setRequired(['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url']);
+        if ($this->hasSchema($document, UpdateBrandingSystemSettingsRequest::class)) {
+            $brandUrl = $this->brandingUrlSchema();
+            $this->objectSchema($document, UpdateBrandingSystemSettingsRequest::class)
+                ->addProperty('navigation_logo_url', $brandUrl)
+                ->addProperty('login_logo_url', $brandUrl)
+                ->addProperty('login_background_url', $brandUrl)
+                ->addProperty('favicon_url', $brandUrl)
+                ->setRequired(['navigation_logo_url', 'login_logo_url', 'login_background_url', 'favicon_url']);
+        }
 
         foreach ([UpdateBasicSystemSettingsRequest::class, UpdateBrandingSystemSettingsRequest::class] as $requestClass) {
+            if (! $this->hasSchema($document, $requestClass)) {
+                continue;
+            }
+
             $object = $this->objectSchema($document, $requestClass)->clone();
             $closedObject = (new ClosedObjectType)->addProperties($object);
             $closedObject->properties = $object->properties;
@@ -595,21 +578,30 @@ class AdminApiOpenApiContract
 
     private function normalizeMenuSchemas(OpenApi $document): void
     {
-        $menuSchema = $this->objectSchema($document, MenuResource::class);
-        $menuSchema
-            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
-            ->addProperty('parent_id', (new IntegerType)->format('int64')->nullable(true))
-            ->addProperty('permission_ids', (new ArrayType)->setItems((new IntegerType)->format('int64')))
-            ->addProperty('permission_names', (new ArrayType)->setItems(new StringType))
-            ->addProperty(
-                'permissions',
-                (new ArrayType)->setItems($document->components->getSchemaReference(
-                    $this->schemaComponentName($document, PermissionResource::class),
-                )),
-            )
-            ->addRequired(['permission_ids', 'permission_names', 'permissions']);
+        if ($this->hasSchema($document, MenuResource::class)) {
+            $menuSchema = $this->objectSchema($document, MenuResource::class);
+            $menuSchema
+                ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
+                ->addProperty('parent_id', (new IntegerType)->format('int64')->nullable(true))
+                ->addProperty('permission_ids', (new ArrayType)->setItems((new IntegerType)->format('int64')))
+                ->addProperty('permission_names', (new ArrayType)->setItems(new StringType))
+                ->addRequired(['permission_ids', 'permission_names', 'permissions']);
+
+            if ($this->hasSchema($document, PermissionResource::class)) {
+                $menuSchema->addProperty(
+                    'permissions',
+                    (new ArrayType)->setItems($document->components->getSchemaReference(
+                        $this->schemaComponentName($document, PermissionResource::class),
+                    )),
+                );
+            }
+        }
 
         foreach ([StoreMenuRequest::class, UpdateMenuRequest::class] as $schemaClass) {
+            if (! $this->hasSchema($document, $schemaClass)) {
+                continue;
+            }
+
             $requestSchema = $this->objectSchema($document, $schemaClass);
             $requestSchema->addProperty(
                 'permission_ids',
@@ -625,103 +617,115 @@ class AdminApiOpenApiContract
 
     private function normalizeMemberSchemas(OpenApi $document): void
     {
-        $memberComponent = $this->schema($document, MemberResource::class);
+        if ($this->hasSchema($document, MemberResource::class)) {
+            $memberComponent = $this->schema($document, MemberResource::class);
 
-        if (! $memberComponent->type instanceof ObjectType) {
-            throw new LogicException(sprintf('Expected Scramble object schema [%s] was not generated.', MemberResource::class));
+            if (! $memberComponent->type instanceof ObjectType) {
+                throw new LogicException(sprintf('Expected Scramble object schema [%s] was not generated.', MemberResource::class));
+            }
+
+            $memberComponent->type = $memberComponent->type->clone();
+            $memberComponent->type
+                ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
+                ->addProperty('name', new StringType)
+                ->addProperty('email', (new StringType)->format('email')->nullable(true))
+                ->addProperty('mobile', (new StringType)->nullable(true))
+                ->addProperty('is_active', new BooleanType)
+                ->addProperty('last_login_at', (new StringType)->nullable(true))
+                ->addProperty('last_login_ip', (new StringType)->nullable(true))
+                ->addProperty('created_at', (new StringType)->nullable(true))
+                ->addProperty('updated_at', (new StringType)->nullable(true))
+                ->addRequired([
+                    'id',
+                    'name',
+                    'email',
+                    'mobile',
+                    'is_active',
+                    'last_login_at',
+                    'last_login_ip',
+                    'created_at',
+                    'updated_at',
+                ]);
         }
 
-        $memberComponent->type = $memberComponent->type->clone();
-        $memberComponent->type
-            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
-            ->addProperty('name', new StringType)
-            ->addProperty('email', (new StringType)->format('email')->nullable(true))
-            ->addProperty('mobile', (new StringType)->nullable(true))
-            ->addProperty('is_active', new BooleanType)
-            ->addProperty('last_login_at', (new StringType)->nullable(true))
-            ->addProperty('last_login_ip', (new StringType)->nullable(true))
-            ->addProperty('created_at', (new StringType)->nullable(true))
-            ->addProperty('updated_at', (new StringType)->nullable(true))
-            ->addRequired([
-                'id',
-                'name',
-                'email',
-                'mobile',
-                'is_active',
-                'last_login_at',
-                'last_login_ip',
-                'created_at',
-                'updated_at',
+        if ($this->hasSchema($document, StoreMemberRequest::class)) {
+            $storeMemberSchema = $this->schema($document, StoreMemberRequest::class);
+            $this->objectSchema($document, StoreMemberRequest::class)
+                ->addProperty('name', (new StringType)->setMin(1)->setMax(255));
+            $this->objectSchema($document, StoreMemberRequest::class)->properties['mobile']
+                ->setDescription('Must not be an email address.');
+            $storeMemberSchema->type = (new AllOf)->setItems([
+                $storeMemberSchema->type,
+                (new AnyOf)->setItems([
+                    (new ObjectType)
+                        ->addProperty('email', (new StringType)->format('email')->setMin(1)->pattern('.*\\S.*'))
+                        ->addRequired(['email']),
+                    (new ObjectType)
+                        ->addProperty('mobile', (new StringType)->setMin(1)->pattern('.*\\S.*'))
+                        ->addRequired(['mobile']),
+                ]),
             ]);
+        }
 
-        $storeMemberSchema = $this->schema($document, StoreMemberRequest::class);
-        $this->objectSchema($document, StoreMemberRequest::class)
-            ->addProperty('name', (new StringType)->setMin(1)->setMax(255));
-        $this->objectSchema($document, StoreMemberRequest::class)->properties['mobile']
-            ->setDescription('Must not be an email address.');
-        $storeMemberSchema->type = (new AllOf)->setItems([
-            $storeMemberSchema->type,
-            (new AnyOf)->setItems([
-                (new ObjectType)
-                    ->addProperty('email', (new StringType)->format('email')->setMin(1)->pattern('.*\\S.*'))
-                    ->addRequired(['email']),
-                (new ObjectType)
-                    ->addProperty('mobile', (new StringType)->setMin(1)->pattern('.*\\S.*'))
-                    ->addRequired(['mobile']),
-            ]),
-        ]);
+        if ($this->hasSchema($document, UpdateMemberRequest::class)) {
+            $this->objectSchema($document, UpdateMemberRequest::class)
+                ->addProperty('name', (new StringType)->setMin(1)->setMax(255))
+                ->addProperty('email', (new StringType)->format('email')->setMax(255)->nullable(true))
+                ->addProperty('mobile', (new StringType)->setMax(32)->nullable(true)->setDescription('Must not be an email address.'));
+        }
 
-        $this->objectSchema($document, UpdateMemberRequest::class)
-            ->addProperty('name', (new StringType)->setMin(1)->setMax(255))
-            ->addProperty('email', (new StringType)->format('email')->setMax(255)->nullable(true))
-            ->addProperty('mobile', (new StringType)->setMax(32)->nullable(true)->setDescription('Must not be an email address.'));
-
-        $this->objectSchema($document, UpdateMemberStatusRequest::class)
-            ->addProperty('is_active', new BooleanType)
-            ->addRequired(['is_active']);
+        if ($this->hasSchema($document, UpdateMemberStatusRequest::class)) {
+            $this->objectSchema($document, UpdateMemberStatusRequest::class)
+                ->addProperty('is_active', new BooleanType)
+                ->addRequired(['is_active']);
+        }
     }
 
     private function normalizeFileSchemas(OpenApi $document): void
     {
-        $this->objectSchema($document, FileResource::class)
-            ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
-            ->addProperty('directory_id', (new IntegerType)->format('int64')->nullable(true))
-            ->addProperty('name', new StringType)
-            ->addProperty('type', (new StringType)->enum($this->fileUploadPolicy->types()))
-            ->addProperty('mime_type', new StringType)
-            ->addProperty('extension', new StringType)
-            ->addProperty('size', (new ReadOnlyIntegerType)->format('int64'))
-            ->addProperty('url', (new StringType)->format('uri')->nullable(true))
-            ->addProperty('width', (new ReadOnlyIntegerType)->nullable(true))
-            ->addProperty('height', (new ReadOnlyIntegerType)->nullable(true))
-            ->addProperty('status', (new StringType)->enum(['pending', 'ready', 'failed']))
-            ->addProperty('created_at', (new StringType)->nullable(true))
-            ->addRequired([
-                'id',
-                'name',
-                'type',
-                'directory_id',
-                'mime_type',
-                'extension',
-                'size',
-                'url',
-                'width',
-                'height',
-                'status',
-                'created_at',
-            ]);
+        if ($this->hasSchema($document, FileResource::class)) {
+            $this->objectSchema($document, FileResource::class)
+                ->addProperty('id', (new ReadOnlyIntegerType)->format('int64'))
+                ->addProperty('directory_id', (new IntegerType)->format('int64')->nullable(true))
+                ->addProperty('name', new StringType)
+                ->addProperty('type', (new StringType)->enum($this->fileUploadPolicy->types()))
+                ->addProperty('mime_type', new StringType)
+                ->addProperty('extension', new StringType)
+                ->addProperty('size', (new ReadOnlyIntegerType)->format('int64'))
+                ->addProperty('url', (new StringType)->format('uri')->nullable(true))
+                ->addProperty('width', (new ReadOnlyIntegerType)->nullable(true))
+                ->addProperty('height', (new ReadOnlyIntegerType)->nullable(true))
+                ->addProperty('status', (new StringType)->enum(['pending', 'ready', 'failed']))
+                ->addProperty('created_at', (new StringType)->nullable(true))
+                ->addRequired([
+                    'id',
+                    'name',
+                    'type',
+                    'directory_id',
+                    'mime_type',
+                    'extension',
+                    'size',
+                    'url',
+                    'width',
+                    'height',
+                    'status',
+                    'created_at',
+                ]);
+        }
 
-        $storeFileSchema = $this->objectSchema($document, StoreFileRequest::class);
-        $storeFileSchema
-            ->addProperty(
-                'file',
-                (new StringType)
-                    ->format('binary')
-                    ->contentMediaType('application/octet-stream')
-                    ->setDescription($this->fileUploadPolicy->openApiDescription()),
-            )
-            ->addRequired(['file']);
-        unset($storeFileSchema->properties['type']);
+        if ($this->hasSchema($document, StoreFileRequest::class)) {
+            $storeFileSchema = $this->objectSchema($document, StoreFileRequest::class);
+            $storeFileSchema
+                ->addProperty(
+                    'file',
+                    (new StringType)
+                        ->format('binary')
+                        ->contentMediaType('application/octet-stream')
+                        ->setDescription($this->fileUploadPolicy->openApiDescription()),
+                )
+                ->addRequired(['file']);
+            unset($storeFileSchema->properties['type']);
+        }
     }
 
     /**
@@ -809,15 +813,5 @@ class AdminApiOpenApiContract
                 $schemaName,
             ))
             ->count() === 1;
-    }
-
-    /**
-     * @param  array<int, class-string>  $schemaClasses
-     */
-    private function hasSchemas(OpenApi $document, array $schemaClasses): bool
-    {
-        return collect($schemaClasses)->every(
-            fn (string $schemaClass): bool => $this->hasSchema($document, $schemaClass),
-        );
     }
 }

@@ -1,18 +1,13 @@
 <?php
 
 use App\Exceptions\ClientSafeException;
-use App\Exceptions\FileDeleteFailedException;
-use App\Exceptions\FileDirectoryNotEmptyException;
-use App\Exceptions\ManagedSystemSettingException;
-use App\Exceptions\MediaDeleteFailedException;
-use App\Exceptions\MediaInUseBySystemSettingsException;
 use App\Http\Middleware\AddContext;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureJwtAuthenticationVersion;
 use App\Http\Middleware\EnsureMemberSession;
 use App\Http\Middleware\RefreshJwtGuards;
+use App\Http\Responses\ApiResponseGenerator;
 use App\Support\ApiRouting;
-use App\Support\Auth\AccountInactiveException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -104,85 +99,14 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             if ($exception instanceof HttpExceptionInterface) {
-                return $responder->error(
-                    $exception->getMessage(),
-                    code: $exception->getStatusCode(),
-                    status: $exception->getStatusCode(),
-                );
-            }
-
-            $errors = new stdClass;
-            if (config('app.debug')) {
-                $errors = [
-                    'class' => get_class($exception),
-                    'code' => $exception->getCode(),
-                    'message' => $exception->getMessage(),
-                    'file' => sprintf('%s:%d', $exception->getFile(), $exception->getLine()),
-                ];
+                return app(ApiResponseGenerator::class)->fromHttpException($exception);
             }
 
             return $responder->error(
                 'Something went wrong',
                 code: Response::HTTP_INTERNAL_SERVER_ERROR,
-                errors: $errors,
                 status: Response::HTTP_INTERNAL_SERVER_ERROR,
             );
         });
 
-        $exceptions->respond(function (Response $response, Throwable $exception, Request $request): Response {
-            if (! str_contains((string) $response->headers->get('Content-Type'), 'json')) {
-                return $response;
-            }
-
-            $payload = json_decode((string) $response->getContent());
-
-            if (! $payload instanceof stdClass || ($payload->success ?? null) !== false) {
-                return $response;
-            }
-
-            if ($exception instanceof HttpExceptionInterface) {
-                $response->headers->add($exception->getHeaders());
-            }
-
-            $status = match (true) {
-                $exception instanceof HttpExceptionInterface => $exception->getStatusCode(),
-                $exception instanceof AuthenticationException => 401,
-                default => null,
-            };
-
-            if (! is_int($status) || $status < 400 || $status > 599) {
-                return $response;
-            }
-
-            $payload->code = $status;
-            if (ApiRouting::matches($request)) {
-                $payload->data = new stdClass;
-                $payload->errors = $status === 422 && ($payload->errors ?? null) instanceof stdClass
-                    ? $payload->errors
-                    : new stdClass;
-
-                if ($exception instanceof AccountInactiveException) {
-                    $payload->error_code = AccountInactiveException::ERROR_CODE;
-                } elseif ($exception instanceof MediaDeleteFailedException) {
-                    $payload->error_code = MediaDeleteFailedException::ERROR_CODE;
-                } elseif ($exception instanceof FileDirectoryNotEmptyException) {
-                    $payload->error_code = FileDirectoryNotEmptyException::ERROR_CODE;
-                } elseif ($exception instanceof FileDeleteFailedException) {
-                    $payload->error_code = FileDeleteFailedException::ERROR_CODE;
-                } elseif ($exception instanceof MediaInUseBySystemSettingsException) {
-                    $payload->error_code = MediaInUseBySystemSettingsException::ERROR_CODE;
-                } elseif ($exception instanceof ManagedSystemSettingException) {
-                    $payload->error_code = ManagedSystemSettingException::ERROR_CODE;
-                }
-            }
-
-            $response->setStatusCode($status);
-            $encodedPayload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-
-            if ($encodedPayload !== false) {
-                $response->setContent($encodedPayload);
-            }
-
-            return $response;
-        });
     })->create();
