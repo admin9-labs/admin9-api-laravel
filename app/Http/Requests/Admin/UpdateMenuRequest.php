@@ -5,11 +5,11 @@ namespace App\Http\Requests\Admin;
 use App\Models\Menu;
 use App\Models\Permission;
 use App\Support\Admin\MenuHierarchyValidator;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class UpdateMenuRequest extends FormRequest
+class UpdateMenuRequest extends EfficientFormRequest
 {
     public const DESCENDANT_PARENT_MESSAGE = MenuHierarchyValidator::DESCENDANT_PARENT_MESSAGE;
 
@@ -71,7 +71,7 @@ class UpdateMenuRequest extends FormRequest
                     return;
                 }
 
-                if ($validator->errors()->hasAny(['parent_id', 'type'])) {
+                if ($validator->errors()->isNotEmpty()) {
                     return;
                 }
 

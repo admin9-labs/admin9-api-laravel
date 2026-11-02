@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class UpdateMemberStatusRequest extends FormRequest
+class UpdateMemberStatusRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

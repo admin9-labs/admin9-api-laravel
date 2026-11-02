@@ -3,9 +3,9 @@
 namespace App\Http\Requests\Auth;
 
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class LoginRequest extends FormRequest
+class LoginRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

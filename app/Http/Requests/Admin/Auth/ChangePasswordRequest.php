@@ -4,9 +4,9 @@ namespace App\Http\Requests\Admin\Auth;
 
 use App\Support\Security\PasswordPolicy;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class ChangePasswordRequest extends FormRequest
+class ChangePasswordRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

@@ -3,12 +3,12 @@
 namespace App\Http\Requests\Admin;
 
 use App\Support\Admin\ReservedAdminRole;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-class StoreRoleRequest extends FormRequest
+class StoreRoleRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

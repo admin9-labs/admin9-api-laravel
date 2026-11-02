@@ -116,6 +116,28 @@ class AdminFileManagementTest extends TestCase
             ->assertJsonValidationErrors('type');
     }
 
+    public function test_file_search_treats_sql_wildcards_as_literal_file_name_characters(): void
+    {
+        if (config('database.default') === 'sqlite') {
+            $this->markTestSkipped('The released package lacks SQLite LIKE ESCAPE: https://github.com/mitoop/laravel-query-builder/pull/3');
+        }
+
+        $matching = File::factory()->create(['name' => 'literal%_\\file.pdf', 'type' => 'document']);
+        File::factory()->create(['name' => 'ordinary-file.pdf', 'type' => 'document']);
+        File::factory()->create(['name' => 'literal%_\\image.png', 'type' => 'image']);
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.file.view']));
+
+        foreach (['%', '_', '\\'] as $search) {
+            $this->getJson(ApiRouting::adminPath('/files').'?'.http_build_query([
+                'search' => $search,
+                'type' => 'document',
+            ]), $headers)
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $matching->id);
+        }
+    }
+
     public function test_file_creation_time_preserves_its_format_and_null_value(): void
     {
         Storage::fake('public');

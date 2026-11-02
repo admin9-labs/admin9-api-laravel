@@ -4,10 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\FileDirectory;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class UpdateFileRequest extends FormRequest
+class UpdateFileRequest extends EfficientFormRequest
 {
     public function authorize(): bool
     {

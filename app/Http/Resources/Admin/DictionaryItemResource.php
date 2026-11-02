@@ -2,14 +2,14 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use App\Models\DictionaryItem;
 use Illuminate\Http\Request;
+use Mitoop\Http\Resources\Resource;
 
 /**
  * @mixin DictionaryItem
  */
-class DictionaryItemResource extends PaginationAwareJsonResource
+class DictionaryItemResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -29,8 +29,8 @@ class DictionaryItemResource extends PaginationAwareJsonResource
             'sort' => $this->sort,
             'is_active' => $this->is_active,
             'type' => DictionaryTypeResource::make($this->whenLoaded('type')),
-            'created_at' => $this->dateTimeString($this->created_at),
-            'updated_at' => $this->dateTimeString($this->updated_at),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

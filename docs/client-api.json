@@ -980,6 +980,7 @@
                                 },
                                 "errors": {
                                     "type": "object",
+                                    "description": "Form requests stop validating after the first failing field. Business validation may add further field errors.",
                                     "additionalProperties": {
                                         "type": "array",
                                         "items": {

@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Http\Responses\ApiResponseGenerator;
+use App\Http\Responses\ApiResponderConfig;
 use App\Models\Permission;
 use App\Models\User;
 use App\Support\Admin\ReservedAdminRole;
@@ -23,22 +23,17 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Mitoop\Http\EnvelopeFactory;
 use Mitoop\Http\ResponderConfig;
 use Symfony\Component\HttpFoundation\Response;
 
 class AppServiceProvider extends ServiceProvider
 {
-    public $singletons = [
-        EnvelopeFactory::class => ApiResponseGenerator::class,
-    ];
-
     /**
      * Register any application services.
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ResponderConfig::class, ApiResponderConfig::class);
     }
 
     /**

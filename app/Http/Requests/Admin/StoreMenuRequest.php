@@ -5,11 +5,11 @@ namespace App\Http\Requests\Admin;
 use App\Models\Menu;
 use App\Models\Permission;
 use App\Support\Admin\MenuHierarchyValidator;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class StoreMenuRequest extends FormRequest
+class StoreMenuRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -58,7 +58,7 @@ class StoreMenuRequest extends FormRequest
                 }
             },
             function (Validator $validator): void {
-                if ($validator->errors()->hasAny(['parent_id', 'type'])) {
+                if ($validator->errors()->isNotEmpty()) {
                     return;
                 }
 

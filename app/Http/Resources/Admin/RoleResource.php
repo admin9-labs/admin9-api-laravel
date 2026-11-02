@@ -2,14 +2,14 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use Illuminate\Http\Request;
+use Mitoop\Http\Resources\Resource;
 use Spatie\Permission\Models\Role;
 
 /**
  * @mixin Role
  */
-class RoleResource extends PaginationAwareJsonResource
+class RoleResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -23,8 +23,8 @@ class RoleResource extends PaginationAwareJsonResource
             'name' => $this->name,
             'guard_name' => $this->guard_name,
             'permissions' => PermissionResource::collection($this->whenLoaded('permissions')),
-            'created_at' => $this->dateTimeString($this->created_at),
-            'updated_at' => $this->dateTimeString($this->updated_at),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

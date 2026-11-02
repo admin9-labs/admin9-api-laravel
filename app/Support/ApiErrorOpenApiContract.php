@@ -176,7 +176,9 @@ final class ApiErrorOpenApiContract
     private function errorResponse(int $status, ?string $errorCode = null): OpenApiResponse
     {
         $errors = $status === Response::HTTP_UNPROCESSABLE_ENTITY
-            ? (new ObjectType)->additionalProperties((new ArrayType)->setItems(new StringType))
+            ? (new ObjectType)
+                ->setDescription('Form requests stop validating after the first failing field. Business validation may add further field errors.')
+                ->additionalProperties((new ArrayType)->setItems(new StringType))
             : new EmptyObjectType;
         $envelope = (new ObjectType)
             ->addProperty('success', (new BooleanType)->enum([false]))

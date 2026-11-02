@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Actions\Admin\ManageMember;
 use App\Http\Controllers\Controller;
+use App\Http\Filters\MemberFilter;
 use App\Http\Requests\Admin\InvalidateMemberSessionsRequest;
 use App\Http\Requests\Admin\ListMembersRequest;
 use App\Http\Requests\Admin\ResetMemberPasswordRequest;
@@ -14,7 +15,6 @@ use App\Http\Resources\Admin\MemberResource;
 use App\Http\Resources\Admin\MemberResourceCollection;
 use App\Models\Member;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 
 class MemberController extends Controller
@@ -24,18 +24,8 @@ class MemberController extends Controller
     public function index(ListMembersRequest $request): MemberResourceCollection
     {
         $validated = $request->validated();
-        $search = $validated['search'] ?? null;
-
         $members = Member::query()
-            ->when(is_string($search) && $search !== '', function (Builder $query) use ($search): void {
-                $query->where(function (Builder $query) use ($search): void {
-                    $query->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%")
-                        ->orWhere('mobile', 'like', "%{$search}%");
-                });
-            })
-            ->when(array_key_exists('is_active', $validated), fn (Builder $query): Builder => $query->where('is_active', $validated['is_active']))
-            ->orderByDesc('id')
+            ->filter(MemberFilter::class, $validated)
             ->paginate($validated['per_page'] ?? null);
 
         return new MemberResourceCollection($members);

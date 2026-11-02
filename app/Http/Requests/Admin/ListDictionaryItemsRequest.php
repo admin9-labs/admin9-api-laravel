@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class ListDictionaryItemsRequest extends FormRequest
+class ListDictionaryItemsRequest extends EfficientFormRequest
 {
     public function authorize(): bool
     {

@@ -2,16 +2,16 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use App\Models\Menu;
 use App\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Mitoop\Http\Resources\Resource;
 
 /**
  * @mixin Menu
  */
-class MenuResource extends PaginationAwareJsonResource
+class MenuResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -41,8 +41,8 @@ class MenuResource extends PaginationAwareJsonResource
             'is_visible' => $this->is_visible,
             'is_active' => $this->is_active,
             'children' => MenuResource::collection($this->whenLoaded('children')),
-            'created_at' => $this->dateTimeString($this->created_at),
-            'updated_at' => $this->dateTimeString($this->updated_at),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

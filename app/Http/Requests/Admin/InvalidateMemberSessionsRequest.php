@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class InvalidateMemberSessionsRequest extends FormRequest
+class InvalidateMemberSessionsRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

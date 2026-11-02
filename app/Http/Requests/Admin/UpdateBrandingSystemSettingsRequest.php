@@ -4,10 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use Closure;
 use Illuminate\Foundation\Http\Attributes\FailOnUnknownFields;
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
 #[FailOnUnknownFields]
-class UpdateBrandingSystemSettingsRequest extends FormRequest
+class UpdateBrandingSystemSettingsRequest extends EfficientFormRequest
 {
     public function authorize(): bool
     {

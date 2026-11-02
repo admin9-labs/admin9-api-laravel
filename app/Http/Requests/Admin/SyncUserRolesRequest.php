@@ -2,11 +2,11 @@
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 use Spatie\Permission\Models\Role;
 
-class SyncUserRolesRequest extends FormRequest
+class SyncUserRolesRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

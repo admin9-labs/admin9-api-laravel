@@ -78,6 +78,50 @@ class AdminMemberManagementTest extends TestCase
             ->assertJsonPath('data.member.name', '');
     }
 
+    public function test_member_search_treats_sql_wildcards_literally_and_keeps_the_active_filter_grouped(): void
+    {
+        if (config('database.default') === 'sqlite') {
+            $this->markTestSkipped('The released package lacks SQLite LIKE ESCAPE: https://github.com/mitoop/laravel-query-builder/pull/3');
+        }
+
+        $matching = Member::factory()->inactive()->create(['name' => 'literal%_\\member']);
+        Member::factory()->create(['name' => $matching->name]);
+        Member::factory()->inactive()->create(['name' => 'ordinary member']);
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.view']));
+
+        foreach (['%', '_', '\\'] as $search) {
+            $this->getJson(ApiRouting::adminPath('/members').'?'.http_build_query([
+                'search' => $search,
+                'is_active' => 'false',
+            ]), $headers)
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $matching->id);
+        }
+    }
+
+    public function test_member_search_rejects_values_that_the_native_resolver_normalizes_to_empty(): void
+    {
+        $member = Member::factory()->create(['name' => 'Ada searchable']);
+        $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.view']));
+
+        foreach (["\x01", "\x01\u{200D}\x02", ['invalid']] as $search) {
+            $this->getJson(ApiRouting::adminPath('/members').'?'.http_build_query(['search' => $search]), $headers)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors('search')
+                ->assertHeader('X-Request-Id');
+        }
+
+        $this->getJson(ApiRouting::adminPath('/members').'?'.http_build_query(['search' => "A\u{200D}da"]), $headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $member->id);
+
+        foreach (['', "\u{200D}"] as $search) {
+            $this->getJson(ApiRouting::adminPath('/members').'?'.http_build_query(['search' => $search]), $headers)->assertOk();
+        }
+    }
+
     public function test_member_timestamps_preserve_their_format_and_null_values(): void
     {
         $headers = $this->authorizationHeader($this->managerTokenFor(['system.member.view']));
@@ -160,7 +204,7 @@ class AdminMemberManagementTest extends TestCase
             'name' => 'Missing Identity',
             'password' => 'member-password',
             'password_confirmation' => 'member-password',
-        ], $headers)->assertUnprocessable()->assertJsonValidationErrors(['email', 'mobile']);
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('email');
 
         $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Blank Identity',
@@ -168,7 +212,7 @@ class AdminMemberManagementTest extends TestCase
             'mobile' => "\t",
             'password' => 'member-password',
             'password_confirmation' => 'member-password',
-        ], $headers)->assertUnprocessable()->assertJsonValidationErrors(['email', 'mobile']);
+        ], $headers)->assertUnprocessable()->assertJsonValidationErrors('email');
 
         $this->postJson(ApiRouting::path('/admin/members'), [
             'name' => 'Duplicate Identity',

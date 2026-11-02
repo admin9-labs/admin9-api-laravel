@@ -4,10 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\FileDirectory;
 use App\Support\FileUploadPolicy;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class ListFileRequest extends FormRequest
+class ListFileRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

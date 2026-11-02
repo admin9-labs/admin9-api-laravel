@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
+use Mitoop\Http\Resources\Resource;
 use Mitoop\Http\Responder;
 use Mitoop\Http\ResponderConfig;
 use ReflectionProperty;
@@ -209,6 +210,71 @@ class AddContextTest extends TestCase
             ->getValue(app(ResponderConfig::class));
 
         $this->assertArrayNotHasKey('request_id', $rawExtra);
+    }
+
+    public function test_global_extra_configuration_stays_lazy_across_api_errors_and_web_requests(): void
+    {
+        $evaluations = 0;
+        $sequence = static function () use (&$evaluations): int {
+            return ++$evaluations;
+        };
+        $config = app(ResponderConfig::class);
+        $config->apply(['extra' => ['service' => 'admin9', 'sequence' => $sequence]]);
+
+        Route::middleware('api')->get(ApiRouting::path('/_test/config-extra'), fn (Responder $responder) => $responder->success());
+        Route::middleware('api')->get(ApiRouting::path('/_test/config-extra-error'), function (): void {
+            throw new HttpException(409, 'Conflict');
+        });
+        Route::get('/_test/config-extra-web', fn (Responder $responder) => $responder->success());
+
+        $this->assertSame(0, $evaluations);
+
+        $success = $this->getJson(ApiRouting::path('/_test/config-extra'))
+            ->assertOk()
+            ->assertJsonPath('service', 'admin9')
+            ->assertJsonPath('sequence', 1);
+        $this->assertResponseRequestIdMatchesHeader($success);
+
+        $failure = $this->getJson(ApiRouting::path('/_test/config-extra-error'))
+            ->assertStatus(409)
+            ->assertJsonPath('service', 'admin9')
+            ->assertJsonPath('sequence', 2);
+        $this->assertResponseRequestIdMatchesHeader($failure);
+
+        $this->getJson('/_test/config-extra-web')
+            ->assertOk()
+            ->assertJsonPath('service', 'admin9')
+            ->assertJsonPath('sequence', 3)
+            ->assertJsonMissingPath('request_id')
+            ->assertHeaderMissing('X-Request-Id');
+
+        $rawExtra = (new ReflectionProperty(ResponderConfig::class, 'extra'))->getValue($config);
+        $this->assertSame(['service' => 'admin9', 'sequence' => $sequence], $rawExtra);
+        $this->assertSame(3, $evaluations);
+    }
+
+    public function test_resource_extra_overrides_keep_native_lazy_resolution_and_request_correlation(): void
+    {
+        $evaluations = 0;
+        app(ResponderConfig::class)->apply(['extra' => [
+            'service' => static function () use (&$evaluations): string {
+                $evaluations++;
+
+                return 'unused';
+            },
+        ]]);
+        Route::middleware('api')->get(
+            ApiRouting::path('/_test/config-extra-resource'),
+            fn () => Resource::make(['id' => 1])->additional(['service' => 'overridden', 'request_id' => 'overridden']),
+        );
+
+        $response = $this->getJson(ApiRouting::path('/_test/config-extra-resource'))
+            ->assertOk()
+            ->assertJsonPath('data.id', 1)
+            ->assertJsonPath('service', 'overridden');
+
+        $this->assertResponseRequestIdMatchesHeader($response);
+        $this->assertSame(0, $evaluations);
     }
 
     public function test_responder_payloads_on_web_routes_remain_outside_the_api_context(): void

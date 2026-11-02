@@ -161,7 +161,14 @@ class SystemSettingsTest extends TestCase
             'copyright' => null,
         ], $headers)
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['system_name', 'icp_filing_number']);
+            ->assertJsonValidationErrors('system_name');
+
+        $this->putJson(ApiRouting::path('/admin/system-settings/basic'), [
+            'system_name' => 'Admin9',
+            'copyright' => null,
+        ], $headers)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('icp_filing_number');
 
         $this->putJson(ApiRouting::path('/admin/system-settings/basic'), [
             ...$this->basicPayload(),
@@ -170,14 +177,18 @@ class SystemSettingsTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('key');
 
-        $this->putJson(ApiRouting::path('/admin/system-settings/basic'), [
-            ...$this->basicPayload(),
+        foreach ([
             'system_name' => str_repeat('a', 101),
             'copyright' => str_repeat('b', 1001),
             'icp_filing_number' => str_repeat('c', 101),
-        ], $headers)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['system_name', 'copyright', 'icp_filing_number']);
+        ] as $field => $value) {
+            $this->putJson(ApiRouting::path('/admin/system-settings/basic'), [
+                ...$this->basicPayload(),
+                $field => $value,
+            ], $headers)
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors($field);
+        }
     }
 
     public function test_branding_settings_accept_valid_urls_and_clear_values(): void

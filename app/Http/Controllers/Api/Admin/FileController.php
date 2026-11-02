@@ -6,6 +6,7 @@ use App\Actions\Admin\DeleteFile;
 use App\Actions\Admin\MoveFile;
 use App\Actions\Admin\StoreFile;
 use App\Http\Controllers\Controller;
+use App\Http\Filters\FileFilter;
 use App\Http\Requests\Admin\DeleteFileByUrlRequest;
 use App\Http\Requests\Admin\ListFileRequest;
 use App\Http\Requests\Admin\StoreFileRequest;
@@ -32,19 +33,12 @@ class FileController extends Controller
     public function index(ListFileRequest $request): FileResourceCollection
     {
         $validated = $request->validated();
-        $search = $validated['search'] ?? null;
-        $type = $validated['type'] ?? null;
         $files = File::query()
             ->where(fn (Builder $query): Builder => $query
                 ->whereNull('deletion_token')
                 ->orWhereNull('deletion_started_at')
                 ->orWhere('deletion_started_at', '<=', now()->subMinutes(File::DELETION_CLAIM_TTL_MINUTES)))
-            ->when(is_string($search) && $search !== '', fn (Builder $query): Builder => $query->where('name', 'like', "%{$search}%"))
-            ->when(is_string($type) && $type !== '', fn (Builder $query): Builder => $query->where('type', $type))
-            ->when(isset($validated['types']), fn (Builder $query): Builder => $query->whereIn('type', $validated['types']))
-            ->when($request->boolean('ungrouped'), fn (Builder $query): Builder => $query->whereNull('directory_id'))
-            ->when(isset($validated['directory_id']), fn (Builder $query): Builder => $query->where('directory_id', $validated['directory_id']))
-            ->orderByDesc('id')
+            ->filter(FileFilter::class, $validated)
             ->paginate($validated['per_page'] ?? null);
 
         return new FileResourceCollection($files);

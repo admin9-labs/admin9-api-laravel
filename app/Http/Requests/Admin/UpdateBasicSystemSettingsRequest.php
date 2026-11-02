@@ -3,10 +3,10 @@
 namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\Attributes\FailOnUnknownFields;
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
 #[FailOnUnknownFields]
-class UpdateBasicSystemSettingsRequest extends FormRequest
+class UpdateBasicSystemSettingsRequest extends EfficientFormRequest
 {
     public function authorize(): bool
     {
