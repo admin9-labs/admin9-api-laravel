@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "34b7864b41b2cee48f84f9833b7e3351",
+    "content-hash": "11e39f3bd53e3ccc7502fd8a2f6aae85",
     "packages": [
         {
             "name": "brick/math",
@@ -2260,20 +2260,25 @@
         },
         {
             "name": "mitoop/laravel-query-logger",
-            "version": "v3.1.0",
+            "version": "v4.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mitoop/laravel-query-logger.git",
-                "reference": "acc4e05f6c0227fdebe00b287d4682be5d333aae"
+                "reference": "e372424eabc7da1131f0e4d48b7522733abca30b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mitoop/laravel-query-logger/zipball/acc4e05f6c0227fdebe00b287d4682be5d333aae",
-                "reference": "acc4e05f6c0227fdebe00b287d4682be5d333aae",
+                "url": "https://api.github.com/repos/mitoop/laravel-query-logger/zipball/e372424eabc7da1131f0e4d48b7522733abca30b",
+                "reference": "e372424eabc7da1131f0e4d48b7522733abca30b",
                 "shasum": ""
             },
             "require": {
-                "illuminate/support": "^6|^7|^8|^9|^10|^11|^12|^13"
+                "illuminate/support": "^11|^12|^13",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "laravel/pint": "^1.30",
+                "phpunit/phpunit": "^10.5|^11.5|^12.0"
             },
             "type": "library",
             "extra": {
@@ -2298,11 +2303,12 @@
                     "email": "me@mitoop.com"
                 }
             ],
+            "description": "Log executed SQL queries to a Laravel log channel.",
             "support": {
                 "issues": "https://github.com/mitoop/laravel-query-logger/issues",
-                "source": "https://github.com/mitoop/laravel-query-logger/tree/v3.1.0"
+                "source": "https://github.com/mitoop/laravel-query-logger/tree/v4.0.0"
             },
-            "time": "2026-04-02T12:29:33+00:00"
+            "time": "2026-10-31T13:13:38+00:00"
         },
         {
             "name": "monolog/monolog",
@@ -10147,8 +10153,8 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "ext-zip": "*",
-        "php": "^8.3"
+        "php": "^8.3",
+        "ext-zip": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"

@@ -86,7 +86,7 @@ return [
         'sql' => [
             'driver' => 'daily',
             'path' => storage_path('logs/sql.log'),
-            'level' => env('LOG_LEVEL', 'debug'),
+            'level' => 'debug',
         ],
 
         'slack' => [
