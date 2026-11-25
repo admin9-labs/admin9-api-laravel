@@ -19,14 +19,6 @@ abstract class SystemConfigRequest extends EfficientFormRequest
     ];
 
     /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    /**
      * @return array<int, mixed>
      */
     protected function valueRules(?SystemConfig $systemConfig = null): array

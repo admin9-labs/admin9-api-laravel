@@ -13,14 +13,6 @@ class UpdateDictionaryItemRequest extends EfficientFormRequest
     private const UNIQUE_CODE_MESSAGE = 'The code has already been taken for the selected dictionary type.';
 
     /**
-     * Determine if the user is authorized to make this request.
-     */
-    public function authorize(): bool
-    {
-        return true;
-    }
-
-    /**
      * Get the validation rules that apply to the request.
      *
      * @return array<string, array<int, mixed>>

@@ -9,11 +9,6 @@ use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 #[FailOnUnknownFields]
 class UpdateBrandingSystemSettingsRequest extends EfficientFormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * @return array<string, array<int, mixed>>
      */
