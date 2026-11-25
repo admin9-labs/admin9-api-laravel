@@ -8,11 +8,6 @@ use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 #[FailOnUnknownFields]
 class UpdateBasicSystemSettingsRequest extends EfficientFormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * @return array<string, array<int, string>>
      */

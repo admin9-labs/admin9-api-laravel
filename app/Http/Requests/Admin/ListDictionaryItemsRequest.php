@@ -6,11 +6,6 @@ use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
 class ListDictionaryItemsRequest extends EfficientFormRequest
 {
-    public function authorize(): bool
-    {
-        return true;
-    }
-
     /**
      * @return array<string, array<int, string>>
      */
