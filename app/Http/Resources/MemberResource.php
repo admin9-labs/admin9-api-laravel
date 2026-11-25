@@ -3,8 +3,9 @@
 namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
+use Mitoop\Http\Resources\Resource;
 
-class MemberResource extends PaginationAwareJsonResource
+class MemberResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -19,7 +20,7 @@ class MemberResource extends PaginationAwareJsonResource
             'email' => $this->email,
             'mobile' => $this->mobile,
             'is_active' => $this->is_active,
-            'last_login_at' => $this->dateTimeString($this->last_login_at),
+            'last_login_at' => $this->last_login_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

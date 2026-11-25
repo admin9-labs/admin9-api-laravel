@@ -4,13 +4,13 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\FileDirectory;
 use App\Support\FileUploadPolicy;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class StoreFileRequest extends FormRequest
+class StoreFileRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -43,6 +43,10 @@ class StoreFileRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
                 $file = $this->file('file');
 
                 if (! $file instanceof UploadedFile || ! $file->isValid()) {

@@ -288,6 +288,48 @@ class DictionaryManagementTest extends TestCase
             ->assertJsonMissing(['code' => 'ordinary_item']);
     }
 
+    public function test_literal_keyword_search_keeps_related_type_and_active_filters_grouped(): void
+    {
+        $headers = ['Authorization' => 'Bearer '.$this->managerTokenFor(['system.dictionary.view'])];
+        $type = DictionaryType::factory()->create();
+        $matching = DictionaryItem::factory()->inactive()->create([
+            'dictionary_type_id' => $type->id,
+            'name' => 'Literal item',
+            'code' => 'needle',
+            'value' => 'literal%_\\value',
+            'description' => null,
+        ]);
+        DictionaryItem::factory()->inactive()->create([
+            'name' => $matching->name,
+            'code' => $matching->code,
+            'value' => $matching->value,
+            'description' => null,
+        ]);
+        DictionaryItem::factory()->create([
+            'dictionary_type_id' => $type->id,
+            'value' => $matching->value,
+        ]);
+        DictionaryItem::factory()->inactive()->create([
+            'dictionary_type_id' => $type->id,
+            'name' => 'Ordinary item',
+            'code' => 'ordinary',
+            'value' => 'ordinary',
+            'description' => null,
+        ]);
+
+        foreach (['%', '_', '\\'] as $keyword) {
+            $this->getJson(ApiRouting::adminPath('/dictionary-items').'?'.http_build_query([
+                'type_code' => $type->code,
+                'keyword' => $keyword,
+                'is_active' => 'false',
+            ]), $headers)
+                ->assertOk()
+                ->assertJsonCount(1, 'data')
+                ->assertJsonPath('data.0.id', $matching->id)
+                ->assertJsonPath('data.0.type.id', $type->id);
+        }
+    }
+
     public function test_dictionary_type_deletion_rechecks_items_inside_its_transaction(): void
     {
         $token = $this->managerTokenFor(['system.dictionary.delete']);

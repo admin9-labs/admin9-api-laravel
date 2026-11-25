@@ -2,15 +2,15 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use App\Models\File;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Mitoop\Http\Resources\Resource;
 
 /**
  * @mixin File
  */
-class FileResource extends PaginationAwareJsonResource
+class FileResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -33,7 +33,7 @@ class FileResource extends PaginationAwareJsonResource
             'width' => $this->width,
             'height' => $this->height,
             'status' => $this->status,
-            'created_at' => $this->dateTimeString($this->created_at),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

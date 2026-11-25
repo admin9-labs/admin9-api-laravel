@@ -4,10 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\DictionaryItem;
 use App\Models\DictionaryType;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class StoreDictionaryItemRequest extends FormRequest
+class StoreDictionaryItemRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

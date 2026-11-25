@@ -141,7 +141,12 @@ class ApiErrorContractTest extends TestCase
         $errors = get_object_vars($payload->errors);
 
         $this->assertArrayHasKey('email', $errors);
-        $this->assertArrayHasKey('password', $errors);
+        $this->assertCount(1, $errors);
+
+        $this->postJson(ApiRouting::path('/admin/auth/login'), ['email' => 'admin@example.com'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('password')
+            ->assertJsonMissingPath('errors.email');
 
         foreach ($errors as $messages) {
             $this->assertIsArray($messages);

@@ -2,15 +2,15 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use App\Models\LoginLog;
 use App\Support\Security\SensitiveDataSanitizer;
 use Illuminate\Http\Request;
+use Mitoop\Http\Resources\Resource;
 
 /**
  * @mixin LoginLog
  */
-class LoginLogResource extends PaginationAwareJsonResource
+class LoginLogResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -32,7 +32,7 @@ class LoginLogResource extends PaginationAwareJsonResource
             'user_agent' => $this->user_agent,
             'request_id' => $this->request_id,
             'context' => SensitiveDataSanitizer::removeSensitiveKeys($this->context ?? []),
-            'created_at' => $this->dateTimeString($this->created_at),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

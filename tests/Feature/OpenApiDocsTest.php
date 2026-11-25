@@ -536,6 +536,7 @@ class OpenApiDocsTest extends TestCase
 
                 if ($status === 422) {
                     $this->assertSame('object', $schema['properties']['errors']['type']);
+                    $this->assertStringContainsString('first failing field', $schema['properties']['errors']['description']);
                     $this->assertSame('array', $schema['properties']['errors']['additionalProperties']['type']);
                     $this->assertSame('string', $schema['properties']['errors']['additionalProperties']['items']['type']);
                 } else {
@@ -975,6 +976,26 @@ class OpenApiDocsTest extends TestCase
         foreach (['page', 'per_page', 'search', 'is_active'] as $parameter) {
             $this->assertContains($parameter, $indexParameters);
         }
+        $this->assertEqualsCanonicalizing(['page', 'per_page', 'search', 'is_active'], $indexParameters);
+        $memberParameters = collect($document['paths'][ApiRouting::adminPath('/members')]['get']['parameters'])->keyBy('name');
+        $this->assertSame('boolean', $memberParameters['is_active']['schema']['type']);
+        $this->assertEqualsCanonicalizing(
+            ['page', 'per_page', 'search', 'type', 'types[]', 'ungrouped', 'directory_id'],
+            collect($document['paths'][ApiRouting::adminPath('/files')]['get']['parameters'])->pluck('name')->all(),
+        );
+
+        foreach (['members', 'files'] as $resource) {
+            $search = collect($document['paths'][ApiRouting::adminPath('/'.$resource)]['get']['parameters'])
+                ->firstWhere('name', 'search');
+            $this->assertSame(
+                'Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.',
+                $search['description'],
+            );
+            $this->assertSame(['string', 'null'], $search['schema']['type']);
+            $this->assertSame(255, $search['schema']['maxLength']);
+        }
+        $fileParameters = collect($document['paths'][ApiRouting::adminPath('/files')]['get']['parameters'])->keyBy('name');
+        $this->assertSame('integer', $fileParameters['directory_id']['schema']['type']);
     }
 
     public function test_generated_openapi_document_exposes_exact_system_settings_contract(): void

@@ -3,9 +3,9 @@
 namespace App\Http\Requests\Admin;
 
 use App\Support\Security\PasswordPolicy;
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class ResetMemberPasswordRequest extends FormRequest
+class ResetMemberPasswordRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

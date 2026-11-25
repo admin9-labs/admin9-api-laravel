@@ -3,11 +3,11 @@
 namespace App\Http\Requests\Admin;
 
 use App\Models\User;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class UpdateUserRequest extends FormRequest
+class UpdateUserRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

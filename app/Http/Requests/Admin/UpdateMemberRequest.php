@@ -4,11 +4,11 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\Member;
 use App\Rules\NotEmailAddress;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class UpdateMemberRequest extends FormRequest
+class UpdateMemberRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.

@@ -5,12 +5,12 @@ namespace App\Http\Requests\Admin;
 use App\Exceptions\ManagedSystemSettingException;
 use App\Models\SystemConfig;
 use App\Support\SystemSettings;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Validator as ValidatorFacade;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-abstract class SystemConfigRequest extends FormRequest
+abstract class SystemConfigRequest extends EfficientFormRequest
 {
     private const TYPE_VALUE_MESSAGES = [
         SystemConfig::TYPE_INTEGER => 'The value must be a valid integer for integer configs.',
@@ -46,6 +46,10 @@ abstract class SystemConfigRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
                 if (! $validator->errors()->has('key') && $this->has('key') && SystemConfig::containsSensitiveConfiguration($this->input('key'))) {
                     $validator->errors()->add('key', 'Sensitive configuration keys are not allowed.');
                 }

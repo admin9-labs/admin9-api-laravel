@@ -2,14 +2,14 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use App\Models\SystemConfig;
 use Illuminate\Http\Request;
+use Mitoop\Http\Resources\Resource;
 
 /**
  * @mixin SystemConfig
  */
-class SystemConfigResource extends PaginationAwareJsonResource
+class SystemConfigResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -29,8 +29,8 @@ class SystemConfigResource extends PaginationAwareJsonResource
             'is_public' => $this->is_public,
             'is_active' => $this->is_active,
             'sort' => $this->sort,
-            'created_at' => $this->dateTimeString($this->created_at),
-            'updated_at' => $this->dateTimeString($this->updated_at),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
+            'updated_at' => $this->updated_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

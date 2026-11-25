@@ -2,15 +2,15 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Http\Resources\PaginationAwareJsonResource;
 use App\Support\Security\SensitiveDataSanitizer;
 use Illuminate\Http\Request;
+use Mitoop\Http\Resources\Resource;
 use Spatie\Activitylog\Models\Activity;
 
 /**
  * @mixin Activity
  */
-class ActivityLogResource extends PaginationAwareJsonResource
+class ActivityLogResource extends Resource
 {
     /**
      * Transform the resource into an array.
@@ -29,7 +29,7 @@ class ActivityLogResource extends PaginationAwareJsonResource
             'causer_type' => $this->causer_type,
             'causer_id' => $this->causer_id,
             'properties' => SensitiveDataSanitizer::removeSensitiveKeys($this->properties?->toArray() ?? []),
-            'created_at' => $this->dateTimeString($this->created_at),
+            'created_at' => $this->created_at?->format('Y-m-d H:i:s'),
         ];
     }
 }

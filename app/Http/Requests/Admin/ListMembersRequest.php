@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Closure;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
+use Mitoop\LaravelQueryBuilder\ValueResolvers\Like;
 
-class ListMembersRequest extends FormRequest
+class ListMembersRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -24,7 +26,17 @@ class ListMembersRequest extends FormRequest
         return [
             'page' => ['sometimes', 'integer', 'min:1'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
-            'search' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'search' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:255',
+                static function (string $attribute, mixed $value, Closure $fail): void {
+                    if (is_string($value) && (new Like)->resolve($value) === '') {
+                        $fail('The '.$attribute.' field must contain a searchable character.');
+                    }
+                },
+            ],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

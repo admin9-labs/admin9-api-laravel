@@ -4,12 +4,12 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\FileDirectory;
 use Illuminate\Contracts\Validation\ValidationRule;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class StoreFileDirectoryRequest extends FormRequest
+class StoreFileDirectoryRequest extends EfficientFormRequest
 {
     public function authorize(): bool
     {
@@ -41,7 +41,7 @@ class StoreFileDirectoryRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->has('parent_id') || ! $this->filled('parent_id')) {
+                if ($validator->errors()->isNotEmpty() || ! $this->filled('parent_id')) {
                     return;
                 }
 

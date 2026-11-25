@@ -4,11 +4,11 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\DictionaryItem;
 use App\Models\DictionaryType;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class UpdateDictionaryItemRequest extends FormRequest
+class UpdateDictionaryItemRequest extends EfficientFormRequest
 {
     private const UNIQUE_CODE_MESSAGE = 'The code has already been taken for the selected dictionary type.';
 
@@ -52,7 +52,7 @@ class UpdateDictionaryItemRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->hasAny(['dictionary_type_id', 'code'])) {
+                if ($validator->errors()->isNotEmpty()) {
                     return;
                 }
 

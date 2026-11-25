@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Admin;
 
-use Illuminate\Foundation\Http\FormRequest;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class ListSystemConfigsRequest extends FormRequest
+class ListSystemConfigsRequest extends EfficientFormRequest
 {
     public function authorize(): bool
     {

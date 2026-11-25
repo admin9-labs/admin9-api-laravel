@@ -2253,8 +2253,36 @@
                 ],
                 "parameters": [
                     {
+                        "name": "type",
+                        "in": "query",
+                        "description": "File type. Cannot be combined with types.",
+                        "schema": {
+                            "type": [
+                                "string",
+                                "null"
+                            ],
+                            "enum": [
+                                "image",
+                                "document",
+                                "video",
+                                "audio",
+                                "other",
+                                null
+                            ]
+                        }
+                    },
+                    {
+                        "name": "directory_id",
+                        "in": "query",
+                        "description": "Existing directory ID. Cannot be combined with ungrouped.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
                         "name": "page",
                         "in": "query",
+                        "description": "Page number.",
                         "schema": {
                             "type": "integer",
                             "minimum": 1
@@ -2272,31 +2300,13 @@
                     {
                         "name": "search",
                         "in": "query",
+                        "description": "Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.",
                         "schema": {
                             "type": [
                                 "string",
                                 "null"
                             ],
                             "maxLength": 255
-                        }
-                    },
-                    {
-                        "name": "type",
-                        "in": "query",
-                        "description": "File type. Cannot be combined with types.",
-                        "schema": {
-                            "type": [
-                                "string",
-                                "null"
-                            ],
-                            "enum": [
-                                "image",
-                                "document",
-                                "video",
-                                "audio",
-                                "other",
-                                null
-                            ]
                         }
                     },
                     {
@@ -2324,14 +2334,6 @@
                         "description": "Filter ungrouped files. Cannot be combined with directory_id, including when false.",
                         "schema": {
                             "type": "boolean"
-                        }
-                    },
-                    {
-                        "name": "directory_id",
-                        "in": "query",
-                        "description": "Existing directory ID. Cannot be combined with ungrouped.",
-                        "schema": {
-                            "type": "integer"
                         }
                     }
                 ],
@@ -3249,25 +3251,9 @@
                 ],
                 "parameters": [
                     {
-                        "name": "page",
-                        "in": "query",
-                        "schema": {
-                            "type": "integer",
-                            "minimum": 1
-                        }
-                    },
-                    {
-                        "name": "per_page",
-                        "in": "query",
-                        "schema": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 100
-                        }
-                    },
-                    {
                         "name": "search",
                         "in": "query",
+                        "description": "Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.",
                         "schema": {
                             "type": [
                                 "string",
@@ -3281,6 +3267,24 @@
                         "in": "query",
                         "schema": {
                             "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number.",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 100
                         }
                     }
                 ],
@@ -9814,6 +9818,7 @@
                                 },
                                 "errors": {
                                     "type": "object",
+                                    "description": "Form requests stop validating after the first failing field. Business validation may add further field errors.",
                                     "additionalProperties": {
                                         "type": "array",
                                         "items": {

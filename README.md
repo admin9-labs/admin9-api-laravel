@@ -9,6 +9,10 @@ composer setup
 composer dev
 ```
 
+The application uses the native `mitoop` response, form-request, query-filter, and SQL-logging APIs. Form requests stop validating after the first failing field; business validation may add further field errors. Response envelopes and pagination come from the response package. The responder configuration adds request correlation from the current API context while preserving native `extra` values, lazy callbacks, and resource overrides.
+
+Search filters use the query package's native `Like` and `LikeAny` resolvers to match `%`, `_`, and backslashes literally, including on SQLite. Member, file, and related dictionary filters have executable regression coverage for these characters.
+
 `composer dev` runs the HTTP server at `http://localhost:8000`, queue listener, scheduler worker, log tailing, and Vite dev server together for local feedback. When using Herd or Valet, you may override `APP_URL` in your local `.env`, for example with `http://admin9-api-laravel.test`.
 
 ## Local sample accounts

@@ -113,6 +113,28 @@ class AdminApiOpenApiContract
         $this->normalizeQueryParameterNames($operation, $queryParameterRenames);
         $this->normalizeFilterParameterSchemas($operation, $routeName);
 
+        if (in_array($routeName, ['admin.members.index', 'admin.files.index'], true)) {
+            $operation->parameters = array_values(array_filter(
+                $operation->parameters,
+                static fn ($parameter): bool => ! $parameter instanceof Parameter
+                    || ! in_array($parameter->name, ['sort', 'page_size', 'search:name', 'types:type', 'ungrouped:directory_id'], true),
+            ));
+
+            foreach ($operation->parameters as $parameter) {
+                if (! $parameter instanceof Parameter) {
+                    continue;
+                }
+
+                if ($parameter->name === 'search') {
+                    $parameter->description('Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.');
+                    $parameter->setSchema(Schema::fromType((new StringType)->setMax(255)->nullable(true)));
+                }
+                if ($routeName === 'admin.members.index' && $parameter->name === 'is_active') {
+                    $parameter->setSchema(Schema::fromType(new BooleanType));
+                }
+            }
+        }
+
         if ($routeName === 'admin.files.index') {
             foreach ($operation->parameters as $parameter) {
                 if ($parameter instanceof Parameter) {
@@ -125,6 +147,12 @@ class AdminApiOpenApiContract
                     };
                     if ($description !== null) {
                         $parameter->description($description);
+                    }
+                    if ($parameter->name === 'type') {
+                        $parameter->setSchema(Schema::fromType((new StringType)->nullable(true)->enum($this->fileUploadPolicy->types())));
+                    }
+                    if ($parameter->name === 'directory_id') {
+                        $parameter->setSchema(Schema::fromType(new IntegerType));
                     }
                 }
 

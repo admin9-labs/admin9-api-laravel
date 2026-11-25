@@ -4,10 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use App\Models\User;
 use App\Support\Security\PasswordPolicy;
-use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Mitoop\LaravelEfficientFormRequest\EfficientFormRequest;
 
-class StoreUserRequest extends FormRequest
+class StoreUserRequest extends EfficientFormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
