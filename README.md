@@ -11,7 +11,7 @@ composer dev
 
 The application uses the native `mitoop` response, form-request, query-filter, and SQL-logging APIs. Form requests stop validating after the first failing field; business validation may add further field errors. Response envelopes and pagination come from the response package. The responder configuration adds request correlation from the current API context while preserving native `extra` values, lazy callbacks, and resource overrides.
 
-Known upstream limitation: `laravel-query-builder` 3.0.1 escapes `%`, `_`, and backslashes for `Like`/`LikeAny` without specifying SQLite's `LIKE ESCAPE` clause. Literal searches containing these characters can therefore return incorrect results on SQLite, including the member, file, dictionary, configuration, and login-log filters. The application keeps the released package's native implementation. [Upstream fix PR #3](https://github.com/mitoop/laravel-query-builder/pull/3) tracks the correction; the two member/file literal-search regressions are explicitly skipped on SQLite until a fixed release is adopted. These skips are not passing coverage.
+Search filters use the query package's native `Like` and `LikeAny` resolvers to match `%`, `_`, and backslashes literally, including on SQLite. Member, file, and related dictionary filters have executable regression coverage for these characters.
 
 `composer dev` runs the HTTP server at `http://localhost:8000`, queue listener, scheduler worker, log tailing, and Vite dev server together for local feedback. When using Herd or Valet, you may override `APP_URL` in your local `.env`, for example with `http://admin9-api-laravel.test`.
 

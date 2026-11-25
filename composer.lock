@@ -2207,16 +2207,16 @@
         },
         {
             "name": "mitoop/laravel-query-builder",
-            "version": "v3.0.1",
+            "version": "v3.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mitoop/laravel-query-builder.git",
-                "reference": "41f143eed70db9e7d8284e05d784749e367276ed"
+                "reference": "2740651e0ec9ccf575e414ff482a12e1c427925d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mitoop/laravel-query-builder/zipball/41f143eed70db9e7d8284e05d784749e367276ed",
-                "reference": "41f143eed70db9e7d8284e05d784749e367276ed",
+                "url": "https://api.github.com/repos/mitoop/laravel-query-builder/zipball/2740651e0ec9ccf575e414ff482a12e1c427925d",
+                "reference": "2740651e0ec9ccf575e414ff482a12e1c427925d",
                 "shasum": ""
             },
             "require": {
@@ -2254,9 +2254,9 @@
             "description": "Declarative Eloquent filters for Laravel.",
             "support": {
                 "issues": "https://github.com/mitoop/laravel-query-builder/issues",
-                "source": "https://github.com/mitoop/laravel-query-builder/tree/v3.0.1"
+                "source": "https://github.com/mitoop/laravel-query-builder/tree/v3.2.0"
             },
-            "time": "2026-10-31T12:32:38+00:00"
+            "time": "2026-11-06T13:32:15+00:00"
         },
         {
             "name": "mitoop/laravel-query-logger",

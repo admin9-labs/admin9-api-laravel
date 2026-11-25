@@ -2300,7 +2300,7 @@
                     {
                         "name": "search",
                         "in": "query",
-                        "description": "Substring search using the package Like resolver. SQL wildcard characters are escaped; SQLite literal matching is limited until the upstream ESCAPE fix is released.",
+                        "description": "Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.",
                         "schema": {
                             "type": [
                                 "string",
@@ -3253,7 +3253,7 @@
                     {
                         "name": "search",
                         "in": "query",
-                        "description": "Substring search using the package Like resolver. SQL wildcard characters are escaped; SQLite literal matching is limited until the upstream ESCAPE fix is released.",
+                        "description": "Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.",
                         "schema": {
                             "type": [
                                 "string",

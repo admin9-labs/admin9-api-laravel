@@ -987,8 +987,10 @@ class OpenApiDocsTest extends TestCase
         foreach (['members', 'files'] as $resource) {
             $search = collect($document['paths'][ApiRouting::adminPath('/'.$resource)]['get']['parameters'])
                 ->firstWhere('name', 'search');
-            $this->assertStringContainsString('SQL wildcard characters are escaped', $search['description'] ?? '');
-            $this->assertStringContainsString('SQLite literal matching is limited', $search['description'] ?? '');
+            $this->assertSame(
+                'Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.',
+                $search['description'],
+            );
             $this->assertSame(['string', 'null'], $search['schema']['type']);
             $this->assertSame(255, $search['schema']['maxLength']);
         }

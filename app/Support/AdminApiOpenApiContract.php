@@ -126,7 +126,7 @@ class AdminApiOpenApiContract
                 }
 
                 if ($parameter->name === 'search') {
-                    $parameter->description('Substring search using the package Like resolver. SQL wildcard characters are escaped; SQLite literal matching is limited until the upstream ESCAPE fix is released.');
+                    $parameter->description('Substring search. Percent signs (%), underscores (_), and backslashes are matched literally.');
                     $parameter->setSchema(Schema::fromType((new StringType)->setMax(255)->nullable(true)));
                 }
                 if ($routeName === 'admin.members.index' && $parameter->name === 'is_active') {

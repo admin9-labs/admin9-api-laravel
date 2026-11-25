@@ -80,10 +80,6 @@ class AdminMemberManagementTest extends TestCase
 
     public function test_member_search_treats_sql_wildcards_literally_and_keeps_the_active_filter_grouped(): void
     {
-        if (config('database.default') === 'sqlite') {
-            $this->markTestSkipped('The released package lacks SQLite LIKE ESCAPE: https://github.com/mitoop/laravel-query-builder/pull/3');
-        }
-
         $matching = Member::factory()->inactive()->create(['name' => 'literal%_\\member']);
         Member::factory()->create(['name' => $matching->name]);
         Member::factory()->inactive()->create(['name' => 'ordinary member']);
