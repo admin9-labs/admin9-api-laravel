@@ -73,40 +73,30 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (Throwable $exception): Response {
             $responder = app(Responder::class);
 
-            if ($exception instanceof ClientSafeException) {
-                return $responder->error(
+            return match (true) {
+                $exception instanceof ClientSafeException => $responder->error(
                     $exception->getMessage(),
                     $exception->errorCode,
                     status: $exception->status,
-                );
-            }
-
-            if ($exception instanceof AuthenticationException) {
-                return $responder->error(
+                ),
+                $exception instanceof AuthenticationException => $responder->error(
                     'Unauthenticated',
                     code: Response::HTTP_UNAUTHORIZED,
                     status: Response::HTTP_UNAUTHORIZED,
-                );
-            }
-
-            if ($exception instanceof ValidationException) {
-                return $responder->error(
+                ),
+                $exception instanceof ValidationException => $responder->error(
                     Arr::first(Arr::flatten($exception->errors())),
                     code: $exception->status,
                     errors: $exception->errors(),
                     status: $exception->status,
-                );
-            }
-
-            if ($exception instanceof HttpExceptionInterface) {
-                return app(ApiResponseGenerator::class)->fromHttpException($exception);
-            }
-
-            return $responder->error(
-                'Something went wrong',
-                code: Response::HTTP_INTERNAL_SERVER_ERROR,
-                status: Response::HTTP_INTERNAL_SERVER_ERROR,
-            );
+                ),
+                $exception instanceof HttpExceptionInterface => app(ApiResponseGenerator::class)->fromHttpException($exception),
+                default => $responder->error(
+                    'Something went wrong',
+                    code: Response::HTTP_INTERNAL_SERVER_ERROR,
+                    status: Response::HTTP_INTERNAL_SERVER_ERROR,
+                ),
+            };
         });
 
     })->create();
