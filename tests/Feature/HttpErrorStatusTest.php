@@ -6,6 +6,7 @@ use App\Exceptions\ClientSafeException;
 use App\Support\ApiRouting;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Testing\TestResponse;
+use Mitoop\Http\ResponderConfig;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
@@ -56,6 +57,19 @@ class HttpErrorStatusTest extends TestCase
         });
         $response = $this->getJson(ApiRouting::path('/_test/client-safe-conflict'))->assertConflict()->assertJsonPath('success', false)->assertJsonPath('code', 409)->assertHeader('X-Request-Id');
         $this->assertResponseRequestIdMatchesHeader($response);
+    }
+
+    public function test_client_safe_exceptions_use_the_configured_default_business_code(): void
+    {
+        app(ResponderConfig::class)->apply(['error' => 1200]);
+        Route::middleware('api')->get(ApiRouting::path('/_test/client-safe-default'), function (): void {
+            throw new ClientSafeException('Business error');
+        });
+
+        $this->getJson(ApiRouting::path('/_test/client-safe-default'))
+            ->assertOk()
+            ->assertJsonPath('code', 1200)
+            ->assertJsonPath('message', 'Business error');
     }
 
     public function test_business_error_codes_do_not_become_http_statuses(): void

@@ -76,8 +76,8 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($exception instanceof ClientSafeException) {
                 return $responder->error(
                     $exception->getMessage(),
-                    $exception->getErrorCode(),
-                    status: $exception->getStatus(),
+                    $exception->errorCode,
+                    status: $exception->status,
                 );
             }
 
